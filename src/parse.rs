@@ -31,11 +31,11 @@ impl<'a> Parser<'a> {
 
     /// Build a parse error at the current cursor location.
     fn error<T>(&self, message: &'static str) -> PResult<T> {
-        let span = if self.cursor < self.tokens.len() {
-            self.tokens[self.cursor].1
-        } else {
-            Span { start: 0, end: 0 }
-        };
+        let span = self
+            .tokens
+            .get(self.cursor)
+            .map(|t| t.1)
+            .unwrap_or(Span { start: 0, end: 0 });
         let err = ParseError { span, message };
         Err(err)
     }
@@ -43,6 +43,13 @@ impl<'a> Parser<'a> {
     /// Return the token under the cursor, if there is one.
     fn peek(&self) -> Option<Token> {
         self.tokens.get(self.cursor).map(|t| t.0)
+    }
+
+    /// Return the token and its span under the cursor, if there is one.
+    fn peek_with_span(&self) -> Option<(Token, &'a str)> {
+        self.tokens
+            .get(self.cursor)
+            .map(|t| (t.0, t.1.resolve(self.input)))
     }
 
     /// Advance the cursor by one token, consuming the token under the cursor.
@@ -87,8 +94,67 @@ impl<'a> Parser<'a> {
     /// types have no explicit syntax in annotations either, they get
     /// contsructed at a higher level.
     pub fn parse_type(&mut self) -> PResult<Type> {
-        // TODO: Actually parse.
-        Ok(Type::Unit)
+        match self.peek_with_span() {
+            Some((Token::LParen, _)) => Ok(Type::Tuple(self.parse_tuple()?)),
+            Some((Token::Ident, span)) => match span {
+                "Iterator" => {
+                    self.consume();
+                    let inner = self.parse_inner_generic_type()?;
+                    Ok(Type::Iterator(Box::new(inner)))
+                }
+                "Option" => {
+                    self.consume();
+                    let inner = self.parse_inner_generic_type()?;
+                    Ok(Type::Option(Box::new(inner)))
+                }
+                _ => {
+                    let span = self.consume();
+                    Ok(Type::Simple(span))
+                }
+            },
+            Some(_) => self.error("Unexpected token, expected a type here."),
+            None => self.error("Unexpected end of input, expected a type here."),
+        }
+    }
+
+    /// Parse a type surrounded by angle brackets.
+    fn parse_inner_generic_type(&mut self) -> PResult<Type> {
+        self.expect_consume(Token::Lt, "Expected a '<' here, after a generic type.")?;
+        let result = self.parse_type()?;
+        self.expect_consume(Token::Gt, "Expected a '>' here to close a generic type.")?;
+        Ok(result)
+    }
+
+    /// Parse a tuple, the cursor should be on the opening paren.
+    fn parse_tuple(&mut self) -> PResult<Vec<Type>> {
+        self.expect_consume(Token::LParen, "Expected a '(' here to start a tuple.")?;
+        let mut elements = Vec::new();
+        loop {
+            if let Some(Token::RParen) = self.peek() {
+                self.consume();
+                return Ok(elements);
+            }
+
+            elements.push(self.parse_type()?);
+
+            match self.peek() {
+                // Don't consume, the next iterator of the loop will do that.
+                Some(Token::RParen) => continue,
+
+                // After a comma, we can either start again with a new element,
+                // or the rparen can still follow, so the trailing comma is
+                // optional.
+                Some(Token::Comma) => {
+                    self.consume();
+                }
+
+                Some(_unexpected) => {
+                    return self.error("Unexpected token inside a tuple, expected ',' or ')' here.")
+                }
+
+                None => return self.error("Unexpected end of input, a tuple is not closed."),
+            }
+        }
     }
 }
 
@@ -112,15 +178,99 @@ mod test {
     }
 
     #[test]
+    fn test_parse_type_simple() {
+        let input = b"i64";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Simple("i64");
+            assert_eq!(result, expected);
+        });
+
+        let input = b"&str";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Simple("&str");
+            assert_eq!(result, expected);
+        });
+
+        let input = b"User";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Simple("User");
+            assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
+    fn test_parse_type_generic() {
+        let input = b"Option<i64>";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Option(Box::new(Type::Simple("i64")));
+            assert_eq!(result, expected);
+        });
+
+        let input = b"Iterator<i64>";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Iterator(Box::new(Type::Simple("i64")));
+            assert_eq!(result, expected);
+        });
+
+        // The generics we support, only support a single type argument.
+        // A comma is a syntax error.
+        let input = b"Iterator<i64, i64>";
+        with_parser(input, |p| assert!(p.parse_type().is_err()));
+    }
+
+    #[test]
+    fn test_parse_type_tuple() {
+        let input = b"()";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Tuple(Vec::new());
+            assert_eq!(result, expected);
+        });
+
+        let input = b"(f64)";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Tuple(vec![Type::Simple("f64")]);
+            assert_eq!(result, expected);
+        });
+
+        // Test for trailing comma too.
+        let input = b"(f64,)";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Tuple(vec![Type::Simple("f64")]);
+            assert_eq!(result, expected);
+        });
+
+        let input = b"(f64, String)";
+        with_parser(input, |p| {
+            let result = p.parse_type().unwrap().resolve(input);
+            let expected = Type::Tuple(vec![Type::Simple("f64"), Type::Simple("String")]);
+            assert_eq!(result, expected);
+        });
+
+        // Also confirm that the following are parse errors.
+        let invalid_inputs: &[&'static [u8]] = &[b"(,)", b"(f32, <)", b"(", b"(f32", b"(f32,"];
+        for input in invalid_inputs {
+            with_parser(input, |p| assert!(p.parse_type().is_err()));
+        }
+    }
+
+    #[test]
     fn test_parse_typed_ident() {
         let input = b"id: i64";
         with_parser(input, |p| {
-            let result = p.parse_typed_ident().unwrap();
+            let result = p.parse_typed_ident().unwrap().resolve(input);
             let expected = TypedIdent {
                 ident: "id",
                 type_: Type::Simple("i64"),
             };
-            assert_eq!(result.resolve(input), expected);
+            assert_eq!(result, expected);
         });
     }
 }

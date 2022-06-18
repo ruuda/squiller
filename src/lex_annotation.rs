@@ -109,7 +109,7 @@ impl<'a> Lexer<'a> {
             return (self.start + 1, State::Base);
         }
         if input[0] == b'>' {
-            self.push(Token::Lt, 1);
+            self.push(Token::Gt, 1);
             return (self.start + 1, State::Base);
         }
         if input[0] == b':' {
@@ -236,7 +236,7 @@ mod test {
                 (Token::Ident, "Option"),
                 (Token::Lt, "<"),
                 (Token::Ident, "User"),
-                (Token::Lt, ">"),
+                (Token::Gt, ">"),
                 (Token::Semicolon, ";"),
             ],
         );
