@@ -12,11 +12,30 @@ values
   ("henk", "henk@example.com"),
   ("piet", "piet@example.com");
 
--- @method get_user
+-- Insert a new user and return its id.
+-- @query add_user(name: &str, email: &str) -> i64
+insert into
+  users (name, email)
+values
+  (:name, :email)
+returning
+  id;
+
+-- Insert a new user and return it.
+-- @query add_user_alt(name: &str, email: &str) -> NewUser
+insert into
+  users (name, email)
+values
+  (:name, :email)
+returning
+  id as "id: i64",
+  name as "name: String",
+  email as "email: String";
+
 -- Select a particular user by id.
--- @returns User
--- @arg id: u32
+-- @query get_user_by_id(id: i64) -> User
 select
+  id as "id: i64",
   name as "name: String",
   email as "email: String"
 from
@@ -24,11 +43,10 @@ from
 where
   id = :id;
 
--- @method list_all_users
 -- Iterate over all users ordered by id.
--- @returns Iterator<User>
+-- @query list_all_users() -> Iterator<User>
 select
-  id as "id: u32",
+  id as "id: i64",
   name as "name: String",
   email as "email: String"
 from

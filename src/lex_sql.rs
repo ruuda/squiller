@@ -1,4 +1,5 @@
 use crate::Span;
+use crate::is_ascii_identifier;
 
 #[derive(Debug)]
 enum State {
@@ -29,14 +30,6 @@ pub struct Lexer<'a> {
     start: usize,
     state: State,
     tokens: Vec<(Token, Span)>,
-}
-
-/// Check if a byte is part of an identifier.
-///
-/// This returns true also for digits, even though identifiers should not start
-/// with a digit.
-fn is_ascii_identifier(ch: u8) -> bool {
-    ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
 impl<'a> Lexer<'a> {
@@ -196,6 +189,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_in_space(&mut self) -> (usize, State) {
+        // Space tokens are preserved, because we want to be able to replicate
+        // the query literally later on, including formatting.
         self.lex_while(|ch| ch.is_ascii_whitespace(), Token::Space)
     }
 
