@@ -5,6 +5,9 @@ type Annotation = crate::ast::Annotation<Span>;
 type Query = crate::ast::Query<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
 
+/// Document parser.
+///
+/// Parses a tokenized SQL document into a list of queries with their metadata.
 pub struct Parser<'a> {
     input: &'a [u8],
     cursor: usize,

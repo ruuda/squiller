@@ -6,7 +6,12 @@ type Annotation = crate::ast::Annotation<Span>;
 type Type = crate::ast::Type<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
 
-struct Parser<'a> {
+/// Annotation parser.
+///
+/// The annotation parser can parse annotation comments and its constituents,
+/// including typed identifiers that are also used in `select ... as "id: type"`
+/// clauses.
+pub struct Parser<'a> {
     input: &'a [u8],
     tokens: &'a [(Token, Span)],
     cursor: usize,

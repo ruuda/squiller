@@ -1,13 +1,10 @@
-// TODO: Enable once this is finished.
-#![allow(dead_code)]
-
-mod ast;
-mod error;
-mod lexer {
+pub mod ast;
+pub mod error;
+pub mod lexer {
     pub mod annotation;
     pub mod sql;
 }
-mod parser {
+pub mod parser {
     pub mod annotation;
     pub mod document;
 }
@@ -20,9 +17,13 @@ fn is_ascii_identifier(ch: u8) -> bool {
     ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
+/// Marks a location in the source file by byte offset.
 #[derive(Copy, Clone, Debug)]
 pub struct Span {
+    /// Start of the token, inclusive.
     pub start: usize,
+
+    /// End of the token, exclusive.
     pub end: usize,
 }
 
