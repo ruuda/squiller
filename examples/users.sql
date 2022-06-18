@@ -1,5 +1,6 @@
 .mode box
 
+-- @query setup_schema()
 create table if not exists users
   ( id    integer primary key
   , name  string not null

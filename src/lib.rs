@@ -1,5 +1,7 @@
-mod lex_sql;
+mod ast;
 mod lex_annotation;
+mod lex_sql;
+mod parse;
 
 /// Check if a byte is part of an identifier.
 ///
@@ -9,6 +11,7 @@ fn is_ascii_identifier(ch: u8) -> bool {
     ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
+#[derive(Copy, Clone, Debug)]
 struct Span {
     start: usize,
     end: usize,
