@@ -1,5 +1,6 @@
 use crate::Span;
 
+#[derive(Debug)]
 enum State {
     Base,
     InSingleQuote,
@@ -12,6 +13,7 @@ enum State {
     Done,
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum Token {
     Space,
     Ident,
@@ -27,6 +29,14 @@ pub struct Lexer<'a> {
     start: usize,
     state: State,
     tokens: Vec<(Token, Span)>,
+}
+
+/// Check if a byte is part of an identifier.
+///
+/// This returns true also for digits, even though identifiers should not start
+/// with a digit.
+fn is_ascii_identifier(ch: u8) -> bool {
+    ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
 impl<'a> Lexer<'a> {
@@ -61,6 +71,20 @@ impl<'a> Lexer<'a> {
                 State::InPunct => self.lex_in_punct(),
                 State::Done => break,
             };
+
+            // Uncomment the following to debug print while lexing.
+            // if let Some((last_tok, last_span)) = self.tokens.last().as_ref() {
+            //     use std::str;
+            //     println!("start:{:?} state:{:?} tip_tok:{:?} tip_span:{:?}",
+            //         start,
+            //         state,
+            //         last_tok,
+            //         str::from_utf8(
+            //             &self.input[last_span.start..last_span.end]
+            //         ).unwrap(),
+            //     );
+            // }
+
             self.start = start;
             self.state = state;
         }
@@ -95,6 +119,7 @@ impl<'a> Lexer<'a> {
         if input[0].is_ascii_alphabetic() {
             return (self.start, State::InIdent);
         }
+        // TODO: Deal with numbers.
         panic!(
             "I don't know what to do with this byte here: {} (0x{:02x})",
             char::from_u32(input[0] as u32).unwrap(),
@@ -102,30 +127,47 @@ impl<'a> Lexer<'a> {
         );
     }
 
+    fn lex_in_quote(&mut self, quote: u8, token: Token) -> (usize, State) {
+        use std::str;
+        let input = &self.input[self.start..];
+
+        // Skip over the initial opening quote.
+        for (i, &ch) in input.iter().enumerate().skip(1) {
+            // Indexing does not go out of bounds here because we start at 1.
+            if ch == quote && input[i - 1] == b'\\' {
+                // An escaped quote should not end the token.
+                continue
+            }
+            if ch == quote {
+                self.push(token, i + 1);
+                return (self.start + i + 1, State::Base);
+            }
+        }
+
+        panic!(
+            "Unclosed quote: {} for input {}",
+            char::from_u32(quote as u32).unwrap(),
+            str::from_utf8(input).unwrap(),
+        );
+    }
+
     fn lex_in_single_quote(&mut self) -> (usize, State) {
-        unimplemented!();
+        self.lex_in_quote(b'\'', Token::SingleQuoted)
     }
 
     fn lex_in_double_quote(&mut self) -> (usize, State) {
-        unimplemented!();
+        self.lex_in_quote(b'"', Token::DoubleQuoted)
     }
 
-    fn lex_in_comment(&mut self) -> (usize, State) {
-        unimplemented!();
-    }
-
-    fn lex_in_query_param(&mut self) -> (usize, State) {
-        unimplemented!();
-    }
-
-    fn lex_while<F: FnMut(u8) -> bool>(
+    fn lex_skip_then_while<F: FnMut(u8) -> bool>(
         &mut self, 
+        n_skip: usize,
         mut include: F,
         token: Token,
     ) -> (usize, State) {
         let input = &self.input[self.start..];
 
-        for (len, ch) in input.iter().enumerate() {
+        for (len, ch) in input.iter().enumerate().skip(n_skip) {
             if include(*ch) {
                 continue
             }
@@ -137,16 +179,35 @@ impl<'a> Lexer<'a> {
         (self.start + input.len(), State::Done)
     }
 
+    fn lex_while<F: FnMut(u8) -> bool>(
+        &mut self,
+        include: F,
+        token: Token,
+    ) -> (usize, State) {
+        self.lex_skip_then_while(0, include, token)
+    }
+
+    fn lex_in_comment(&mut self) -> (usize, State) {
+        self.lex_while(|ch| ch != b'\n', Token::Comment)
+    }
+
+    fn lex_in_query_param(&mut self) -> (usize, State) {
+        self.lex_skip_then_while(1, is_ascii_identifier, Token::QueryParam)
+    }
+
     fn lex_in_space(&mut self) -> (usize, State) {
         self.lex_while(|ch| ch.is_ascii_whitespace(), Token::Space)
     }
 
     fn lex_in_ident(&mut self) -> (usize, State) {
-        self.lex_while(|ch| ch.is_ascii_alphanumeric(), Token::Ident)
+        self.lex_while(is_ascii_identifier, Token::Ident)
     }
 
     fn lex_in_punct(&mut self) -> (usize, State) {
-        self.lex_while(|ch| ch.is_ascii_punctuation(), Token::Ident)
+        self.lex_while(
+            |ch| ch.is_ascii_punctuation() && ch != b'"' && ch != b'\'',
+            Token::Ident,
+        )
     }
 }
 

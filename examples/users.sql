@@ -15,7 +15,7 @@ values
 -- @method get_user
 -- Select a particular user by id.
 -- @returns User
--- @arg id: u32 -- The id of the user to query.
+-- @arg id: u32
 select
   name as "name: String",
   email as "email: String"
