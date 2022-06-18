@@ -2,13 +2,13 @@ use crate::Span;
 
 /// Supported types.
 #[derive(Debug, Eq, PartialEq)]
-pub enum Type<T> {
+pub enum Type<TSpan> {
     Unit,
-    Simple(T),
-    Iterator(Box<Type<T>>),
-    Option(Box<Type<T>>),
-    Tuple(Vec<Type<T>>),
-    Struct(T, Vec<TypedIdent<T>>),
+    Simple(TSpan),
+    Iterator(Box<Type<TSpan>>),
+    Option(Box<Type<TSpan>>),
+    Tuple(Vec<Type<TSpan>>),
+    Struct(TSpan, Vec<TypedIdent<TSpan>>),
 }
 
 impl Type<Span> {
@@ -29,9 +29,9 @@ impl Type<Span> {
 
 /// An identifier and a type, e.g. `name: &str`.
 #[derive(Debug, Eq, PartialEq)]
-pub struct TypedIdent<T> {
-    pub ident: T,
-    pub type_: Type<T>,
+pub struct TypedIdent<TSpan> {
+    pub ident: TSpan,
+    pub type_: Type<TSpan>,
 }
 
 impl TypedIdent<Span> {
@@ -44,17 +44,17 @@ impl TypedIdent<Span> {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Annotation<T> {
-    pub name: T,
-    pub parameters: Vec<TypedIdent<T>>,
-    pub result: Type<T>,
+pub struct Annotation<TSpan> {
+    pub name: TSpan,
+    pub parameters: Vec<TypedIdent<TSpan>>,
+    pub result: Type<TSpan>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct Query<T> {
-    pub name: T,
-    pub docs: Vec<T>,
-    pub parameters: Vec<TypedIdent<T>>,
-    pub result: Type<T>,
-    pub fragments: Vec<T>,
+pub struct Query<TSpan> {
+    pub name: TSpan,
+    pub docs: Vec<TSpan>,
+    pub parameters: Vec<TypedIdent<TSpan>>,
+    pub result: Type<TSpan>,
+    pub fragments: Vec<TSpan>,
 }
