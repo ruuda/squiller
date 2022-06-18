@@ -156,6 +156,86 @@ impl<'a> Parser<'a> {
             }
         }
     }
+
+    /// Parse an argument list, the cursor should be on the opening paren.
+    fn parse_parameter_list(&mut self) -> PResult<Vec<TypedIdent>> {
+        self.expect_consume(
+            Token::LParen,
+            "Expected a '(' here to start the parameter list.",
+        )?;
+        let mut elements = Vec::new();
+        loop {
+            if let Some(Token::RParen) = self.peek() {
+                self.consume();
+                return Ok(elements);
+            }
+
+            elements.push(self.parse_typed_ident()?);
+
+            match self.peek() {
+                // Don't consume, the next iterator of the loop will do that.
+                Some(Token::RParen) => continue,
+
+                // After a comma, we can either start again with a new element,
+                // or the rparen can still follow, so the trailing comma is
+                // optional.
+                Some(Token::Comma) => {
+                    self.consume();
+                }
+
+                Some(_unexpected) => {
+                    return self.error(
+                        "Unexpected token inside a parameter list, expected ',' or ')' here.",
+                    )
+                }
+
+                None => {
+                    return self.error("Unexpected end of input, a parameter list is not closed.")
+                }
+            }
+        }
+    }
+
+    pub fn parse_annotation(&mut self) -> PResult<Annotation> {
+        // 1. The @query that marks the start of the annotation.
+        match self.peek_with_span() {
+            Some((Token::Annotation, "@query")) => self.consume(),
+            Some((Token::Annotation, _)) => {
+                return self.error("Invalid annotation, only '@query' is understood.")
+            }
+            Some(_) => return self.error("Invalid annotation, expected '@query' here."),
+            None => return self.error("Unexpected end of input, expected '@query' here."),
+        };
+
+        // 2. The name of the query..
+        let name = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
+
+        // 3. The list of query parameters, including parens.
+        let parameters = self.parse_parameter_list()?;
+
+        // 4. Optionally an arrow followed by the return type.
+        let result_type = match self.peek() {
+            None => Type::Unit,
+            Some(Token::Arrow) => {
+                self.consume();
+                self.parse_type()?
+            }
+            Some(_unexpected) => {
+                return self.error(
+                    "Unexpected token, \
+                    expected either the end of the annotation and start of the query, \
+                    or '->' followed by a result type.",
+                )
+            }
+        };
+
+        let result = Annotation {
+            name,
+            parameters,
+            result_type,
+        };
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -269,6 +349,78 @@ mod test {
             let expected = TypedIdent {
                 ident: "id",
                 type_: Type::Simple("i64"),
+            };
+            assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
+    fn test_parse_annotation() {
+        let input = b"@query drop_table_users()";
+        with_parser(input, |p| {
+            let result = p.parse_annotation().unwrap().resolve(input);
+            let expected = Annotation {
+                name: "drop_table_users",
+                parameters: vec![],
+                result_type: Type::Unit,
+            };
+            assert_eq!(result, expected);
+        });
+
+        // Test both with and without trailing comma.
+        let inputs: &[&'static [u8]] = &[
+            b"@query delete_user_by_id(id: i64)",
+            b"@query delete_user_by_id(id: i64,)",
+        ];
+        for input in inputs {
+            with_parser(input, |p| {
+                let result = p.parse_annotation().unwrap().resolve(input);
+                let expected = Annotation {
+                    name: "delete_user_by_id",
+                    parameters: vec![TypedIdent {
+                        ident: "id",
+                        type_: Type::Simple("i64"),
+                    }],
+                    result_type: Type::Unit,
+                };
+                assert_eq!(result, expected);
+            });
+        }
+
+        // Test both with and without trailing comma. Also we play with the
+        // whitespace a bit here.
+        let inputs: &[&'static [u8]] = &[
+            b"@query get_widgets_in_range (low : i64 , high : i64)",
+            b"@query get_widgets_in_range(low:i64,high:i64,)",
+        ];
+        for input in inputs {
+            with_parser(input, |p| {
+                let result = p.parse_annotation().unwrap().resolve(input);
+                let expected = Annotation {
+                    name: "get_widgets_in_range",
+                    parameters: vec![
+                        TypedIdent {
+                            ident: "low",
+                            type_: Type::Simple("i64"),
+                        },
+                        TypedIdent {
+                            ident: "high",
+                            type_: Type::Simple("i64"),
+                        },
+                    ],
+                    result_type: Type::Unit,
+                };
+                assert_eq!(result, expected);
+            });
+        }
+
+        let input = b"@query get_next_id() -> i64";
+        with_parser(input, |p| {
+            let result = p.parse_annotation().unwrap().resolve(input);
+            let expected = Annotation {
+                name: "get_next_id",
+                parameters: vec![],
+                result_type: Type::Simple("i64"),
             };
             assert_eq!(result, expected);
         });

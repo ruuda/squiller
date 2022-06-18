@@ -47,7 +47,17 @@ impl TypedIdent<Span> {
 pub struct Annotation<TSpan> {
     pub name: TSpan,
     pub parameters: Vec<TypedIdent<TSpan>>,
-    pub result: Type<TSpan>,
+    pub result_type: Type<TSpan>,
+}
+
+impl Annotation<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Annotation<&'a str> {
+        Annotation {
+            name: self.name.resolve(input),
+            parameters: self.parameters.iter().map(|p| p.resolve(input)).collect(),
+            result_type: self.result_type.resolve(input),
+        }
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -55,6 +65,6 @@ pub struct Query<TSpan> {
     pub name: TSpan,
     pub docs: Vec<TSpan>,
     pub parameters: Vec<TypedIdent<TSpan>>,
-    pub result: Type<TSpan>,
+    pub result_type: Type<TSpan>,
     pub fragments: Vec<TSpan>,
 }
