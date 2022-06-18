@@ -2,9 +2,15 @@
 #![allow(dead_code)]
 
 mod ast;
-mod lex_annotation;
-mod lex_sql;
-mod parse;
+mod error;
+mod lexer {
+    pub mod annotation;
+    pub mod sql;
+}
+mod parser {
+    pub mod annotation;
+    pub mod document;
+}
 
 /// Check if a byte is part of an identifier.
 ///
@@ -15,9 +21,9 @@ fn is_ascii_identifier(ch: u8) -> bool {
 }
 
 #[derive(Copy, Clone, Debug)]
-struct Span {
-    start: usize,
-    end: usize,
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Span {

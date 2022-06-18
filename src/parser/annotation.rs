@@ -1,18 +1,10 @@
-use crate::lex_annotation::Token;
+use crate::error::{PResult, ParseError};
+use crate::lexer::annotation::Token;
 use crate::Span;
 
 type Annotation = crate::ast::Annotation<Span>;
 type Type = crate::ast::Type<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
-
-#[derive(Debug)]
-struct ParseError {
-    span: Span,
-    message: &'static str,
-}
-
-/// A parse result, either the parsed value, or a parse error.
-type PResult<T> = std::result::Result<T, ParseError>;
 
 struct Parser<'a> {
     input: &'a [u8],
@@ -242,7 +234,7 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{Annotation, Type, TypedIdent};
-    use crate::lex_annotation::Lexer;
+    use crate::lexer::annotation::Lexer;
     use crate::Span;
 
     fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {

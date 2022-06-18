@@ -205,5 +205,5 @@ impl<'a> Lexer<'a> {
 #[test]
 fn it_lexes_example_users() {
     let input = std::fs::read("examples/users.sql").unwrap();
-    let result = Lexer::new(&input).run();
+    Lexer::new(&input).run();
 }
