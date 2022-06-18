@@ -1,6 +1,9 @@
-use crate::ast::{Annotation, Type, TypedIdent};
 use crate::lex_annotation::Token;
 use crate::Span;
+
+type Annotation = crate::ast::Annotation<Span>;
+type Type = crate::ast::Type<Span>;
+type TypedIdent = crate::ast::TypedIdent<Span>;
 
 #[derive(Debug)]
 struct ParseError {
@@ -28,10 +31,12 @@ impl<'a> Parser<'a> {
 
     /// Build a parse error at the current cursor location.
     fn error<T>(&self, message: &'static str) -> PResult<T> {
-        let err = ParseError {
-            span: self.tokens[self.cursor].1,
-            message: message,
+        let span = if self.cursor < self.tokens.len() {
+            self.tokens[self.cursor].1
+        } else {
+            Span { start: 0, end: 0 }
         };
+        let err = ParseError { span, message };
         Err(err)
     }
 
@@ -82,6 +87,40 @@ impl<'a> Parser<'a> {
     /// types have no explicit syntax in annotations either, they get
     /// contsructed at a higher level.
     pub fn parse_type(&mut self) -> PResult<Type> {
-        unimplemented!();
+        // TODO: Actually parse.
+        Ok(Type::Unit)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Parser;
+    use crate::ast::{Annotation, Type, TypedIdent};
+    use crate::lex_annotation::Lexer;
+    use crate::Span;
+
+    fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {
+        let all_span = Span {
+            start: 0,
+            end: input.len(),
+        };
+        let mut lexer = Lexer::new(input);
+        lexer.run(all_span);
+        let tokens = lexer.into_tokens();
+        let mut parser = Parser::new(input, &tokens);
+        f(&mut parser)
+    }
+
+    #[test]
+    fn test_parse_typed_ident() {
+        let input = b"id: i64";
+        with_parser(input, |p| {
+            let result = p.parse_typed_ident().unwrap();
+            let expected = TypedIdent {
+                ident: "id",
+                type_: Type::Simple("i64"),
+            };
+            assert_eq!(result.resolve(input), expected);
+        });
     }
 }

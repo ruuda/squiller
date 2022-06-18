@@ -1,31 +1,60 @@
 use crate::Span;
 
 /// Supported types.
-pub enum Type {
+#[derive(Debug, Eq, PartialEq)]
+pub enum Type<T> {
     Unit,
-    Simple(Span),
-    Iterator(Box<Type>),
-    Option(Box<Type>),
-    Tuple(Vec<Type>),
-    Struct(Span, Vec<TypedIdent>),
+    Simple(T),
+    Iterator(Box<Type<T>>),
+    Option(Box<Type<T>>),
+    Tuple(Vec<Type<T>>),
+    Struct(T, Vec<TypedIdent<T>>),
+}
+
+impl Type<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Type<&'a str> {
+        match self {
+            Type::Unit => Type::Unit,
+            Type::Simple(span) => Type::Simple(span.resolve(input)),
+            Type::Iterator(t) => Type::Iterator(Box::new(t.resolve(input))),
+            Type::Option(t) => Type::Option(Box::new(t.resolve(input))),
+            Type::Tuple(ts) => Type::Tuple(ts.iter().map(|t| t.resolve(input)).collect()),
+            Type::Struct(name, fields) => Type::Struct(
+                name.resolve(input),
+                fields.iter().map(|f| f.resolve(input)).collect(),
+            ),
+        }
+    }
 }
 
 /// An identifier and a type, e.g. `name: &str`.
-pub struct TypedIdent {
-    pub ident: Span,
-    pub type_: Type,
+#[derive(Debug, Eq, PartialEq)]
+pub struct TypedIdent<T> {
+    pub ident: T,
+    pub type_: Type<T>,
 }
 
-pub struct Annotation {
-    pub name: Span,
-    pub parameters: Vec<TypedIdent>,
-    pub result: Type,
+impl TypedIdent<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> TypedIdent<&'a str> {
+        TypedIdent {
+            ident: self.ident.resolve(input),
+            type_: self.type_.resolve(input),
+        }
+    }
 }
 
-pub struct Query {
-    pub name: Span,
-    pub docs: Vec<Span>,
-    pub parameters: Vec<TypedIdent>,
-    pub result: Type,
-    pub fragments: Vec<Span>,
+#[derive(Debug, Eq, PartialEq)]
+pub struct Annotation<T> {
+    pub name: T,
+    pub parameters: Vec<TypedIdent<T>>,
+    pub result: Type<T>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Query<T> {
+    pub name: T,
+    pub docs: Vec<T>,
+    pub parameters: Vec<TypedIdent<T>>,
+    pub result: Type<T>,
+    pub fragments: Vec<T>,
 }
