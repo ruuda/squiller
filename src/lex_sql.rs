@@ -1,5 +1,5 @@
-use crate::Span;
 use crate::is_ascii_identifier;
+use crate::Span;
 
 #[derive(Debug)]
 enum State {
@@ -129,7 +129,7 @@ impl<'a> Lexer<'a> {
             // Indexing does not go out of bounds here because we start at 1.
             if ch == quote && input[i - 1] == b'\\' {
                 // An escaped quote should not end the token.
-                continue
+                continue;
             }
             if ch == quote {
                 self.push(token, i + 1);
@@ -153,7 +153,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_skip_then_while<F: FnMut(u8) -> bool>(
-        &mut self, 
+        &mut self,
         n_skip: usize,
         mut include: F,
         token: Token,
@@ -162,7 +162,7 @@ impl<'a> Lexer<'a> {
 
         for (len, ch) in input.iter().enumerate().skip(n_skip) {
             if include(*ch) {
-                continue
+                continue;
             }
             self.push(token, len);
             return (self.start + len, State::Base);
@@ -172,11 +172,7 @@ impl<'a> Lexer<'a> {
         (self.start + input.len(), State::Done)
     }
 
-    fn lex_while<F: FnMut(u8) -> bool>(
-        &mut self,
-        include: F,
-        token: Token,
-    ) -> (usize, State) {
+    fn lex_while<F: FnMut(u8) -> bool>(&mut self, include: F, token: Token) -> (usize, State) {
         self.lex_skip_then_while(0, include, token)
     }
 

@@ -1,6 +1,6 @@
-use crate::Span;
-use crate::ast::{Type, TypedIdent, Annotation};
+use crate::ast::{Annotation, Type, TypedIdent};
 use crate::lex_annotation::Token;
+use crate::Span;
 
 #[derive(Debug)]
 struct ParseError {
@@ -58,29 +58,21 @@ impl<'a> Parser<'a> {
     /// Consume one token. If it does not match, return the error message.
     fn expect_consume(&mut self, expected: Token, message: &'static str) -> PResult<Span> {
         match self.peek() {
-            Some(token) if token == expected => {
-                Ok(self.consume())
-            }
+            Some(token) if token == expected => Ok(self.consume()),
             _ => self.error(message),
         }
     }
 
     /// Parse a typed identifier, such as `id: i64`.
     pub fn parse_typed_ident(&mut self) -> PResult<TypedIdent> {
-        let ident = self.expect_consume(
-            Token::Ident,
-            "Expected an identifier here.",
-        )?;
+        let ident = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
         self.expect_consume(
             Token::Colon,
             "Expected a ':' here before the start of the type signature.",
         )?;
         let type_ = self.parse_type()?;
 
-        let result = TypedIdent {
-            ident,
-            type_,
-        };
+        let result = TypedIdent { ident, type_ };
         Ok(result)
     }
 

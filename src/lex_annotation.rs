@@ -1,5 +1,5 @@
-use crate::Span;
 use crate::is_ascii_identifier;
+use crate::Span;
 
 #[derive(Debug)]
 enum State {
@@ -55,7 +55,6 @@ impl<'a> Lexer<'a> {
         };
         self.tokens.push((token, span));
     }
-
 
     /// Lex the span until completion.
     pub fn run(&mut self, span: Span) {
@@ -132,14 +131,14 @@ impl<'a> Lexer<'a> {
         if input[0].is_ascii_whitespace() {
             return (self.start + 1, State::Base);
         }
-        
+
         // Everything that is not an explicitly recognized punctuation token,
         // and not a space, is an identifier.
         (self.start, State::InIdent)
     }
 
     fn lex_skip_then_while<F: FnMut(u8) -> bool>(
-        &mut self, 
+        &mut self,
         n_skip: usize,
         mut include: F,
         token: Token,
@@ -148,7 +147,7 @@ impl<'a> Lexer<'a> {
 
         for (len, ch) in input.iter().enumerate().skip(n_skip) {
             if include(*ch) {
-                continue
+                continue;
             }
             self.push(token, len);
             return (self.start + len, State::Base);
