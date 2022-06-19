@@ -59,22 +59,23 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse a single section from the document.
-    fn parse_section(&mut self) -> PResult<Section> {
+    pub fn parse_section(&mut self) -> PResult<Section> {
         debug_assert!(
             self.peek().is_some(),
             "Cannot call `pase_section` with no tokens left.",
         );
 
         let section_start_span = self.tokens[self.cursor].1;
-        let section_start = section_start_span.start;
-        let mut section_end = section_start_span.end;
-
         let mut comments = Vec::new();
-        let mut comment_lexer = ann::Lexer::new(self.input);
+        let mut section_span = Span {
+            start: section_start_span.start,
+            end: section_start_span.end,
+        };
 
         while self.peek().is_some() {
             let (token, span) = self.tokens[self.cursor];
-            let section_end = span.end;
+            section_span.end = span.end;
+            self.consume();
 
             match token {
                 sql::Token::Space => {
@@ -85,12 +86,7 @@ impl<'a> Parser<'a> {
                         // section, and given that we did not yet switch to
                         // query parsing mode, this means it was a verbatim
                         // section.
-                        let result_span = Span {
-                            start: section_start,
-                            end: section_end,
-                        };
-                        self.consume();
-                        return Ok(Section::Verbatim(result_span));
+                        return Ok(Section::Verbatim(section_span));
                     }
                 }
                 sql::Token::Comment => {
@@ -100,17 +96,28 @@ impl<'a> Parser<'a> {
                         end: span.end,
                     };
 
-                    // If the comment starts with an annotation, then this means
-                    // we are inside a query section, and we continue parsing
-                    // in query mode.
-                    comment_lexer.run(comment_span);
-                    match comment_lexer.tokens().first() {
-                        Some((ann::Token::Annotation, _)) => {
-                            self.consume();
-                            let query = self.parse_query(comments, comment_lexer)?;
-                            return Ok(Section::Query(query));
+                    // Potentially this comment could contain an annotation.
+                    // Before we lex the entire thing, check if it contains the
+                    // '@' marker.
+                    let span_bytes = &self.input[comment_span.start..comment_span.end];
+                    if span_bytes.contains(&b'@') {
+                        let mut comment_lexer = ann::Lexer::new(self.input);
+                        comment_lexer.run(comment_span);
+                        // TODO
+                        println!("Comment tokens:");
+                        for (t, s) in comment_lexer.tokens() {
+                            println!("  {:?} {:?}", t, s.resolve(self.input));
                         }
-                        _ => {}
+                        match comment_lexer.tokens().first() {
+                            // If the comment starts with an annotation, then
+                            // this means we are inside a query section, and we
+                            // continue parsing in query mode.
+                            Some((ann::Token::Annotation, _)) => {
+                                let query = self.parse_query(comments, comment_lexer)?;
+                                return Ok(Section::Query(query));
+                            }
+                            _ => {}
+                        }
                     }
 
                     // If it was not an annotation, we still record the comment,
@@ -120,16 +127,11 @@ impl<'a> Parser<'a> {
                 }
                 _ => {}
             }
-            self.consume();
         }
 
         // If we reached the end of the document without producing a query,
         // then we must be in an unstructured section.
-        let result_span = Span {
-            start: section_start,
-            end: section_end,
-        };
-        return Ok(Section::Verbatim(result_span));
+        return Ok(Section::Verbatim(section_span));
     }
 
     /// Parse annotations inside a comment.
@@ -185,20 +187,20 @@ impl<'a> Parser<'a> {
         self.consume();
 
         while let Some(token) = self.peek() {
+            self.consume();
+
             if token == end_token {
-                self.consume();
                 return Ok(());
             }
 
             match token {
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
-                    self.consume();
                     return self.consume_until_matching_close();
                 }
                 sql::Token::RParen => return self.error("Found unmatched ')'."),
                 sql::Token::RBrace => return self.error("Found unmatched '}'."),
                 sql::Token::RBracket => return self.error("Found unmatched ']'."),
-                _ => continue,
+                _ => {}
             }
         }
 
@@ -230,7 +232,7 @@ impl<'a> Parser<'a> {
 
         let fragment_start = match self.tokens.get(self.cursor) {
             None => return self.error("Expected query after annotation."),
-            Some((t, span)) => span.end,
+            Some((_, span)) => span.end,
         };
 
         let mut fragments = Vec::new();
@@ -245,6 +247,8 @@ impl<'a> Parser<'a> {
                 // inside those brackets. E.g. if you have a subquery, we don't
                 // care about a "select ... as ..." inside there.
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
+                    // TODO: There can still be parameters inside parens that we
+                    // should break out as individual fragments!
                     self.consume_until_matching_close()?;
                 }
                 sql::Token::Ident => match span.resolve(self.input) {
@@ -271,11 +275,13 @@ impl<'a> Parser<'a> {
                     fragments.push(Fragment::Param(*span));
                     fragment.start = span.end;
                     fragment.end = span.end;
+                    self.consume();
                 }
                 sql::Token::Semicolon => {
                     // The semicolon marks the end of the query.
                     fragment.end = span.end;
                     fragments.push(Fragment::Verbatim(fragment));
+                    self.consume();
 
                     let result = Query {
                         docs: comments,

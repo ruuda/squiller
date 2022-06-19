@@ -91,6 +91,18 @@ pub enum Fragment<TSpan> {
     Param(TSpan),
 }
 
+impl Fragment<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Fragment<&'a str> {
+        match self {
+            Fragment::Verbatim(s) => Fragment::Verbatim(s.resolve(input)),
+            Fragment::TypedIdent(s, ti) => {
+                Fragment::TypedIdent(s.resolve(input), ti.resolve(input))
+            }
+            Fragment::Param(s) => Fragment::Param(s.resolve(input)),
+        }
+    }
+}
+
 /// An annotated query.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Query<TSpan> {
@@ -108,12 +120,32 @@ pub struct Query<TSpan> {
     pub fragments: Vec<Fragment<TSpan>>,
 }
 
+impl Query<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Query<&'a str> {
+        Query {
+            docs: self.docs.iter().map(|d| d.resolve(input)).collect(),
+            annotation: self.annotation.resolve(input),
+            fragments: self.fragments.iter().map(|f| f.resolve(input)).collect(),
+        }
+    }
+}
+
 /// A section of a document.
 ///
 /// Section consists either of a single annotated query, which we parse further
 /// to extract the details, or some section that is *not* an annotated query,
 /// which we preserve verbatim, to ensure that the parser is lossless.
+#[derive(Debug, Eq, PartialEq)]
 pub enum Section<TSpan> {
     Verbatim(TSpan),
     Query(Query<TSpan>),
+}
+
+impl Section<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Section<&'a str> {
+        match self {
+            Section::Verbatim(s) => Section::Verbatim(s.resolve(input)),
+            Section::Query(q) => Section::Query(q.resolve(input)),
+        }
+    }
 }
