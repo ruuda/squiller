@@ -75,25 +75,45 @@ impl Annotation<Span> {
     }
 }
 
+/// A part of a query.
+///
+/// We break down queries in consecutive spans of three kinds:
+///
+/// * Verbatim content where we don't really care about its inner structure.
+/// * Typed identifiers, the quoted part in a `select ... as "ident: type"`
+///   select. These are kept separately, such that we can replace this with
+///   just `ident` in the final query.
+/// * Parameters. These include the leading `:`.
+#[derive(Debug, Eq, PartialEq)]
+pub enum Fragment<TSpan> {
+    Verbatim(TSpan),
+    TypedIdent(TSpan, TypedIdent<TSpan>),
+    Param(TSpan),
+}
+
 /// An annotated query.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Query<TSpan> {
-    /// The name of the query, from the annotation.
-    pub name: TSpan,
-
     /// The lines of the comment that precedes the query, without `--`-prefix.
     pub docs: Vec<TSpan>,
 
-    /// The parameters that occur in the query, and their types.
-    pub parameters: Vec<TypedIdent<TSpan>>,
-
-    /// The type of data that the query produces.
-    pub result_type: Type<TSpan>,
+    /// The annotation, which includes the name, parameters, and result type.
+    pub annotation: Annotation<TSpan>,
 
     /// The spans that together reconstruct the query, including whitespace.
     ///
     /// These spans are mostly verbatim, although the preceding comments are
     /// omitted, and any `select ... as "name: type"` selections will have the
     /// `"name: type"` token replaced with just `name`.
-    pub fragments: Vec<TSpan>,
+    pub fragments: Vec<Fragment<TSpan>>,
+}
+
+/// A section of a document.
+///
+/// Section consists either of a single annotated query, which we parse further
+/// to extract the details, or some section that is *not* an annotated query,
+/// which we preserve verbatim, to ensure that the parser is lossless.
+pub enum Section<TSpan> {
+    Verbatim(TSpan),
+    Query(Query<TSpan>),
 }

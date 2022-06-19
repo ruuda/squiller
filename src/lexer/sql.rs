@@ -7,22 +7,29 @@ enum State {
     InSingleQuote,
     InDoubleQuote,
     InComment,
-    InQueryParam,
+    InParam,
     InSpace,
     InIdent,
     InPunct,
     Done,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Token {
     Space,
     Ident,
     Punct,
-    QueryParam,
+    Param,
     SingleQuoted,
     DoubleQuoted,
     Comment,
+    LParen,
+    RParen,
+    LBracket,
+    RBracket,
+    LBrace,
+    RBrace,
+    Semicolon,
 }
 
 pub struct Lexer<'a> {
@@ -58,7 +65,7 @@ impl<'a> Lexer<'a> {
                 State::InSingleQuote => self.lex_in_single_quote(),
                 State::InDoubleQuote => self.lex_in_double_quote(),
                 State::InComment => self.lex_in_comment(),
-                State::InQueryParam => self.lex_in_query_param(),
+                State::InParam => self.lex_in_param(),
                 State::InSpace => self.lex_in_space(),
                 State::InIdent => self.lex_in_ident(),
                 State::InPunct => self.lex_in_punct(),
@@ -104,7 +111,7 @@ impl<'a> Lexer<'a> {
             return (self.start, State::InSpace);
         }
         if input.len() > 1 && input[0] == b':' && input[1].is_ascii_alphabetic() {
-            return (self.start, State::InQueryParam);
+            return (self.start, State::InParam);
         }
         if input[0].is_ascii_punctuation() {
             return (self.start, State::InPunct);
@@ -180,8 +187,8 @@ impl<'a> Lexer<'a> {
         self.lex_while(|ch| ch != b'\n', Token::Comment)
     }
 
-    fn lex_in_query_param(&mut self) -> (usize, State) {
-        self.lex_skip_then_while(1, is_ascii_identifier, Token::QueryParam)
+    fn lex_in_param(&mut self) -> (usize, State) {
+        self.lex_skip_then_while(1, is_ascii_identifier, Token::Param)
     }
 
     fn lex_in_space(&mut self) -> (usize, State) {
@@ -195,10 +202,29 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_in_punct(&mut self) -> (usize, State) {
-        self.lex_while(
-            |ch| ch.is_ascii_punctuation() && ch != b'"' && ch != b'\'',
-            Token::Ident,
-        )
+        debug_assert!(self.start < self.input.len());
+
+        let token = match self.input[self.start] {
+            // For those characters, we have single-character tokens.
+            b'(' => Token::LParen,
+            b')' => Token::RParen,
+            b'{' => Token::LBrace,
+            b'}' => Token::RBrace,
+            b'[' => Token::LBracket,
+            b']' => Token::RBracket,
+            b';' => Token::Semicolon,
+            // If it's not one of those, then we make one token until either the
+            // punctuation ends, or we do hit one of those.
+            _ => {
+                let end_punct_chars = b"'\"(){}[];";
+                return self.lex_while(
+                    |ch| ch.is_ascii_punctuation() && !end_punct_chars.contains(&ch),
+                    Token::Punct,
+                );
+            }
+        };
+        self.push(token, 1);
+        (self.start + 1, State::Base)
     }
 }
 

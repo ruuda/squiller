@@ -40,6 +40,10 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.tokens.clear();
+    }
+
     pub fn tokens(&self) -> &[(Token, Span)] {
         &self.tokens
     }
