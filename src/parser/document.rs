@@ -1,6 +1,7 @@
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation as ann;
 use crate::lexer::sql;
+use crate::parser::annotation as parse_ann;
 use crate::Span;
 
 type Annotation = crate::ast::Annotation<Span>;
@@ -104,10 +105,6 @@ impl<'a> Parser<'a> {
                         let mut comment_lexer = ann::Lexer::new(self.input);
                         comment_lexer.run(comment_span);
                         // TODO
-                        println!("Comment tokens:");
-                        for (t, s) in comment_lexer.tokens() {
-                            println!("  {:?} {:?}", t, s.resolve(self.input));
-                        }
                         match comment_lexer.tokens().first() {
                             // If the comment starts with an annotation, then
                             // this means we are inside a query section, and we
@@ -162,8 +159,7 @@ impl<'a> Parser<'a> {
                     // If it's not a comment or whitespace, then this must be
                     // the start of the query itself, so the annotation ends
                     // here.
-                    let mut parser =
-                        crate::parser::annotation::Parser::new(self.input, comment_lexer.tokens());
+                    let mut parser = parse_ann::Parser::new(self.input, comment_lexer.tokens());
                     return parser.parse_annotation();
                 }
             }
@@ -217,9 +213,37 @@ impl<'a> Parser<'a> {
     /// Skip whitespace, then parse a double quoted string as typed identifier.
     ///
     /// Returns the parsed identifier and type, but also the span of the quoted
-    /// string (excluding any preceding whitespace).
+    /// string, excluding any preceding whitespace but including the quotes.
     fn parse_typed_ident(&mut self) -> PResult<(Span, TypedIdent)> {
-        unimplemented!();
+        while let Some(token) = self.peek() {
+            let span = self.tokens[self.cursor].1;
+            self.consume();
+
+            match token {
+                sql::Token::Space => continue,
+                sql::Token::DoubleQuoted => {
+                    // Lex everything in between the quotes.
+                    let mut lexer = ann::Lexer::new(self.input);
+                    let unquoted_span = Span {
+                        start: span.start + 1,
+                        end: span.end - 1,
+                    };
+                    lexer.run(unquoted_span);
+
+                    // Then parse that.
+                    let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
+                    let result = parser.parse_typed_ident()?;
+                    return Ok((span, result));
+                }
+                _ => {
+                    return self.error(
+                        "Unexpected token, expected a quoted typed column, e.g. \"age: u64\".",
+                    )
+                }
+            }
+        }
+
+        self.error("Unexpected end of input, expected a quoted typed column, e.g. \"age: u64\".")
     }
 
     /// Parse a single section from the document.
