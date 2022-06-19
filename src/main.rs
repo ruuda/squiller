@@ -1,5 +1,5 @@
-use squoiler::lexer::sql::Lexer;
-use squoiler::parser::document::Parser;
+use querybinder::lexer::sql::Lexer;
+use querybinder::parser::document::Parser;
 
 fn main() {
     for arg in std::env::args().skip(1) {
