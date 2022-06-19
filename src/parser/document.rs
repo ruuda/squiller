@@ -232,7 +232,7 @@ impl<'a> Parser<'a> {
 
         let fragment_start = match self.tokens.get(self.cursor) {
             None => return self.error("Expected query after annotation."),
-            Some((_, span)) => span.end,
+            Some((_, span)) => span.start,
         };
 
         let mut fragments = Vec::new();
