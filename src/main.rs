@@ -71,10 +71,16 @@ fn main() {
         let input = std::fs::read(fname).expect("Failed to read input file.");
         let tokens = Lexer::new(&input).run();
         let mut parser = Parser::new(&input, &tokens);
-        if let Ok(doc) = parser.parse_document() {
-            args.target
-                .process_file(&input, doc, &mut stdout)
-                .expect("Failed to print output.");
+        match parser.parse_document() {
+            Ok(doc) => {
+                args.target
+                    .process_file(&input, doc, &mut stdout)
+                    .expect("Failed to print output.");
+            }
+            Err(err) => {
+                eprintln!("Error: {:#?}", err);
+                std::process::exit(1);
+            }
         }
     }
 }
