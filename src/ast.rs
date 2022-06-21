@@ -156,3 +156,16 @@ impl Section<Span> {
         }
     }
 }
+
+#[derive(Debug, Eq, PartialEq)]
+pub struct Document<TSpan> {
+    sections: Vec<Section<TSpan>>,
+}
+
+impl Document<Span> {
+    pub fn resolve<'a>(&self, input: &'a [u8]) -> Document<&'a str> {
+        Document {
+            sections: self.sections.iter().map(|s| s.resolve(input)).collect(),
+        }
+    }
+}
