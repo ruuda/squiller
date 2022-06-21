@@ -5,6 +5,8 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
+mod debug;
+
 use std::io;
 
 use clap::ValueEnum;
@@ -23,19 +25,15 @@ pub enum Target {
 }
 
 impl Target {
-    fn process_file(
+    pub fn process_file(
         &self,
         raw_input: &[u8],
         parsed: Document<Span>,
         output: &mut dyn io::Write,
     ) -> io::Result<()> {
         match self {
-            // TODO: Dispatch.
             Target::Debug => {
-                let _ = raw_input;
-                let _ = parsed;
-                writeln!(output, "Hello.")?;
-                Ok(())
+                crate::target::debug::process_file(raw_input, parsed, output)
             }
             Target::Help => {
                 // We should not get here, the CLI parser handles this case.

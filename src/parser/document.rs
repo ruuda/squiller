@@ -5,6 +5,7 @@ use crate::parser::annotation as parse_ann;
 use crate::Span;
 
 type Annotation = crate::ast::Annotation<Span>;
+type Document = crate::ast::Document<Span>;
 type Fragment = crate::ast::Fragment<Span>;
 type Query = crate::ast::Query<Span>;
 type Section = crate::ast::Section<Span>;
@@ -57,6 +58,16 @@ impl<'a> Parser<'a> {
         );
 
         result
+    }
+
+    /// Parse a single section from the document.
+    pub fn parse_document(&mut self) -> PResult<Document> {
+        let mut sections = Vec::new();
+        while self.peek().is_some() {
+            sections.push(self.parse_section()?);
+        }
+        let result = Document { sections };
+        Ok(result)
     }
 
     /// Parse a single section from the document.

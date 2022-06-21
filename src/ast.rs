@@ -159,7 +159,7 @@ impl Section<Span> {
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct Document<TSpan> {
-    sections: Vec<Section<TSpan>>,
+    pub sections: Vec<Section<TSpan>>,
 }
 
 impl Document<Span> {

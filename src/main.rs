@@ -60,17 +60,21 @@ fn main() {
     let args = Args::get();
 
     if args.target == Target::Help {
-        print_available_targets();
+        print_available_targets().expect("Oh no, failed to print.");
         std::process::exit(0);
     }
+
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
 
     for fname in &args.input_files {
         let input = std::fs::read(fname).expect("Failed to read input file.");
         let tokens = Lexer::new(&input).run();
         let mut parser = Parser::new(&input, &tokens);
-        while let Ok(section) = parser.parse_section() {
-            let section_str = section.resolve(&input);
-            println!("{:#?}", section_str);
+        if let Ok(doc) = parser.parse_document() {
+            args.target
+                .process_file(&input, doc, &mut stdout)
+                .expect("Failed to print output.");
         }
     }
 }
