@@ -11,8 +11,8 @@ use std::io;
 
 use clap::ValueEnum;
 
-use crate::Span;
 use crate::ast::Document;
+use crate::Span;
 
 /// The different targets that we can generate code for.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -32,9 +32,7 @@ impl Target {
         output: &mut dyn io::Write,
     ) -> io::Result<()> {
         match self {
-            Target::Debug => {
-                crate::target::debug::process_file(raw_input, parsed, output)
-            }
+            Target::Debug => crate::target::debug::process_file(raw_input, parsed, output),
             Target::Help => {
                 // We should not get here, the CLI parser handles this case.
                 panic!("This pseudo-target should not be used for processing.");

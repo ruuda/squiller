@@ -7,8 +7,8 @@
 
 use std::io;
 
-use crate::Span;
 use crate::ast::{Document, Fragment, Section};
+use crate::Span;
 
 /// Pretty-print the parsed file, for debugging purposes.
 pub fn process_file(
@@ -35,17 +35,28 @@ pub fn process_file(
                     writeln!(out, "{}--{}", red, doc_line.resolve(input))?;
                 }
 
-                writeln!(out, "{}-- {}@query{} {}", reset, green, reset, annotation.name.resolve(input))?;
+                writeln!(
+                    out,
+                    "{}-- {}@query{} {}",
+                    reset,
+                    green,
+                    reset,
+                    annotation.name.resolve(input)
+                )?;
 
                 for param in &annotation.parameters {
-                    writeln!(out, "{}-- {}: {}{:?}",
+                    writeln!(
+                        out,
+                        "{}-- {}: {}{:?}",
                         reset,
                         param.ident.resolve(input),
                         yellow,
                         param.type_.resolve(input),
                     )?;
                 }
-                writeln!(out, "{}-- -> {}{:?}{}",
+                writeln!(
+                    out,
+                    "{}-- -> {}{:?}{}",
                     reset,
                     yellow,
                     annotation.result_type.resolve(input),
