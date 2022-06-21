@@ -181,7 +181,14 @@ impl<'a> Parser<'a> {
     ///
     /// The cursor must be on the opening bracket, and this method will consume
     /// everything up to and including the matching closing bracket.
-    fn consume_until_matching_close(&mut self) -> PResult<()> {
+    ///
+    /// If any parameter is encountered inside the brackets, the span is added
+    /// to the list of fragments, and the current fragment is updated.
+    fn consume_until_matching_close(
+        &mut self,
+        fragments: &mut Vec<Fragment>,
+        fragment: &mut Span,
+    ) -> PResult<()> {
         let start_token = self
             .peek()
             .expect("Must be called with opening token under cursor.");
@@ -194,6 +201,7 @@ impl<'a> Parser<'a> {
         self.consume();
 
         while let Some(token) = self.peek() {
+            let span = self.tokens[self.cursor].1;
             self.consume();
 
             if token == end_token {
@@ -204,11 +212,18 @@ impl<'a> Parser<'a> {
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
                     // TODO: This might cause a stack overflow for deeply nested
                     // parens. Add some kind of depth counter to limit this.
-                    self.consume_until_matching_close()?;
+                    self.consume_until_matching_close(fragments, fragment)?;
                 }
                 sql::Token::RParen => return self.error("Found unmatched ')'."),
                 sql::Token::RBrace => return self.error("Found unmatched '}'."),
                 sql::Token::RBracket => return self.error("Found unmatched ']'."),
+                sql::Token::Param => {
+                    fragment.end = span.start;
+                    fragments.push(Fragment::Verbatim(*fragment));
+                    fragments.push(Fragment::Param(span));
+                    fragment.start = span.end;
+                    fragment.end = span.end;
+                }
                 _ => {}
             }
         }
@@ -284,9 +299,7 @@ impl<'a> Parser<'a> {
                 // inside those brackets. E.g. if you have a subquery, we don't
                 // care about a "select ... as ..." inside there.
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
-                    // TODO: There can still be parameters inside parens that we
-                    // should break out as individual fragments!
-                    self.consume_until_matching_close()?;
+                    self.consume_until_matching_close(&mut fragments, &mut fragment)?;
                 }
                 sql::Token::Ident => match span.resolve(self.input) {
                     // TODO: Recognize keyword in the lexer.
