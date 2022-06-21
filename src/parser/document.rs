@@ -191,7 +191,9 @@ impl<'a> Parser<'a> {
 
             match token {
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
-                    return self.consume_until_matching_close();
+                    // TODO: This might cause a stack overflow for deeply nested
+                    // parens. Add some kind of depth counter to limit this.
+                    self.consume_until_matching_close()?;
                 }
                 sql::Token::RParen => return self.error("Found unmatched ')'."),
                 sql::Token::RBrace => return self.error("Found unmatched '}'."),
