@@ -8,7 +8,7 @@
 use std::io;
 
 use crate::Span;
-use crate::ast::{Document, Section};
+use crate::ast::{Document, Fragment, Section};
 
 /// Pretty-print the parsed file, for debugging purposes.
 pub fn process_file(
@@ -19,7 +19,8 @@ pub fn process_file(
     let red = "\x1b[31m";
     let green = "\x1b[32m";
     let yellow = "\x1b[33m";
-    let blue = "\x1b[34m";
+    let blue = "\x1b[34;1m";
+    let white = "\x1b[37;1m";
     let reset = "\x1b[0m";
 
     for section in &parsed.sections {
@@ -30,7 +31,6 @@ pub fn process_file(
             Section::Query(query) => {
                 let annotation = &query.annotation;
 
-                write!(out, "{}", blue)?;
                 for doc_line in &query.docs {
                     writeln!(out, "{}--{}", red, doc_line.resolve(input))?;
                 }
@@ -51,6 +51,20 @@ pub fn process_file(
                     annotation.result_type.resolve(input),
                     reset,
                 )?;
+
+                for fragment in &query.fragments {
+                    match fragment {
+                        Fragment::Verbatim(s) => {
+                            write!(out, "{}", s.resolve(input))?;
+                        }
+                        Fragment::TypedIdent(raw, _parsed) => {
+                            write!(out, "{}{}{}", blue, raw.resolve(input), reset)?;
+                        }
+                        Fragment::Param(s) => {
+                            write!(out, "{}{}{}", white, s.resolve(input), reset)?;
+                        }
+                    }
+                }
             }
         }
     }
