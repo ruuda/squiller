@@ -63,7 +63,7 @@ impl<'a> Parser<'a> {
     pub fn parse_section(&mut self) -> PResult<Section> {
         debug_assert!(
             self.peek().is_some(),
-            "Cannot call `pase_section` with no tokens left.",
+            "Cannot call `parse_section` with no tokens left.",
         );
 
         let section_start_span = self.tokens[self.cursor].1;
