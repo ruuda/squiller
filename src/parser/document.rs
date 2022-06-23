@@ -115,7 +115,6 @@ impl<'a> Parser<'a> {
                     if span_bytes.contains(&b'@') {
                         let mut comment_lexer = ann::Lexer::new(self.input);
                         comment_lexer.run(comment_span);
-                        // TODO
                         match comment_lexer.tokens().first() {
                             // If the comment starts with an annotation, then
                             // this means we are inside a query section, and we
@@ -162,6 +161,7 @@ impl<'a> Parser<'a> {
                         end: span.end,
                     };
                     comment_lexer.run(comment_span);
+                    self.consume();
                 }
                 None => {
                     return self.error("Unexpected end of input, expected query after annotation.")
@@ -347,5 +347,47 @@ impl<'a> Parser<'a> {
         }
 
         self.error("Unexpected end of input, annotated query does not end with ';'.")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Parser;
+    use crate::ast::{Annotation, Fragment, Query, Section, Type, TypedIdent};
+    use crate::lexer::sql::Lexer;
+
+    fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {
+        let tokens = Lexer::new(input).run();
+        let mut parser = Parser::new(input, &tokens);
+        f(&mut parser)
+    }
+
+    #[test]
+    fn parse_section_handles_newline_in_annotation() {
+        let input = b"
+        -- @query multiline_signature(
+        --   key: &str,
+        --   value: &str,
+        -- ) -> i64
+        SELECT * FROM kv;
+        ";
+        with_parser(input, |p| {
+            let result = p.parse_section().unwrap().resolve(input);
+            let expected = Section::Query(Query {
+                docs: vec![],
+                annotation: Annotation {
+                    name: "multiline_signature",
+                    parameters: vec![
+                        TypedIdent { ident: "key", type_: Type::Simple("&str") },
+                        TypedIdent { ident: "value", type_: Type::Simple("&str") },
+                    ],
+                    result_type: Type::Simple("i64"),
+                },
+                fragments: vec![
+                    Fragment::Verbatim("SELECT * FROM kv;")
+                ],
+            });
+            assert_eq!(result, expected);
+        });
     }
 }
