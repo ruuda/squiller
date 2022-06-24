@@ -23,7 +23,7 @@ pub trait Error {
     /// Optionally, a note about error.
     ///
     /// For example, an unmatched parenthesis can point to the opening paren.
-    fn note(&self) -> Option<(&str, Option<Span>)>;
+    fn note(&self) -> Option<(&str, Span)>;
 
     /// Optionally, a hint on how to fix the problem.
     fn hint(&self) -> Option<&str>;
@@ -39,11 +39,9 @@ impl dyn Error {
         print!("{}", highlight);
         println!("{}Error:{} {}", bold_red, reset, self.message());
 
-        if let Some((note, opt_note_span)) = self.note() {
-            if let Some(note_span) = opt_note_span {
-                let highlight = highlight_span_in_line(fname, input, note_span, bold_yellow);
-                print!("\n{}", highlight);
-            }
+        if let Some((note, note_span)) = self.note() {
+            let highlight = highlight_span_in_line(fname, input, note_span, bold_yellow);
+            print!("\n{}", highlight);
             println!("{}Note:{} {}", bold_yellow, reset, note);
         }
 
@@ -116,6 +114,7 @@ fn highlight_span_in_line(
 pub struct ParseError {
     pub span: Span,
     pub message: &'static str,
+    pub note: Option<(&'static str, Span)>,
 }
 
 impl From<ParseError> for Box<dyn Error> {
@@ -127,7 +126,7 @@ impl From<ParseError> for Box<dyn Error> {
 impl Error for ParseError {
     fn span(&self) -> Span { self.span }
     fn message(&self) -> &str { self.message }
-    fn note(&self) -> Option<(&str, Option<Span>)> { None }
+    fn note(&self) -> Option<(&str, Span)> { self.note }
     fn hint(&self) -> Option<&str> { None }
 }
 

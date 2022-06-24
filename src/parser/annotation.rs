@@ -33,7 +33,13 @@ impl<'a> Parser<'a> {
             .get(self.cursor)
             .map(|t| t.1)
             .unwrap_or(Span { start: 0, end: 0 });
-        let err = ParseError { span, message };
+
+        let err = ParseError {
+            span,
+            message,
+            note: None,
+        };
+
         Err(err)
     }
 

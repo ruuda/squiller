@@ -36,8 +36,20 @@ impl<'a> Parser<'a> {
             .get(self.cursor)
             .map(|t| t.1)
             .unwrap_or(Span { start: 0, end: 0 });
-        let err = ParseError { span, message };
+
+        let err = ParseError {
+            span,
+            message,
+            note: None,
+        };
+
         Err(err)
+    }
+
+    /// Build a parse error at the current cursor location, and a note elsewhere.
+    fn error_with_note<T>(&self, message: &'static str, note_span: Span, note: &'static str) -> PResult<T> {
+        self.error(message)
+            .map_err(|err| ParseError { note: Some((note, note_span)), ..err })
     }
 
     /// Return the token under the cursor, if there is one.
@@ -196,15 +208,16 @@ impl<'a> Parser<'a> {
             sql::Token::LParen => sql::Token::RParen,
             sql::Token::LBrace => sql::Token::RBrace,
             sql::Token::LBracket => sql::Token::RBracket,
-            _ => panic!("Invalid start token for this method."),
+            _ => panic!("Invalid start token for this method: {:?}.", start_token),
         };
+        let start_span = self.tokens[self.cursor].1;
         self.consume();
 
         while let Some(token) = self.peek() {
             let span = self.tokens[self.cursor].1;
-            self.consume();
 
             if token == end_token {
+                self.consume();
                 return Ok(());
             }
 
@@ -223,17 +236,29 @@ impl<'a> Parser<'a> {
                     fragments.push(Fragment::Param(span));
                     fragment.start = span.end;
                     fragment.end = span.end;
+                    self.consume();
                 }
-                _ => {}
+                sql::Token::Semicolon => {
+                    // The statement ends here, but we havent' found a closing
+                    // bracket yet, fall through to the end error here.
+                    break
+                }
+                _ => {
+                    self.consume();
+                }
             }
         }
 
-        // TODO: With more detailed error types, we could even point out the
-        // bracket that is not closed.
         match end_token {
-            sql::Token::RParen => self.error("Found unclosed '('."),
-            sql::Token::RBrace => self.error("Found unclosed '{'."),
-            sql::Token::RBracket => self.error("Found unclosed '['."),
+            sql::Token::RParen => self.error_with_note(
+                "Expected ')'.", start_span, "Unmatched '(' opened here.",
+            ),
+            sql::Token::RBrace => self.error_with_note(
+                "Expected '}'.", start_span, "Unmatched '{' opened here.",
+            ),
+            sql::Token::RBracket => self.error_with_note(
+                "Expected ']'.", start_span, "Unmatched '[' opened here.",
+            ),
             _ => unreachable!("End token is one of the above three."),
         }
     }
@@ -354,6 +379,7 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{Annotation, Fragment, Query, Section, Type, TypedIdent};
+    use crate::error::Error;
     use crate::lexer::sql::Lexer;
 
     fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {
@@ -388,6 +414,20 @@ mod test {
                 ],
             });
             assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
+    fn unmatched_paren_at_statement_end_causes_error() {
+        let input = b"
+        -- @query q()
+        SELECT ( FROM t;
+        ";
+        with_parser(input, |p| {
+            let result = p.parse_section();
+            assert!(result.is_err());
+            let err: Box<dyn Error> = result.err().unwrap().into();
+            assert!(err.message().contains("Expected ')'"));
         });
     }
 }
