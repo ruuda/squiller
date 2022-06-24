@@ -116,10 +116,9 @@ impl<'a> Lexer<'a> {
         if input[0].is_ascii_punctuation() {
             return (self.start, State::InPunct);
         }
-        if input[0].is_ascii_alphabetic() {
+        if input[0].is_ascii_alphabetic() || input[0].is_ascii_digit() {
             return (self.start, State::InIdent);
         }
-        // TODO: Deal with numbers.
         panic!(
             "I don't know what to do with this byte here: {} (0x{:02x})",
             char::from_u32(input[0] as u32).unwrap(),
