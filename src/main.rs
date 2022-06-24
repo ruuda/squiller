@@ -8,6 +8,7 @@
 use std::io;
 use std::path::PathBuf;
 
+use querybinder::error::Error;
 use querybinder::lexer::sql::Lexer;
 use querybinder::parser::document::Parser;
 use querybinder::target::Target;
@@ -78,7 +79,8 @@ fn main() {
                     .expect("Failed to print output.");
             }
             Err(err) => {
-                eprintln!("Error: {:#?}", err);
+                let err: Box<dyn Error> = err.into();
+                err.print(&fname, &input);
                 std::process::exit(1);
             }
         }

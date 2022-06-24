@@ -41,4 +41,8 @@ impl Span {
         use std::str;
         str::from_utf8(&input[self.start..self.end]).expect("Input is not valid UTF-8.")
     }
+
+    pub fn len(&self) -> usize {
+        self.end - self.start
+    }
 }
