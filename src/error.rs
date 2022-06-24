@@ -51,22 +51,19 @@ impl dyn Error {
     }
 }
 
-fn highlight_span_in_line(
-    fname: &Path,
-    input: &[u8],
-    span: Span,
-    highlight_ansi: &str,
-) -> String {
+fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi: &str) -> String {
     use std::cmp;
-    use std::iter;
     use std::fmt::Write;
+    use std::iter;
 
     // Locate the line that contains the error.
     let mut line = 1;
     let mut line_start = 0;
     let mut line_end = 0;
     for (&c, i) in input.iter().zip(0..) {
-        if i == span.start { break }
+        if i == span.start {
+            break;
+        }
         if c == b'\n' {
             line += 1;
             line_start = i + 1;
@@ -75,7 +72,7 @@ fn highlight_span_in_line(
     for (&c, i) in input[line_start..].iter().zip(line_start..) {
         if c == b'\n' {
             line_end = i;
-            break
+            break;
         }
     }
 
@@ -102,10 +99,27 @@ fn highlight_span_in_line(
 
     let mut result = String::new();
     // Note, the unwraps here are safe because writing to a string does not fail.
-    writeln!(&mut result, "{}--> {}:{}:{}", line_num_pad, fname_str, line, span.start - line_start).unwrap();
+    writeln!(
+        &mut result,
+        "{}--> {}:{}:{}",
+        line_num_pad,
+        fname_str,
+        line,
+        span.start - line_start
+    )
+    .unwrap();
     writeln!(&mut result, "{} |", line_num_pad).unwrap();
     writeln!(&mut result, "{} | {}", line_num_str, line_content).unwrap();
-    writeln!(&mut result, "{} | {}{}^{}{}", line_num_pad, mark_indent, highlight_ansi, &mark_under[1..], reset).unwrap();
+    writeln!(
+        &mut result,
+        "{} | {}{}^{}{}",
+        line_num_pad,
+        mark_indent,
+        highlight_ansi,
+        &mark_under[1..],
+        reset
+    )
+    .unwrap();
 
     result
 }
@@ -124,10 +138,18 @@ impl From<ParseError> for Box<dyn Error> {
 }
 
 impl Error for ParseError {
-    fn span(&self) -> Span { self.span }
-    fn message(&self) -> &str { self.message }
-    fn note(&self) -> Option<(&str, Span)> { self.note }
-    fn hint(&self) -> Option<&str> { None }
+    fn span(&self) -> Span {
+        self.span
+    }
+    fn message(&self) -> &str {
+        self.message
+    }
+    fn note(&self) -> Option<(&str, Span)> {
+        self.note
+    }
+    fn hint(&self) -> Option<&str> {
+        None
+    }
 }
 
 /// A parse result, either the parsed value, or a parse error.

@@ -38,7 +38,10 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| {
                 self.tokens
                     .last()
-                    .map(|t| Span { start: t.1.end, end: t.1.end })
+                    .map(|t| Span {
+                        start: t.1.end,
+                        end: t.1.end,
+                    })
                     .unwrap_or(Span { start: 0, end: 0 })
             });
 
@@ -52,9 +55,16 @@ impl<'a> Parser<'a> {
     }
 
     /// Build a parse error at the current cursor location, and a note elsewhere.
-    fn error_with_note<T>(&self, message: &'static str, note_span: Span, note: &'static str) -> PResult<T> {
-        self.error(message)
-            .map_err(|err| ParseError { note: Some((note, note_span)), ..err })
+    fn error_with_note<T>(
+        &self,
+        message: &'static str,
+        note_span: Span,
+        note: &'static str,
+    ) -> PResult<T> {
+        self.error(message).map_err(|err| ParseError {
+            note: Some((note, note_span)),
+            ..err
+        })
     }
 
     /// Return the token under the cursor, if there is one.
@@ -246,7 +256,7 @@ impl<'a> Parser<'a> {
                 sql::Token::Semicolon => {
                     // The statement ends here, but we havent' found a closing
                     // bracket yet, fall through to the end error here.
-                    break
+                    break;
                 }
                 _ => {
                     self.consume();
@@ -255,15 +265,15 @@ impl<'a> Parser<'a> {
         }
 
         match end_token {
-            sql::Token::RParen => self.error_with_note(
-                "Expected ')'.", start_span, "Unmatched '(' opened here.",
-            ),
-            sql::Token::RBrace => self.error_with_note(
-                "Expected '}'.", start_span, "Unmatched '{' opened here.",
-            ),
-            sql::Token::RBracket => self.error_with_note(
-                "Expected ']'.", start_span, "Unmatched '[' opened here.",
-            ),
+            sql::Token::RParen => {
+                self.error_with_note("Expected ')'.", start_span, "Unmatched '(' opened here.")
+            }
+            sql::Token::RBrace => {
+                self.error_with_note("Expected '}'.", start_span, "Unmatched '{' opened here.")
+            }
+            sql::Token::RBracket => {
+                self.error_with_note("Expected ']'.", start_span, "Unmatched '[' opened here.")
+            }
             _ => unreachable!("End token is one of the above three."),
         }
     }
@@ -304,7 +314,7 @@ impl<'a> Parser<'a> {
                     self.cursor -= 1;
                     return self.error(
                         "Unexpected token, expected a quoted typed column, e.g. \"age: u64\".",
-                    )
+                    );
                 }
             }
         }
@@ -417,14 +427,18 @@ mod test {
                 annotation: Annotation {
                     name: "multiline_signature",
                     parameters: vec![
-                        TypedIdent { ident: "key", type_: Type::Simple("&str") },
-                        TypedIdent { ident: "value", type_: Type::Simple("&str") },
+                        TypedIdent {
+                            ident: "key",
+                            type_: Type::Simple("&str"),
+                        },
+                        TypedIdent {
+                            ident: "value",
+                            type_: Type::Simple("&str"),
+                        },
                     ],
                     result_type: Type::Simple("i64"),
                 },
-                fragments: vec![
-                    Fragment::Verbatim("SELECT * FROM kv;")
-                ],
+                fragments: vec![Fragment::Verbatim("SELECT * FROM kv;")],
             });
             assert_eq!(result, expected);
         });

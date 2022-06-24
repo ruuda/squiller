@@ -35,7 +35,10 @@ impl<'a> Parser<'a> {
             .unwrap_or_else(|| {
                 self.tokens
                     .last()
-                    .map(|t| Span { start: t.1.end, end: t.1.end })
+                    .map(|t| Span {
+                        start: t.1.end,
+                        end: t.1.end,
+                    })
                     .expect("Should not try to parse annotation without tokens.")
             });
 
@@ -49,9 +52,16 @@ impl<'a> Parser<'a> {
     }
 
     /// Build a parse error at the current cursor location, and a note elsewhere.
-    fn error_with_note<T>(&self, message: &'static str, note_span: Span, note: &'static str) -> PResult<T> {
-        self.error(message)
-            .map_err(|err| ParseError { note: Some((note, note_span)), ..err })
+    fn error_with_note<T>(
+        &self,
+        message: &'static str,
+        note_span: Span,
+        note: &'static str,
+    ) -> PResult<T> {
+        self.error(message).map_err(|err| ParseError {
+            note: Some((note, note_span)),
+            ..err
+        })
     }
 
     /// Return the token under the cursor, if there is one.
