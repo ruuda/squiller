@@ -48,6 +48,12 @@ impl<'a> Parser<'a> {
         Err(err)
     }
 
+    /// Build a parse error at the current cursor location, and a note elsewhere.
+    fn error_with_note<T>(&self, message: &'static str, note_span: Span, note: &'static str) -> PResult<T> {
+        self.error(message)
+            .map_err(|err| ParseError { note: Some((note, note_span)), ..err })
+    }
+
     /// Return the token under the cursor, if there is one.
     fn peek(&self) -> Option<Token> {
         self.tokens.get(self.cursor).map(|t| t.0)
@@ -171,6 +177,8 @@ impl<'a> Parser<'a> {
             Token::LParen,
             "Expected a '(' here to start the parameter list.",
         )?;
+        let start_span = self.tokens[self.cursor - 1].1;
+
         let mut elements = Vec::new();
         loop {
             if let Some(Token::RParen) = self.peek() {
@@ -198,7 +206,11 @@ impl<'a> Parser<'a> {
                 }
 
                 None => {
-                    return self.error("Unexpected end of input, a parameter list is not closed.")
+                    return self.error_with_note(
+                        "Unexpected end of input, expected ')' to close a parameter list.",
+                        start_span,
+                        "Unmatched '(' opened here.",
+                    )
                 }
             }
         }
