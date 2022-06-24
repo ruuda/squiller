@@ -289,7 +289,7 @@ impl<'a> Parser<'a> {
                     lexer.run(unquoted_span);
 
                     if lexer.tokens().len() == 0 {
-                        // Unconsume the token so we can report an error.
+                        // Unconsume the token so we can report an error on it.
                         self.cursor -= 1;
                         return self.error("Expected a quoted typed column, e.g. \"age: u64\".");
                     }
@@ -300,6 +300,8 @@ impl<'a> Parser<'a> {
                     return Ok((span, result));
                 }
                 _ => {
+                    // Unconsume the token so we can report an error on it.
+                    self.cursor -= 1;
                     return self.error(
                         "Unexpected token, expected a quoted typed column, e.g. \"age: u64\".",
                     )
@@ -451,6 +453,18 @@ mod test {
         with_parser(input, |p| {
             let err = p.parse_section().err().unwrap();
             assert_eq!(err.span.resolve(input), "\"\"");
+        });
+    }
+
+    #[test]
+    fn unexpected_token_after_as_returns_error_on_that_token() {
+        let input = br#"
+        -- @query q()
+        SELECT wow AS very_error FROM such_table;
+        "#;
+        with_parser(input, |p| {
+            let err = p.parse_section().err().unwrap();
+            assert_eq!(err.span.resolve(input), "very_error");
         });
     }
 }
