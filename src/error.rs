@@ -31,24 +31,34 @@ pub trait Error {
 
 impl dyn Error {
     pub fn print(&self, fname: &Path, input: &[u8]) {
-        let highlight = highlight_span_in_line(fname, input, self.span());
-        print!("Error: {}\n{}", self.message(), highlight);
+        let bold_red = "\x1b[31;1m";
+        let bold_yellow = "\x1b[33;1m";
+        let reset = "\x1b[0m";
+
+        let highlight = highlight_span_in_line(fname, input, self.span(), bold_red);
+        print!("{}", highlight);
+        println!("{}Error:{} {}", bold_red, reset, self.message());
 
         if let Some((note, opt_note_span)) = self.note() {
-            println!("Note: {}", note);
             if let Some(note_span) = opt_note_span {
-                let highlight = highlight_span_in_line(fname, input, note_span);
-                print!("{}", highlight);
+                let highlight = highlight_span_in_line(fname, input, note_span, bold_yellow);
+                print!("\n{}", highlight);
             }
+            println!("{}Note:{} {}", bold_yellow, reset, note);
         }
 
         if let Some(hint) = self.hint() {
-            println!("Hint: {}", hint);
+            println!("{}Hint:{} {}", bold_yellow, reset, hint);
         }
     }
 }
 
-fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span) -> String {
+fn highlight_span_in_line(
+    fname: &Path,
+    input: &[u8],
+    span: Span,
+    highlight_ansi: &str,
+) -> String {
     use std::cmp;
     use std::iter;
     use std::fmt::Write;
@@ -90,12 +100,14 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span) -> String {
     let mark_under: String = iter::repeat('~').take(mark_len).collect();
     let fname_str = fname.to_string_lossy();
 
+    let reset = "\x1b[0m";
+
     let mut result = String::new();
     // Note, the unwraps here are safe because writing to a string does not fail.
-    writeln!(&mut result, "--> {}:{}:{}", fname_str, line, span.start - line_start).unwrap();
+    writeln!(&mut result, "{}--> {}:{}:{}", line_num_pad, fname_str, line, span.start - line_start).unwrap();
     writeln!(&mut result, "{} |", line_num_pad).unwrap();
     writeln!(&mut result, "{} | {}", line_num_str, line_content).unwrap();
-    writeln!(&mut result, "{} | {}^{}", line_num_pad, mark_indent, &mark_under[1..]).unwrap();
+    writeln!(&mut result, "{} | {}{}^{}{}", line_num_pad, mark_indent, highlight_ansi, &mark_under[1..], reset).unwrap();
 
     result
 }
