@@ -26,7 +26,7 @@ fn is_ascii_identifier(ch: u8) -> bool {
 }
 
 /// Marks a location in the source file by byte offset.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Span {
     /// Start of the token, inclusive.
     pub start: usize,

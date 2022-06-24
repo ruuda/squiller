@@ -32,7 +32,12 @@ impl<'a> Parser<'a> {
             .tokens
             .get(self.cursor)
             .map(|t| t.1)
-            .unwrap_or(Span { start: 0, end: 0 });
+            .unwrap_or_else(|| {
+                self.tokens
+                    .last()
+                    .map(|t| Span { start: t.1.end, end: t.1.end })
+                    .unwrap_or(Span { start: 0, end: 0 })
+            });
 
         let err = ParseError {
             span,
@@ -426,6 +431,15 @@ mod test {
                 result_type: Type::Simple("i64"),
             };
             assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
+    fn test_error_on_unexpected_end_is_past_end() {
+        let input = b"id:";
+        with_parser(input, |p| {
+            let err = p.parse_typed_ident().err().unwrap();
+            assert_eq!(err.span, Span { start: 3, end: 3 });
         });
     }
 }
