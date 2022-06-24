@@ -35,7 +35,12 @@ impl<'a> Parser<'a> {
             .tokens
             .get(self.cursor)
             .map(|t| t.1)
-            .unwrap_or(Span { start: 0, end: 0 });
+            .unwrap_or_else(|| {
+                self.tokens
+                    .last()
+                    .map(|t| Span { start: t.1.end, end: t.1.end })
+                    .unwrap_or(Span { start: 0, end: 0 })
+            });
 
         let err = ParseError {
             span,
@@ -283,6 +288,12 @@ impl<'a> Parser<'a> {
                     };
                     lexer.run(unquoted_span);
 
+                    if lexer.tokens().len() == 0 {
+                        // Unconsume the token so we can report an error.
+                        self.cursor -= 1;
+                        return self.error("Expected a quoted typed column, e.g. \"age: u64\".");
+                    }
+
                     // Then parse that.
                     let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
                     let result = parser.parse_typed_ident()?;
@@ -428,6 +439,18 @@ mod test {
             assert!(result.is_err());
             let err: Box<dyn Error> = result.err().unwrap().into();
             assert!(err.message().contains("Expected ')'"));
+        });
+    }
+
+    #[test]
+    fn empty_double_quoted_is_error_typed_ident() {
+        let input = br#"
+        -- @query q()
+        SELECT id as "" FROM t;
+        "#;
+        with_parser(input, |p| {
+            let err = p.parse_section().err().unwrap();
+            assert_eq!(err.span.resolve(input), "\"\"");
         });
     }
 }

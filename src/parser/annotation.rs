@@ -36,7 +36,7 @@ impl<'a> Parser<'a> {
                 self.tokens
                     .last()
                     .map(|t| Span { start: t.1.end, end: t.1.end })
-                    .unwrap_or(Span { start: 0, end: 0 })
+                    .expect("Should not try to parse annotation without tokens.")
             });
 
         let err = ParseError {
