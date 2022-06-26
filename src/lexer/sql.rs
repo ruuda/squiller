@@ -11,6 +11,7 @@ enum State {
     InSpace,
     InIdent,
     InPunct,
+    InControl,
     Done,
 }
 
@@ -19,6 +20,7 @@ pub enum Token {
     Space,
     Ident,
     Punct,
+    Control,
     Param,
     SingleQuoted,
     DoubleQuoted,
@@ -69,6 +71,7 @@ impl<'a> Lexer<'a> {
                 State::InSpace => self.lex_in_space(),
                 State::InIdent => self.lex_in_ident(),
                 State::InPunct => self.lex_in_punct(),
+                State::InControl => self.lex_in_control(),
                 State::Done => break,
             };
 
@@ -118,6 +121,9 @@ impl<'a> Lexer<'a> {
         }
         if input[0].is_ascii_alphabetic() || input[0].is_ascii_digit() {
             return (self.start, State::InIdent);
+        }
+        if input[0].is_ascii_control() {
+            return (self.start, State::InControl);
         }
         panic!(
             "I don't know what to do with this byte here: {} (0x{:02x})",
@@ -224,6 +230,10 @@ impl<'a> Lexer<'a> {
         };
         self.push(token, 1);
         (self.start + 1, State::Base)
+    }
+
+    fn lex_in_control(&mut self) -> (usize, State) {
+        self.lex_while(|ch| ch.is_ascii_control(), Token::Control)
     }
 }
 
