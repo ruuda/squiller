@@ -63,7 +63,7 @@ fn process_input(
     out: &mut dyn io::Write,
 ) -> Result<(), Box<dyn Error>> {
     let input_str = querybinder::str_from_utf8(input_bytes)?;
-    let tokens = Lexer::new(&input_str).run();
+    let tokens = Lexer::new(&input_str).run()?;
     let mut parser = Parser::new(&input_str, &tokens);
     let doc = parser.parse_document()?;
     target

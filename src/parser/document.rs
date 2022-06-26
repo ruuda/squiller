@@ -406,7 +406,7 @@ mod test {
     use crate::lexer::sql::Lexer;
 
     fn with_parser<F: FnOnce(&mut Parser)>(input: &str, f: F) {
-        let tokens = Lexer::new(input).run();
+        let tokens = Lexer::new(input).run().expect("Failed to lex the input.");
         let mut parser = Parser::new(input, &tokens);
         f(&mut parser)
     }

@@ -1,5 +1,6 @@
 use crate::is_ascii_identifier;
 use crate::Span;
+use crate::error::{ParseError, PResult};
 
 #[derive(Debug)]
 enum State {
@@ -11,8 +12,6 @@ enum State {
     InSpace,
     InIdent,
     InPunct,
-    InControl,
-    InMultibyte,
     Done,
 }
 
@@ -22,10 +21,6 @@ pub enum Token {
     Space,
     /// A sequence of ascii alphanumeric or _, not starting with a digit.
     Ident,
-    /// A sequence of ascii control characters.
-    Control,
-    /// A sequence of non-ascii code points.
-    Unicode,
     /// A query parameter, starting with `:`.
     Param,
     /// Content between single quotes.
@@ -77,11 +72,32 @@ impl<'a> Lexer<'a> {
         self.tokens.push((token, span));
     }
 
+    /// Build a parse error at the current cursor location.
+    fn error_while<F: FnMut(u8) -> bool, T>(&self, mut include: F, message: &'static str) -> PResult<T> {
+        let input = &self.input.as_bytes()[self.start..];
+        let mut err_end = self.start;
+        for ch in input {
+            if include(*ch) {
+                err_end += 1;
+                continue;
+            }
+        }
+        let error = ParseError {
+            span: Span {
+                start: self.start,
+                end: err_end,
+            },
+            message: message,
+            note: None,
+        };
+        Err(error)
+    }
+
     /// Lex the input until completion.
-    pub fn run(mut self) -> Vec<(Token, Span)> {
+    pub fn run(mut self) -> PResult<Vec<(Token, Span)>> {
         loop {
             let (start, state) = match self.state {
-                State::Base => self.lex_base(),
+                State::Base => self.lex_base()?,
                 State::InSingleQuote => self.lex_in_single_quote(),
                 State::InDoubleQuote => self.lex_in_double_quote(),
                 State::InComment => self.lex_in_comment(),
@@ -89,8 +105,6 @@ impl<'a> Lexer<'a> {
                 State::InSpace => self.lex_in_space(),
                 State::InIdent => self.lex_in_ident(),
                 State::InPunct => self.lex_in_punct(),
-                State::InControl => self.lex_in_control(),
-                State::InMultibyte => self.lex_in_multibyte(),
                 State::Done => break,
             };
 
@@ -111,44 +125,53 @@ impl<'a> Lexer<'a> {
             self.state = state;
         }
 
-        self.tokens
+        Ok(self.tokens)
     }
 
-    fn lex_base(&mut self) -> (usize, State) {
+    fn lex_base(&mut self) -> PResult<(usize, State)> {
         let input = &self.input.as_bytes()[self.start..];
 
         if input.len() == 0 {
-            return (self.start, State::Done);
+            return Ok((self.start, State::Done));
         }
         if input.starts_with(b"--") {
-            return (self.start, State::InComment);
+            return Ok((self.start, State::InComment));
         }
         if input.starts_with(b"'") {
-            return (self.start, State::InSingleQuote);
+            return Ok((self.start, State::InSingleQuote));
         }
         if input.starts_with(b"\"") {
-            return (self.start, State::InDoubleQuote);
+            return Ok((self.start, State::InDoubleQuote));
         }
         if input[0].is_ascii_whitespace() {
-            return (self.start, State::InSpace);
+            return Ok((self.start, State::InSpace));
         }
         if input.len() > 1 && input[0] == b':' && input[1].is_ascii_alphabetic() {
-            return (self.start, State::InParam);
+            return Ok((self.start, State::InParam));
         }
         if input[0].is_ascii_punctuation() {
-            return (self.start, State::InPunct);
+            return Ok((self.start, State::InPunct));
         }
         if input[0].is_ascii_alphabetic() || input[0].is_ascii_digit() {
-            return (self.start, State::InIdent);
+            return Ok((self.start, State::InIdent));
         }
         if input[0].is_ascii_control() {
-            return (self.start, State::InControl);
+            return self.error_while(
+                |ch| ch.is_ascii_control(),
+                "Control characters are not supported here."
+            );
         }
         if input[0] > 127 {
-            return (self.start, State::InMultibyte);
+            // Multi-byte sequences of non-ascii code points are fine in strings
+            // and comments, but not in raw SQL where we expect identifiers.
+            return self.error_while(
+                |ch| ch > 127,
+                "Non-ascii characters are not supported here.",
+            );
         }
-        panic!(
-            "I don't know what to do with this byte here: {} (0x{:02x})",
+
+        unreachable!(
+            "We should have handled all bytes, but we forgot {} (0x{:02x})",
             char::from_u32(input[0] as u32).unwrap(),
             input[0],
         );
@@ -253,14 +276,6 @@ impl<'a> Lexer<'a> {
         self.push(token, 1);
         (self.start + 1, State::Base)
     }
-
-    fn lex_in_control(&mut self) -> (usize, State) {
-        self.lex_while(|ch| ch.is_ascii_control(), Token::Control)
-    }
-
-    fn lex_in_multibyte(&mut self) -> (usize, State) {
-        self.lex_while(|ch| ch > 127, Token::Unicode)
-    }
 }
 
 #[cfg(test)]
@@ -268,7 +283,7 @@ mod test {
     use super::*;
 
     fn test_tokens(input: &str, expected_tokens: &[(Token, &str)]) {
-        let tokens = Lexer::new(input).run();
+        let tokens = Lexer::new(input).run().expect("Failed to lex at all.");
 
         for (i, expected) in expected_tokens.iter().enumerate() {
             assert!(
@@ -291,25 +306,30 @@ mod test {
     #[test]
     fn it_lexes_example_users() {
         let input = std::fs::read_to_string("examples/users.sql").unwrap();
-        Lexer::new(&input).run();
+        Lexer::new(&input).run().expect("Failed to lex input.");
     }
 
     #[test]
-    fn it_handles_ascii_control_bytes() {
-        test_tokens(
-            "\x01",
-            &[(Token::Control, "\x01")]
-        );
+    fn it_reports_an_error_for_ascii_control_bytes() {
+        let input = "\x01";
+        let error = Lexer::new(input).run().err().unwrap();
+        assert_eq!(error.span, Span { start: 0, end: 1 });
+        assert!(error.message.contains("Control characters"));
     }
 
     #[test]
-    fn it_handles_utf8_non_ascii_sequences() {
-        test_tokens(
-            "Älmhult",
-            &[
-                (Token::Unicode, "Ä"),
-                (Token::Ident, "lmhult"),
-            ]
-        );
+    fn it_reports_an_error_for_non_ascii_sequences() {
+        let input = "Älmhult";
+        let error = Lexer::new(input).run().err().unwrap();
+        assert_eq!(error.span.resolve(input), "Ä");
+        assert_eq!(error.span, Span { start: 0, end: 2 });
+        assert!(error.message.contains("Non-ascii"));
+    }
+
+    #[test]
+    fn it_complains_about_unmatched_quotes() {
+        let input = "an 'unclosed";
+        let error = Lexer::new(input).run().err().unwrap();
+        assert_eq!(error.span, Span { start: 3, end: input.len() });
     }
 }
