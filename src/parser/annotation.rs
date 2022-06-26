@@ -136,7 +136,7 @@ impl<'a> Parser<'a> {
                     Ok(Type::Simple(span))
                 }
             },
-            Some(_) => self.error("Unexpected token, expected a type here."),
+            Some(_) => self.error("Expected a type here."),
             None => self.error("Unexpected end of input, expected a type here."),
         }
     }
@@ -252,8 +252,7 @@ impl<'a> Parser<'a> {
             }
             Some(_unexpected) => {
                 return self.error(
-                    "Unexpected token, \
-                    expected either the end of the annotation and start of the query, \
+                    "Expected either the end of the annotation and start of the query, \
                     or '->' followed by a result type.",
                 )
             }

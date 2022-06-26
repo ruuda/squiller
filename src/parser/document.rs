@@ -301,7 +301,7 @@ impl<'a> Parser<'a> {
                     if lexer.tokens().len() == 0 {
                         // Unconsume the token so we can report an error on it.
                         self.cursor -= 1;
-                        return self.error("Expected a quoted typed column, e.g. \"age: u64\".");
+                        return self.error("Expected a typed column, e.g. \"age: u64\".");
                     }
 
                     // Then parse that.
@@ -313,13 +313,13 @@ impl<'a> Parser<'a> {
                     // Unconsume the token so we can report an error on it.
                     self.cursor -= 1;
                     return self.error(
-                        "Unexpected token, expected a quoted typed column, e.g. \"age: u64\".",
+                        "Expected a typed column in double quotes, e.g. \"age: u64\".",
                     );
                 }
             }
         }
 
-        self.error("Unexpected end of input, expected a quoted typed column, e.g. \"age: u64\".")
+        self.error("Unexpected end of input, expected a typed column, e.g. \"age: u64\".")
     }
 
     /// Parse a single section from the document.
