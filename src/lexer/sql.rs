@@ -98,8 +98,8 @@ impl<'a> Lexer<'a> {
         loop {
             let (start, state) = match self.state {
                 State::Base => self.lex_base()?,
-                State::InSingleQuote => self.lex_in_single_quote(),
-                State::InDoubleQuote => self.lex_in_double_quote(),
+                State::InSingleQuote => self.lex_in_single_quote()?,
+                State::InDoubleQuote => self.lex_in_double_quote()?,
                 State::InComment => self.lex_in_comment(),
                 State::InParam => self.lex_in_param(),
                 State::InSpace => self.lex_in_space(),
@@ -177,8 +177,7 @@ impl<'a> Lexer<'a> {
         );
     }
 
-    fn lex_in_quote(&mut self, quote: u8, token: Token) -> (usize, State) {
-        use std::str;
+    fn lex_in_quote(&mut self, quote: u8, token: Token) -> PResult<(usize, State)> {
         let input = &self.input.as_bytes()[self.start..];
 
         // Skip over the initial opening quote.
@@ -190,22 +189,26 @@ impl<'a> Lexer<'a> {
             }
             if ch == quote {
                 self.push(token, i + 1);
-                return (self.start + i + 1, State::Base);
+                return Ok((self.start + i + 1, State::Base));
             }
         }
 
-        panic!(
-            "Unclosed quote: {} for input {}",
-            char::from_u32(quote as u32).unwrap(),
-            str::from_utf8(input).unwrap(),
-        );
+        let error = ParseError {
+            span: Span {
+                start: self.start,
+                end: self.input.len(),
+            },
+            message: "Unexpected end of input, string literal is not closed.",
+            note: None,
+        };
+        Err(error)
     }
 
-    fn lex_in_single_quote(&mut self) -> (usize, State) {
+    fn lex_in_single_quote(&mut self) -> PResult<(usize, State)> {
         self.lex_in_quote(b'\'', Token::SingleQuoted)
     }
 
-    fn lex_in_double_quote(&mut self) -> (usize, State) {
+    fn lex_in_double_quote(&mut self) -> PResult<(usize, State)> {
         self.lex_in_quote(b'"', Token::DoubleQuoted)
     }
 
@@ -304,13 +307,45 @@ mod test {
     }
 
     #[test]
-    fn it_lexes_example_users() {
+    fn example_file_users_can_be_lexed() {
         let input = std::fs::read_to_string("examples/users.sql").unwrap();
         Lexer::new(&input).run().expect("Failed to lex input.");
     }
 
     #[test]
-    fn it_reports_an_error_for_ascii_control_bytes() {
+    fn it_lexes_simple_tokens() {
+        let input = r#"
+        -- Comment
+        SELECT 'a' FROM "b" WHERE :c = 1;
+        "#;
+        test_tokens(
+            input,
+            &[
+                (Token::Space, "\n        "),
+                (Token::Comment, "-- Comment"),
+                (Token::Space, "\n        "),
+                (Token::Ident, "SELECT"),
+                (Token::Space, " "),
+                (Token::SingleQuoted, "'a'"),
+                (Token::Space, " "),
+                (Token::Ident, "FROM"),
+                (Token::Space, " "),
+                (Token::DoubleQuoted, "\"b\""),
+                (Token::Space, " "),
+                (Token::Ident, "WHERE"),
+                (Token::Space, " "),
+                (Token::Param, ":c"),
+                (Token::Space, " "),
+                (Token::Punct, "="),
+                (Token::Space, " "),
+                (Token::Ident, "1"),
+                (Token::Semicolon, ";"),
+            ],
+        );
+    }
+
+    #[test]
+    fn ascii_control_bytes_result_in_error() {
         let input = "\x01";
         let error = Lexer::new(input).run().err().unwrap();
         assert_eq!(error.span, Span { start: 0, end: 1 });
@@ -318,7 +353,7 @@ mod test {
     }
 
     #[test]
-    fn it_reports_an_error_for_non_ascii_sequences() {
+    fn non_ascii_sequences_result_in_error() {
         let input = "Älmhult";
         let error = Lexer::new(input).run().err().unwrap();
         assert_eq!(error.span.resolve(input), "Ä");
@@ -327,9 +362,10 @@ mod test {
     }
 
     #[test]
-    fn it_complains_about_unmatched_quotes() {
+    fn unmatched_quotes_result_in_error() {
         let input = "an 'unclosed";
         let error = Lexer::new(input).run().err().unwrap();
         assert_eq!(error.span, Span { start: 3, end: input.len() });
+        assert_eq!(error.span.resolve(input), "'unclosed");
     }
 }
