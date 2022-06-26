@@ -76,6 +76,9 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
             break;
         }
     }
+    if line_end <= line_start {
+        line_end = input.len();
+    }
 
     // Try as best as we can to report the error. However, if the parse failed
     // because the input was invalid UTF-8, there is little we can do.
@@ -84,16 +87,14 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
     // The length of the mark can be longer than the line, for example when
     // token to mark was a multiline string literal. In that case, highlight
     // only up to the newline, don't extend the tildes too far.
-    let mark_len = cmp::max(
-        1,
-        cmp::min(span.len(), line_content.len() + line_start - span.start),
-    );
+    let indent_content = &line_content[..span.start - line_start];
+    let as_of_error = &line_content[span.start - line_start..];
+    let error_content = &as_of_error[..cmp::min(span.len(), as_of_error.len())];
+
     // The width of the error is not necessarily the number of bytes,
     // measure the Unicode width of the span to underline.
-    let indent_content = &line_content[..span.start - line_start];
-    let error_content = &line_content[span.start - line_start..][..mark_len];
     let indent_width = indent_content.width();
-    let mark_width = error_content.width();
+    let mark_width = cmp::max(1, error_content.width());
 
     let line_num_str = line.to_string();
     let line_num_pad: String = line_num_str.chars().map(|_| ' ').collect();
@@ -160,3 +161,22 @@ impl Error for ParseError {
 
 /// A parse result, either the parsed value, or a parse error.
 pub type PResult<T> = std::result::Result<T, ParseError>;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn highlight_span_handles_eof_span() {
+        let fname: PathBuf = "x.sql".into();
+        let input = b"foo";
+        let color = "";
+        let span = Span { start: 3, end: 3 };
+        let result = highlight_span_in_line(&fname, input, span, color);
+        let lines: Vec<_> = result.lines().collect();
+        // The arrow points outside of the input, but that should be fine.
+        assert_eq!(lines[2], "1 | foo");
+        assert_eq!(lines[3], "  |    ^\x1b[0m");
+    }
+}
