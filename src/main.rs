@@ -57,6 +57,20 @@ fn print_available_targets() -> io::Result<()> {
     Ok(())
 }
 
+fn process_input(
+    input: &[u8],
+    target: Target,
+    out: &mut dyn io::Write,
+) -> Result<(), Box<dyn Error>> {
+    let tokens = Lexer::new_from_bytes(&input)?.run();
+    let mut parser = Parser::new(&input, &tokens);
+    let doc = parser.parse_document()?;
+    target
+        .process_file(&input, doc, out)
+        .expect("Failed to print output.");
+    Ok(())
+}
+
 fn main() {
     let args = Args::get();
 
@@ -70,19 +84,10 @@ fn main() {
 
     for fname in &args.input_files {
         let input = std::fs::read(fname).expect("Failed to read input file.");
-        let tokens = Lexer::new(&input).run();
-        let mut parser = Parser::new(&input, &tokens);
-        match parser.parse_document() {
-            Ok(doc) => {
-                args.target
-                    .process_file(&input, doc, &mut stdout)
-                    .expect("Failed to print output.");
-            }
-            Err(err) => {
-                let err: Box<dyn Error> = err.into();
-                err.print(&fname, &input);
-                std::process::exit(1);
-            }
+        let result = process_input(&input, args.target, &mut stdout);
+        if let Err(err) = result {
+            err.print(&fname, &input);
+            std::process::exit(1);
         }
     }
 }

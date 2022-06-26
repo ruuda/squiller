@@ -1,5 +1,6 @@
 use crate::is_ascii_identifier;
 use crate::Span;
+use crate::error::{PResult, ParseError};
 
 #[derive(Debug)]
 enum State {
@@ -33,14 +34,29 @@ pub enum Token {
 }
 
 pub struct Lexer<'a> {
-    input: &'a [u8],
+    input: &'a str,
     start: usize,
     state: State,
     tokens: Vec<(Token, Span)>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a [u8]) -> Lexer<'a> {
+    pub fn new_from_bytes(input: &'a [u8]) -> PResult<Lexer<'a>> {
+        use std::str;
+        match str::from_utf8(input) {
+            Ok(input_str) => Ok(Lexer::new(input_str)),
+            Err(err) => Err(ParseError {
+                span: Span {
+                    start: err.valid_up_to(),
+                    end: err.valid_up_to() + err.error_len().unwrap_or(0),
+                },
+                message: "This input is not valid UTF-8.",
+                note: None,
+            }),
+        }
+    }
+
+    pub fn new(input: &'a str) -> Lexer<'a> {
         Lexer {
             input: input,
             start: 0,
@@ -93,7 +109,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_base(&mut self) -> (usize, State) {
-        let input = &self.input[self.start..];
+        let input = &self.input.as_bytes()[self.start..];
 
         if input.len() == 0 {
             return (self.start, State::Done);
@@ -128,7 +144,7 @@ impl<'a> Lexer<'a> {
 
     fn lex_in_quote(&mut self, quote: u8, token: Token) -> (usize, State) {
         use std::str;
-        let input = &self.input[self.start..];
+        let input = &self.input.as_bytes()[self.start..];
 
         // Skip over the initial opening quote.
         for (i, &ch) in input.iter().enumerate().skip(1) {
@@ -164,7 +180,7 @@ impl<'a> Lexer<'a> {
         mut include: F,
         token: Token,
     ) -> (usize, State) {
-        let input = &self.input[self.start..];
+        let input = &self.input.as_bytes()[self.start..];
 
         for (len, ch) in input.iter().enumerate().skip(n_skip) {
             if include(*ch) {
@@ -203,7 +219,7 @@ impl<'a> Lexer<'a> {
     fn lex_in_punct(&mut self) -> (usize, State) {
         debug_assert!(self.start < self.input.len());
 
-        let token = match self.input[self.start] {
+        let token = match self.input.as_bytes()[self.start] {
             // For those characters, we have single-character tokens.
             b'(' => Token::LParen,
             b')' => Token::RParen,
