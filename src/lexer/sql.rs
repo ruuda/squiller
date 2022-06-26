@@ -12,26 +12,44 @@ enum State {
     InIdent,
     InPunct,
     InControl,
+    InMultibyte,
     Done,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Token {
+    /// A sequence of ascii whitespace.
     Space,
+    /// A sequence of ascii alphanumeric or _, not starting with a digit.
     Ident,
-    Punct,
+    /// A sequence of ascii control characters.
     Control,
+    /// A sequence of non-ascii code points.
+    Unicode,
+    /// A query parameter, starting with `:`.
     Param,
+    /// Content between single quotes.
     SingleQuoted,
+    /// Content between double quotes.
     DoubleQuoted,
+    /// A comment that starts with `--` and ends at a newline (not included).
     Comment,
+    /// `(`.
     LParen,
+    /// `)`.
     RParen,
+    /// `[`.
     LBracket,
+    /// `]`.
     RBracket,
+    /// `{`.
     LBrace,
+    /// `}`.
     RBrace,
+    /// `;`.
     Semicolon,
+    /// Punctuation that is not any of the previous punctuation tokens.
+    Punct,
 }
 
 pub struct Lexer<'a> {
@@ -72,6 +90,7 @@ impl<'a> Lexer<'a> {
                 State::InIdent => self.lex_in_ident(),
                 State::InPunct => self.lex_in_punct(),
                 State::InControl => self.lex_in_control(),
+                State::InMultibyte => self.lex_in_multibyte(),
                 State::Done => break,
             };
 
@@ -124,6 +143,9 @@ impl<'a> Lexer<'a> {
         }
         if input[0].is_ascii_control() {
             return (self.start, State::InControl);
+        }
+        if input[0] > 127 {
+            return (self.start, State::InMultibyte);
         }
         panic!(
             "I don't know what to do with this byte here: {} (0x{:02x})",
@@ -235,11 +257,36 @@ impl<'a> Lexer<'a> {
     fn lex_in_control(&mut self) -> (usize, State) {
         self.lex_while(|ch| ch.is_ascii_control(), Token::Control)
     }
+
+    fn lex_in_multibyte(&mut self) -> (usize, State) {
+        self.lex_while(|ch| ch > 127, Token::Unicode)
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn test_tokens(input: &str, expected_tokens: &[(Token, &str)]) {
+        let tokens = Lexer::new(input).run();
+
+        for (i, expected) in expected_tokens.iter().enumerate() {
+            assert!(
+                tokens.len() > i,
+                "Lexer has too few tokens, expected {} but got {}.",
+                expected_tokens.len(),
+                tokens.len(),
+            );
+            let actual = &tokens[i];
+            let actual_str = &input[actual.1.start..actual.1.end];
+            assert_eq!(
+                (actual.0, actual_str),
+                *expected,
+                "Mismatch at token {}.",
+                i,
+            );
+        }
+    }
 
     #[test]
     fn it_lexes_example_users() {
@@ -249,7 +296,20 @@ mod test {
 
     #[test]
     fn it_handles_ascii_control_bytes() {
-        let input = "\x01";
-        Lexer::new(&input).run();
+        test_tokens(
+            "\x01",
+            &[(Token::Control, "\x01")]
+        );
+    }
+
+    #[test]
+    fn it_handles_utf8_non_ascii_sequences() {
+        test_tokens(
+            "Älmhult",
+            &[
+                (Token::Unicode, "Ä"),
+                (Token::Ident, "lmhult"),
+            ]
+        );
     }
 }
