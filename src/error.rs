@@ -90,12 +90,14 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
     );
     // The width of the error is not necessarily the number of bytes,
     // measure the Unicode width of the span to underline.
+    let indent_content = &line_content[..span.start - line_start];
     let error_content = &line_content[span.start - line_start..][..mark_len];
+    let indent_width = indent_content.width();
     let mark_width = error_content.width();
 
     let line_num_str = line.to_string();
     let line_num_pad: String = line_num_str.chars().map(|_| ' ').collect();
-    let mark_indent: String = iter::repeat(' ').take(span.start - line_start).collect();
+    let mark_indent: String = iter::repeat(' ').take(indent_width).collect();
     let mark_under: String = iter::repeat('~').take(mark_width).collect();
     let fname_str = fname.to_string_lossy();
 
