@@ -33,7 +33,7 @@ pub enum Type<TSpan> {
 }
 
 impl Type<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Type<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Type<&'a str> {
         match self {
             Type::Unit => Type::Unit,
             Type::Simple(span) => Type::Simple(span.resolve(input)),
@@ -56,7 +56,7 @@ pub struct TypedIdent<TSpan> {
 }
 
 impl TypedIdent<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> TypedIdent<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> TypedIdent<&'a str> {
         TypedIdent {
             ident: self.ident.resolve(input),
             type_: self.type_.resolve(input),
@@ -73,7 +73,7 @@ pub struct Annotation<TSpan> {
 }
 
 impl Annotation<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Annotation<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Annotation<&'a str> {
         Annotation {
             name: self.name.resolve(input),
             parameters: self.parameters.iter().map(|p| p.resolve(input)).collect(),
@@ -99,7 +99,7 @@ pub enum Fragment<TSpan> {
 }
 
 impl Fragment<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Fragment<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Fragment<&'a str> {
         match self {
             Fragment::Verbatim(s) => Fragment::Verbatim(s.resolve(input)),
             Fragment::TypedIdent(s, ti) => {
@@ -128,7 +128,7 @@ pub struct Query<TSpan> {
 }
 
 impl Query<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Query<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Query<&'a str> {
         Query {
             docs: self.docs.iter().map(|d| d.resolve(input)).collect(),
             annotation: self.annotation.resolve(input),
@@ -149,7 +149,7 @@ pub enum Section<TSpan> {
 }
 
 impl Section<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Section<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Section<&'a str> {
         match self {
             Section::Verbatim(s) => Section::Verbatim(s.resolve(input)),
             Section::Query(q) => Section::Query(q.resolve(input)),
@@ -163,7 +163,7 @@ pub struct Document<TSpan> {
 }
 
 impl Document<Span> {
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> Document<&'a str> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Document<&'a str> {
         Document {
             sections: self.sections.iter().map(|s| s.resolve(input)).collect(),
         }

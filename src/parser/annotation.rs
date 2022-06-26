@@ -12,13 +12,13 @@ type TypedIdent = crate::ast::TypedIdent<Span>;
 /// including typed identifiers that are also used in `select ... as "id: type"`
 /// clauses.
 pub struct Parser<'a> {
-    input: &'a [u8],
+    input: &'a str,
     tokens: &'a [(Token, Span)],
     cursor: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(input: &'a [u8], tokens: &'a [(Token, Span)]) -> Parser<'a> {
+    pub fn new(input: &'a str, tokens: &'a [(Token, Span)]) -> Parser<'a> {
         Parser {
             input,
             tokens,
@@ -275,7 +275,7 @@ mod test {
     use crate::lexer::annotation::Lexer;
     use crate::Span;
 
-    fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {
+    fn with_parser<F: FnOnce(&mut Parser)>(input: &str, f: F) {
         let all_span = Span {
             start: 0,
             end: input.len(),
@@ -289,21 +289,21 @@ mod test {
 
     #[test]
     fn test_parse_type_simple() {
-        let input = b"i64";
+        let input = "i64";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Simple("i64");
             assert_eq!(result, expected);
         });
 
-        let input = b"&str";
+        let input = "&str";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Simple("&str");
             assert_eq!(result, expected);
         });
 
-        let input = b"User";
+        let input = "User";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Simple("User");
@@ -313,14 +313,14 @@ mod test {
 
     #[test]
     fn test_parse_type_generic() {
-        let input = b"Option<i64>";
+        let input = "Option<i64>";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Option(Box::new(Type::Simple("i64")));
             assert_eq!(result, expected);
         });
 
-        let input = b"Iterator<i64>";
+        let input = "Iterator<i64>";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Iterator(Box::new(Type::Simple("i64")));
@@ -329,20 +329,20 @@ mod test {
 
         // The generics we support, only support a single type argument.
         // A comma is a syntax error.
-        let input = b"Iterator<i64, i64>";
+        let input = "Iterator<i64, i64>";
         with_parser(input, |p| assert!(p.parse_type().is_err()));
     }
 
     #[test]
     fn test_parse_type_tuple() {
-        let input = b"()";
+        let input = "()";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Tuple(Vec::new());
             assert_eq!(result, expected);
         });
 
-        let input = b"(f64)";
+        let input = "(f64)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Tuple(vec![Type::Simple("f64")]);
@@ -350,14 +350,14 @@ mod test {
         });
 
         // Test for trailing comma too.
-        let input = b"(f64,)";
+        let input = "(f64,)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Tuple(vec![Type::Simple("f64")]);
             assert_eq!(result, expected);
         });
 
-        let input = b"(f64, String)";
+        let input = "(f64, String)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
             let expected = Type::Tuple(vec![Type::Simple("f64"), Type::Simple("String")]);
@@ -365,7 +365,7 @@ mod test {
         });
 
         // Also confirm that the following are parse errors.
-        let invalid_inputs: &[&'static [u8]] = &[b"(,)", b"(f32, <)", b"(", b"(f32", b"(f32,"];
+        let invalid_inputs: &[&'static str] = &["(,)", "(f32, <)", "(", "(f32", "(f32,"];
         for input in invalid_inputs {
             with_parser(input, |p| assert!(p.parse_type().is_err()));
         }
@@ -373,7 +373,7 @@ mod test {
 
     #[test]
     fn test_parse_typed_ident() {
-        let input = b"id: i64";
+        let input = "id: i64";
         with_parser(input, |p| {
             let result = p.parse_typed_ident().unwrap().resolve(input);
             let expected = TypedIdent {
@@ -386,7 +386,7 @@ mod test {
 
     #[test]
     fn test_parse_annotation() {
-        let input = b"@query drop_table_users()";
+        let input = "@query drop_table_users()";
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
@@ -398,9 +398,9 @@ mod test {
         });
 
         // Test both with and without trailing comma.
-        let inputs: &[&'static [u8]] = &[
-            b"@query delete_user_by_id(id: i64)",
-            b"@query delete_user_by_id(id: i64,)",
+        let inputs: &[&'static str] = &[
+            "@query delete_user_by_id(id: i64)",
+            "@query delete_user_by_id(id: i64,)",
         ];
         for input in inputs {
             with_parser(input, |p| {
@@ -419,9 +419,9 @@ mod test {
 
         // Test both with and without trailing comma. Also we play with the
         // whitespace a bit here.
-        let inputs: &[&'static [u8]] = &[
-            b"@query get_widgets_in_range (low : i64 , high : i64)",
-            b"@query get_widgets_in_range(low:i64,high:i64,)",
+        let inputs: &[&'static str] = &[
+            "@query get_widgets_in_range (low : i64 , high : i64)",
+            "@query get_widgets_in_range(low:i64,high:i64,)",
         ];
         for input in inputs {
             with_parser(input, |p| {
@@ -444,7 +444,7 @@ mod test {
             });
         }
 
-        let input = b"@query get_next_id() -> i64";
+        let input = "@query get_next_id() -> i64";
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
@@ -458,7 +458,7 @@ mod test {
 
     #[test]
     fn test_error_on_unexpected_end_is_past_end() {
-        let input = b"id:";
+        let input = "id:";
         with_parser(input, |p| {
             let err = p.parse_typed_ident().err().unwrap();
             assert_eq!(err.span, Span { start: 3, end: 3 });

@@ -1,6 +1,5 @@
 use crate::is_ascii_identifier;
 use crate::Span;
-use crate::error::{PResult, ParseError};
 
 #[derive(Debug)]
 enum State {
@@ -41,21 +40,6 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new_from_bytes(input: &'a [u8]) -> PResult<Lexer<'a>> {
-        use std::str;
-        match str::from_utf8(input) {
-            Ok(input_str) => Ok(Lexer::new(input_str)),
-            Err(err) => Err(ParseError {
-                span: Span {
-                    start: err.valid_up_to(),
-                    end: err.valid_up_to() + err.error_len().unwrap_or(0),
-                },
-                message: "This input is not valid UTF-8.",
-                note: None,
-            }),
-        }
-    }
-
     pub fn new(input: &'a str) -> Lexer<'a> {
         Lexer {
             input: input,
@@ -243,8 +227,19 @@ impl<'a> Lexer<'a> {
     }
 }
 
-#[test]
-fn it_lexes_example_users() {
-    let input = std::fs::read("examples/users.sql").unwrap();
-    Lexer::new(&input).run();
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn it_lexes_example_users() {
+        let input = std::fs::read_to_string("examples/users.sql").unwrap();
+        Lexer::new(&input).run();
+    }
+
+    #[test]
+    fn it_handles_ascii_control_bytes() {
+        let input = "\x01";
+        Lexer::new(&input).run();
+    }
 }

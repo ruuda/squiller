@@ -15,13 +15,13 @@ type TypedIdent = crate::ast::TypedIdent<Span>;
 ///
 /// Parses a tokenized SQL document into a list of queries with their metadata.
 pub struct Parser<'a> {
-    input: &'a [u8],
+    input: &'a str,
     tokens: &'a [(sql::Token, Span)],
     cursor: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(input: &'a [u8], tokens: &'a [(sql::Token, Span)]) -> Parser<'a> {
+    pub fn new(input: &'a str, tokens: &'a [(sql::Token, Span)]) -> Parser<'a> {
         Parser {
             input: input,
             tokens: tokens,
@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
 
             match token {
                 sql::Token::Space => {
-                    let span_bytes = &self.input[span.start..span.end];
+                    let span_bytes = &self.input.as_bytes()[span.start..span.end];
                     let num_newlines = span_bytes.iter().filter(|ch| **ch == b'\n').count();
                     if num_newlines >= 2 {
                         // If there was a blank line, that marks the end of the
@@ -138,7 +138,7 @@ impl<'a> Parser<'a> {
                     // Potentially this comment could contain an annotation.
                     // Before we lex the entire thing, check if it contains the
                     // '@' marker.
-                    let span_bytes = &self.input[comment_span.start..comment_span.end];
+                    let span_bytes = &self.input.as_bytes()[comment_span.start..comment_span.end];
                     if span_bytes.contains(&b'@') {
                         let mut comment_lexer = ann::Lexer::new(self.input);
                         comment_lexer.run(comment_span);
@@ -405,7 +405,7 @@ mod test {
     use crate::error::Error;
     use crate::lexer::sql::Lexer;
 
-    fn with_parser<F: FnOnce(&mut Parser)>(input: &[u8], f: F) {
+    fn with_parser<F: FnOnce(&mut Parser)>(input: &str, f: F) {
         let tokens = Lexer::new(input).run();
         let mut parser = Parser::new(input, &tokens);
         f(&mut parser)
@@ -413,7 +413,7 @@ mod test {
 
     #[test]
     fn parse_section_handles_newline_in_annotation() {
-        let input = b"
+        let input = "
         -- @query multiline_signature(
         --   key: &str,
         --   value: &str,
@@ -446,7 +446,7 @@ mod test {
 
     #[test]
     fn unmatched_paren_at_statement_end_causes_error() {
-        let input = b"
+        let input = "
         -- @query q()
         SELECT ( FROM t;
         ";
@@ -460,7 +460,7 @@ mod test {
 
     #[test]
     fn empty_double_quoted_is_error_typed_ident() {
-        let input = br#"
+        let input = r#"
         -- @query q()
         SELECT id as "" FROM t;
         "#;
@@ -472,7 +472,7 @@ mod test {
 
     #[test]
     fn unexpected_token_after_as_returns_error_on_that_token() {
-        let input = br#"
+        let input = r#"
         -- @query q()
         SELECT wow AS very_error FROM such_table;
         "#;

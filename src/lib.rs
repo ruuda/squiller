@@ -25,6 +25,19 @@ fn is_ascii_identifier(ch: u8) -> bool {
     ch.is_ascii_alphanumeric() || ch == b'_'
 }
 
+/// As `str::from_utf8`, but map errors to a type that we can print.
+pub fn str_from_utf8(input: &[u8]) -> error::PResult<&str> {
+    use std::str;
+    str::from_utf8(input).map_err(|err| error::ParseError {
+        span: Span {
+            start: err.valid_up_to(),
+            end: err.valid_up_to() + err.error_len().unwrap_or(0),
+        },
+        message: "This input is not valid UTF-8.",
+        note: None,
+    })
+}
+
 /// Marks a location in the source file by byte offset.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Span {
@@ -37,9 +50,8 @@ pub struct Span {
 
 impl Span {
     /// Return the slice from the input that this span spans.
-    pub fn resolve<'a>(&self, input: &'a [u8]) -> &'a str {
-        use std::str;
-        str::from_utf8(&input[self.start..self.end]).expect("Input is not valid UTF-8.")
+    pub fn resolve<'a>(&self, input: &'a str) -> &'a str {
+        &input[self.start..self.end]
     }
 
     pub fn len(&self) -> usize {

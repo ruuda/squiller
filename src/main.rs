@@ -58,15 +58,16 @@ fn print_available_targets() -> io::Result<()> {
 }
 
 fn process_input(
-    input: &[u8],
+    input_bytes: &[u8],
     target: Target,
     out: &mut dyn io::Write,
 ) -> Result<(), Box<dyn Error>> {
-    let tokens = Lexer::new_from_bytes(&input)?.run();
-    let mut parser = Parser::new(&input, &tokens);
+    let input_str = querybinder::str_from_utf8(input_bytes)?;
+    let tokens = Lexer::new(&input_str).run();
+    let mut parser = Parser::new(&input_str, &tokens);
     let doc = parser.parse_document()?;
     target
-        .process_file(&input, doc, out)
+        .process_file(&input_str, doc, out)
         .expect("Failed to print output.");
     Ok(())
 }

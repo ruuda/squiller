@@ -24,14 +24,14 @@ pub enum Token {
 }
 
 pub struct Lexer<'a> {
-    input: &'a [u8],
+    input: &'a str,
     start: usize,
     state: State,
     tokens: Vec<(Token, Span)>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a [u8]) -> Lexer<'a> {
+    pub fn new(input: &'a str) -> Lexer<'a> {
         Lexer {
             input: input,
             start: 0,
@@ -92,7 +92,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_base(&mut self) -> (usize, State) {
-        let input = &self.input[self.start..];
+        let input = &self.input.as_bytes()[self.start..];
 
         if input.len() == 0 {
             return (self.start, State::Done);
@@ -149,7 +149,7 @@ impl<'a> Lexer<'a> {
     ) -> (usize, State) {
         let input = &self.input[self.start..];
 
-        for (len, ch) in input.iter().enumerate().skip(n_skip) {
+        for (len, ch) in input.as_bytes().iter().enumerate().skip(n_skip) {
             if include(*ch) {
                 continue;
             }
@@ -183,8 +183,7 @@ impl<'a> Lexer<'a> {
 mod test {
     use super::*;
 
-    fn test_tokens(input: &[u8], expected_tokens: &[(Token, &str)]) {
-        use std::str;
+    fn test_tokens(input: &str, expected_tokens: &[(Token, &str)]) {
         let span = Span {
             start: 0,
             end: input.len(),
@@ -200,8 +199,7 @@ mod test {
                 lexer.tokens().len(),
             );
             let actual = &lexer.tokens()[i];
-            let actual_slice = &input[actual.1.start..actual.1.end];
-            let actual_str = str::from_utf8(actual_slice).unwrap();
+            let actual_str = &input[actual.1.start..actual.1.end];
             assert_eq!(
                 (actual.0, actual_str),
                 *expected,
@@ -214,7 +212,7 @@ mod test {
     #[test]
     fn test_lex_no_arguments() {
         test_tokens(
-            b" @query get_foo() -> i64;",
+            " @query get_foo() -> i64;",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_foo"),
@@ -230,7 +228,7 @@ mod test {
     #[test]
     fn test_lex_generic_return_type() {
         test_tokens(
-            b"@query get_foo ( ) -> Option<User>;",
+            "@query get_foo ( ) -> Option<User>;",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_foo"),
@@ -249,7 +247,7 @@ mod test {
     #[test]
     fn test_lex_tuple_return_type() {
         test_tokens(
-            b"@query get_name_and_age() -> (String, i64);",
+            "@query get_name_and_age() -> (String, i64);",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_name_and_age"),
@@ -269,7 +267,7 @@ mod test {
     #[test]
     fn test_lex_single_simple_argument() {
         test_tokens(
-            b"@query get_user_by_name(name: &str) -> User;",
+            "@query get_user_by_name(name: &str) -> User;",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_user_by_name"),
@@ -289,7 +287,7 @@ mod test {
     fn test_lex_double_simple_argument() {
         test_tokens(
             // Spice it up a bit, also omit the spaces.
-            b"@query get_nearest_beacon(lng:f64,lat:f64)->i64;",
+            "@query get_nearest_beacon(lng:f64,lat:f64)->i64;",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_nearest_beacon"),

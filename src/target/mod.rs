@@ -27,7 +27,7 @@ pub enum Target {
 impl Target {
     pub fn process_file(
         &self,
-        raw_input: &[u8],
+        raw_input: &str,
         parsed: Document<Span>,
         output: &mut dyn io::Write,
     ) -> io::Result<()> {

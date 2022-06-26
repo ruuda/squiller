@@ -12,7 +12,7 @@ use crate::Span;
 
 /// Pretty-print the parsed file, for debugging purposes.
 pub fn process_file(
-    input: &[u8],
+    input: &str,
     parsed: Document<Span>,
     out: &mut dyn io::Write,
 ) -> io::Result<()> {
