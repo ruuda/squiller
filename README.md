@@ -55,6 +55,15 @@ pub fn get_user_by_name(connection: &Connection, name: &str) -> Result<Option<Us
 }
 ```
 
+## Testing
+
+To fuzz the parser:
+
+```
+cargo +nightly-2022-06-25 install cargo-fuzz --version 0.11.0
+cargo +nightly-2022-06-25 fuzz run parse
+```
+
 ## License
 
 Querybinder is licensed under the [Apache 2.0][apache2] license. Output of the
