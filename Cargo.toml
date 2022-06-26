@@ -7,4 +7,5 @@ license = "Apache-2.0"
 
 [dependencies]
 clap = { version = "3.2.5", features = ["derive"] }
+unicode-width = "0.1.9"
 termcolor = "1.1.3"

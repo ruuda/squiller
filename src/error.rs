@@ -55,6 +55,7 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
     use std::cmp;
     use std::fmt::Write;
     use std::iter;
+    use unicode_width::UnicodeWidthStr;
 
     // Locate the line that contains the error.
     let mut line = 1;
@@ -87,12 +88,15 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
         1,
         cmp::min(span.len(), line_content.len() + line_start - span.start),
     );
+    // The width of the error is not necessarily the number of bytes,
+    // measure the Unicode width of the span to underline.
+    let error_content = &line_content[span.start - line_start..][..mark_len];
+    let mark_width = error_content.width();
 
     let line_num_str = line.to_string();
     let line_num_pad: String = line_num_str.chars().map(|_| ' ').collect();
-    // TODO: Use unicode-width to determine this, don't just count the bytes.
     let mark_indent: String = iter::repeat(' ').take(span.start - line_start).collect();
-    let mark_under: String = iter::repeat('~').take(mark_len).collect();
+    let mark_under: String = iter::repeat('~').take(mark_width).collect();
     let fname_str = fname.to_string_lossy();
 
     let reset = "\x1b[0m";
