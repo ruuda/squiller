@@ -20,6 +20,7 @@ pub enum Token {
     Colon,
     Semicolon,
     Comma,
+    Minus,
     Arrow,
 }
 
@@ -131,6 +132,13 @@ impl<'a> Lexer<'a> {
         if input.starts_with(b"->") {
             self.push(Token::Arrow, 2);
             return (self.start + 2, State::Base);
+        }
+        if input[0] == b'-' {
+            // Minus is its own token, because it is a prefix of the arrow "->",
+            // so when we encounter a - inside an identifier, we stop the
+            // identifier because we expect some punctuation.
+            self.push(Token::Minus, 1);
+            return (self.start + 1, State::Base);
         }
         if input[0].is_ascii_whitespace() {
             return (self.start + 1, State::Base);
@@ -305,5 +313,15 @@ mod test {
                 (Token::Semicolon, ";"),
             ],
         );
+    }
+
+    #[test]
+    fn lex_bogus_input_with_at() {
+        // The fuzzer found this input to cause OOM, this is a regression test.
+        let input = "-@";
+        test_tokens(input, &[
+            (Token::Minus, "-"),
+            (Token::Annotation, "@"),
+        ]);
     }
 }

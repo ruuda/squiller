@@ -481,4 +481,15 @@ mod test {
             assert_eq!(err.span.resolve(input), "very_error");
         });
     }
+
+    #[test]
+    fn it_parses_a_sinple_comment_without_newline() {
+        // The fuzzer found this input to cause OOM. The problem was not in the
+        // parser, but still, let's add this as a regression test.
+        let input = "---@";
+        with_parser(input, |p| {
+            let result = p.parse_section().unwrap();
+            assert_eq!(result.resolve(input), Section::Verbatim("---@"));
+        });
+    }
 }
