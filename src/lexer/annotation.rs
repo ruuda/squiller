@@ -319,9 +319,6 @@ mod test {
     fn lex_bogus_input_with_at() {
         // The fuzzer found this input to cause OOM, this is a regression test.
         let input = "-@";
-        test_tokens(input, &[
-            (Token::Minus, "-"),
-            (Token::Annotation, "@"),
-        ]);
+        test_tokens(input, &[(Token::Minus, "-"), (Token::Annotation, "@")]);
     }
 }

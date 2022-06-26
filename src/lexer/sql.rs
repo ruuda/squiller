@@ -1,6 +1,6 @@
+use crate::error::{PResult, ParseError};
 use crate::is_ascii_identifier;
 use crate::Span;
-use crate::error::{ParseError, PResult};
 
 #[derive(Debug)]
 enum State {
@@ -73,7 +73,11 @@ impl<'a> Lexer<'a> {
     }
 
     /// Build a parse error at the current cursor location.
-    fn error_while<F: FnMut(u8) -> bool, T>(&self, mut include: F, message: &'static str) -> PResult<T> {
+    fn error_while<F: FnMut(u8) -> bool, T>(
+        &self,
+        mut include: F,
+        message: &'static str,
+    ) -> PResult<T> {
         let input = &self.input.as_bytes()[self.start..];
         let mut err_end = self.start;
         for ch in input {
@@ -158,7 +162,7 @@ impl<'a> Lexer<'a> {
         if input[0].is_ascii_control() {
             return self.error_while(
                 |ch| ch.is_ascii_control(),
-                "Control characters are not supported here."
+                "Control characters are not supported here.",
             );
         }
         if input[0] > 127 {
@@ -365,7 +369,13 @@ mod test {
     fn unmatched_quotes_result_in_error() {
         let input = "an 'unclosed";
         let error = Lexer::new(input).run().err().unwrap();
-        assert_eq!(error.span, Span { start: 3, end: input.len() });
+        assert_eq!(
+            error.span,
+            Span {
+                start: 3,
+                end: input.len()
+            }
+        );
         assert_eq!(error.span.resolve(input), "'unclosed");
     }
 }
