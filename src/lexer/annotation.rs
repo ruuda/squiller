@@ -27,6 +27,7 @@ pub enum Token {
 pub struct Lexer<'a> {
     input: &'a str,
     start: usize,
+    end: usize,
     state: State,
     tokens: Vec<(Token, Span)>,
 }
@@ -36,6 +37,7 @@ impl<'a> Lexer<'a> {
         Lexer {
             input: input,
             start: 0,
+            end: input.len(),
             state: State::Base,
             tokens: Vec::new(),
         }
@@ -64,9 +66,10 @@ impl<'a> Lexer<'a> {
     /// Lex the span until completion.
     pub fn run(&mut self, span: Span) {
         self.start = span.start;
+        self.end = span.end;
         self.state = State::Base;
 
-        while self.start < span.end {
+        while self.start < self.end {
             let (start, state) = match self.state {
                 State::Base => self.lex_base(),
                 State::InAnnotation => self.lex_in_annotation(),
@@ -93,7 +96,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_base(&mut self) -> (usize, State) {
-        let input = &self.input.as_bytes()[self.start..];
+        let input = &self.input.as_bytes()[self.start..self.end];
 
         if input.len() == 0 {
             return (self.start, State::Done);
@@ -155,7 +158,7 @@ impl<'a> Lexer<'a> {
         mut include: F,
         token: Token,
     ) -> (usize, State) {
-        let input = &self.input[self.start..];
+        let input = &self.input[self.start..self.end];
 
         for (len, ch) in input.as_bytes().iter().enumerate().skip(n_skip) {
             if include(*ch) {
@@ -320,5 +323,22 @@ mod test {
         // The fuzzer found this input to cause OOM, this is a regression test.
         let input = "-@";
         test_tokens(input, &[(Token::Minus, "-"), (Token::Annotation, "@")]);
+    }
+
+    #[test]
+    fn lex_subset_of_input_shoud_keep_token_end_in_bounds() {
+        let input = "\"a\"";
+        let span = Span {
+            start: 1,
+            end: 2,
+        };
+        let mut lexer = Lexer::new(input);
+        lexer.run(span);
+
+        assert_eq!(lexer.tokens().len(), 1);
+        let (token, token_span) = lexer.tokens()[0];
+
+        assert_eq!(token, Token::Ident);
+        assert_eq!(token_span, span);
     }
 }

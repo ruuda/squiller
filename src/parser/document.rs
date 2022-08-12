@@ -401,6 +401,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::Parser;
+    use crate::Span;
     use crate::ast::{Annotation, Fragment, Query, Section, Type, TypedIdent};
     use crate::error::Error;
     use crate::lexer::sql::Lexer;
@@ -490,6 +491,25 @@ mod test {
         with_parser(input, |p| {
             let result = p.parse_section().unwrap();
             assert_eq!(result.resolve(input), Section::Verbatim("---@"));
+        });
+    }
+
+    #[test]
+    fn error_in_typed_ident_is_reported_at_the_right_location_simple() {
+        let input = "\"y\"";
+        with_parser(input, |p| {
+            let err = p.parse_typed_ident().err().unwrap();
+            assert_eq!(err.span, Span { start: 2, end: 2 });
+        });
+    }
+
+    #[test]
+    fn error_in_typed_ident_is_reported_at_the_right_location_complexer() {
+        let input = "-- @query?()\nSELECT y as \"y\";";
+        with_parser(input, |p| {
+            let err = p.parse_section().err().unwrap();
+            let start = "-- @query?()\nSELECT y as \"y".len();
+            assert_eq!(err.span, Span { start: start, end: start });
         });
     }
 }

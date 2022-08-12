@@ -457,6 +457,12 @@ mod test {
 
     #[test]
     fn test_error_on_unexpected_end_is_past_end() {
+        let input = "id";
+        with_parser(input, |p| {
+            let err = p.parse_typed_ident().err().unwrap();
+            assert_eq!(err.span, Span { start: 2, end: 2 });
+        });
+
         let input = "id:";
         with_parser(input, |p| {
             let err = p.parse_typed_ident().err().unwrap();
