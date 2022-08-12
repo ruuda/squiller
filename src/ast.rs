@@ -11,19 +11,27 @@ use crate::Span;
 #[derive(Debug, Eq, PartialEq)]
 pub enum Type<TSpan> {
     /// The unit type, for queries that do not return anything.
+    ///
+    /// The unit type cannot be listed explicitly in annotations.
     Unit,
 
     /// A simple type that for our purposes cannot be broken down further.
     Simple(TSpan),
 
     /// An iterator, for queries that may return multiple rows.
-    Iterator(Box<Type<TSpan>>),
+    ///
+    /// Field 0 contains the span of the full type.
+    Iterator(TSpan, Box<Type<TSpan>>),
 
     /// An option, for queries that return zero or one rows, or nullable parameters.
-    Option(Box<Type<TSpan>>),
+    ///
+    /// Field 0 contains the span of the full type.
+    Option(TSpan, Box<Type<TSpan>>),
 
     /// A tuple of zero or more types.
-    Tuple(Vec<Type<TSpan>>),
+    ///
+    /// Field 0 contains the span of the full type.
+    Tuple(TSpan, Vec<Type<TSpan>>),
 
     /// A named struct with typed fields.
     ///
@@ -37,13 +45,25 @@ impl Type<Span> {
         match self {
             Type::Unit => Type::Unit,
             Type::Simple(span) => Type::Simple(span.resolve(input)),
-            Type::Iterator(t) => Type::Iterator(Box::new(t.resolve(input))),
-            Type::Option(t) => Type::Option(Box::new(t.resolve(input))),
-            Type::Tuple(ts) => Type::Tuple(ts.iter().map(|t| t.resolve(input)).collect()),
+            Type::Iterator(s, t) => Type::Iterator(s.resolve(input), Box::new(t.resolve(input))),
+            Type::Option(s, t) => Type::Option(s.resolve(input), Box::new(t.resolve(input))),
+            Type::Tuple(s, ts) => Type::Tuple(s.resolve(input), ts.iter().map(|t| t.resolve(input)).collect()),
             Type::Struct(name, fields) => Type::Struct(
                 name.resolve(input),
                 fields.iter().map(|f| f.resolve(input)).collect(),
             ),
+        }
+    }
+
+    /// For types that can occur literally in the source, return their span.
+    pub fn span(&self) -> Span {
+        match self {
+            Type::Unit => panic!("Unit does not have a span."),
+            Type::Simple(s) => *s,
+            Type::Iterator(s, _) => *s,
+            Type::Option(s, _) => *s,
+            Type::Tuple(s, _) => *s,
+            Type::Struct(..) => panic!("Struct does not have a span."),
         }
     }
 }
@@ -84,18 +104,20 @@ impl Annotation<Span> {
 
 /// A part of a query.
 ///
-/// We break down queries in consecutive spans of three kinds:
+/// We break down queries in consecutive spans of four kinds:
 ///
 /// * Verbatim content where we don't really care about its inner structure.
 /// * Typed identifiers, the quoted part in a `select ... as "ident: type"`
 ///   select. These are kept separately, such that we can replace this with
 ///   just `ident` in the final query.
-/// * Parameters. These include the leading `:`.
+/// * Untyped parameters. These include the leading `:`.
+/// * Parameters followed by a type comment. These include the leading `:`.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Fragment<TSpan> {
     Verbatim(TSpan),
     TypedIdent(TSpan, TypedIdent<TSpan>),
     Param(TSpan),
+    TypedParam(TSpan, TypedIdent<TSpan>),
 }
 
 impl Fragment<Span> {
@@ -106,6 +128,19 @@ impl Fragment<Span> {
                 Fragment::TypedIdent(s.resolve(input), ti.resolve(input))
             }
             Fragment::Param(s) => Fragment::Param(s.resolve(input)),
+            Fragment::TypedParam(s, ti) => {
+                Fragment::TypedParam(s.resolve(input), ti.resolve(input))
+            }
+        }
+    }
+
+    /// The span that this fragment spans.
+    pub fn span(&self) -> Span {
+        match self {
+            Fragment::Verbatim(s) => *s,
+            Fragment::TypedIdent(s, _) => *s,
+            Fragment::Param(s) => *s,
+            Fragment::TypedParam(s, _) => *s,
         }
     }
 }

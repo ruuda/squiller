@@ -47,11 +47,11 @@ pub fn process_file(
                 for param in &annotation.parameters {
                     writeln!(
                         out,
-                        "{}-- {}: {}{:?}",
+                        "{}-- {}: {}{}",
                         reset,
                         param.ident.resolve(input),
                         yellow,
-                        param.type_.resolve(input),
+                        param.type_.span().resolve(input),
                     )?;
                 }
                 writeln!(
@@ -68,11 +68,26 @@ pub fn process_file(
                         Fragment::Verbatim(s) => {
                             write!(out, "{}", s.resolve(input))?;
                         }
-                        Fragment::TypedIdent(raw, _parsed) => {
-                            write!(out, "{}{}{}", blue, raw.resolve(input), reset)?;
+                        Fragment::TypedIdent(_raw, parsed) => {
+                            write!(out, "{}{}{}", blue, parsed.ident.resolve(input), reset)?;
+                            let mid = Span {
+                                start: parsed.ident.end,
+                                end: parsed.type_.span().start,
+                            };
+                            write!(out, "{}", mid.resolve(input))?;
+                            write!(out, "{}{}{}", yellow, parsed.type_.span().resolve(input), reset)?;
                         }
                         Fragment::Param(s) => {
                             write!(out, "{}{}{}", white, s.resolve(input), reset)?;
+                        }
+                        Fragment::TypedParam(_raw, parsed) => {
+                            write!(out, "{}{}{}", white, parsed.ident.resolve(input), reset)?;
+                            let mid = Span {
+                                start: parsed.ident.end,
+                                end: parsed.type_.span().start,
+                            };
+                            write!(out, "{}", mid.resolve(input))?;
+                            write!(out, "{}{}{}", yellow, parsed.type_.span().resolve(input), reset)?;
                         }
                     }
                 }

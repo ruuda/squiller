@@ -275,44 +275,24 @@ impl<'a> Parser<'a> {
     ///
     /// Returns the parsed identifier and type, but also the span of the quoted
     /// string, excluding any preceding whitespace but including the quotes.
-    fn parse_typed_ident(&mut self) -> PResult<(Span, TypedIdent)> {
-        while let Some(token) = self.peek() {
-            let span = self.tokens[self.cursor].1;
-            self.consume();
+    fn parse_type_annotation(
+        &mut self,
+        type_span: Span,
+    ) -> PResult<Fragment> {
+        let mut lexer = ann::Lexer::new(self.input);
+        lexer.run(type_span);
+        let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
+        let type_ = parser.parse_type()?;
 
-            match token {
-                sql::Token::Space => continue,
-                sql::Token::DoubleQuoted => {
-                    // Lex everything in between the quotes.
-                    let mut lexer = ann::Lexer::new(self.input);
-                    let unquoted_span = Span {
-                        start: span.start + 1,
-                        end: span.end - 1,
-                    };
-                    lexer.run(unquoted_span);
-
-                    if lexer.tokens().len() == 0 {
-                        // Unconsume the token so we can report an error on it.
-                        self.cursor -= 1;
-                        return self.error("Expected a typed column, e.g. \"age: u64\".");
-                    }
-
-                    // Then parse that.
-                    let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
-                    let result = parser.parse_typed_ident()?;
-                    return Ok((span, result));
-                }
-                _ => {
-                    // Unconsume the token so we can report an error on it.
-                    self.cursor -= 1;
-                    return self.error(
-                        "Expected a typed column in double quotes, e.g. \"age: u64\".",
-                    );
-                }
-            }
-        }
-
-        self.error("Unexpected end of input, expected a typed column, e.g. \"age: u64\".")
+        // TODO: Compute the right spans.
+        let result = Fragment::TypedIdent(
+            type_span,
+            TypedIdent {
+                ident: Span { start: type_span.start - 5, end: type_span.start - 5},
+                type_: type_,
+            },
+        );
+        Ok(result)
     }
 
     /// Parse a single section from the document.
@@ -337,29 +317,68 @@ impl<'a> Parser<'a> {
         while let Some((token, span)) = self.tokens.get(self.cursor) {
             match token {
                 // If there are things enclosed in brackets, we do not look
-                // inside those brackets. E.g. if you have a subquery, we don't
-                // care about a "select ... as ..." inside there.
+                // inside those brackets for things aside from parameters. E.g.
+                // if you have a subquery, we don't care about type comments in
+                // inside there. TODO: That is wrong, we do need to parse type
+                // comments, inside parens.
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
                     self.consume_until_matching_close(&mut fragments, &mut fragment)?;
                 }
-                sql::Token::Ident => match span.resolve(self.input) {
-                    // TODO: Recognize keyword in the lexer.
-                    "as" | "AS" | "As" | "aS" => {
-                        // TODO: Due to bizarre SQL syntax, not every top-level
-                        // "AS" is necessarily part of a SELECT or RETURNING,
-                        // deal with those cases.
+                sql::Token::CommentInner => {
+                    // If there is a comment, and it starts with a `:`,
+                    // optionally preceded by whitespace, then we interpret that
+                    // as a type comment. So first, check if we are in that case
+                    // at all.
+                    let content = span.resolve(self.input);
+                    let colon_pos = match content.find(":") {
+                        None => {
+                            self.consume();
+                            continue;
+                        }
+                        Some(i) => i,
+                    };
+                    if !content[..colon_pos].bytes().all(|ch| ch.is_ascii_whitespace()) {
                         self.consume();
-                        let (hole_span, ident) = self.parse_typed_ident()?;
-                        fragment.end = hole_span.start;
-                        fragments.push(Fragment::Verbatim(fragment));
-                        fragments.push(Fragment::TypedIdent(hole_span, ident));
-                        fragment.start = hole_span.end;
-                        fragment.end = hole_span.end;
+                        continue;
                     }
-                    _other_ident => {
-                        self.consume();
+
+                    // If we get here, then we define this to be a type comment.
+                    // (Perhaps it's not preceded by a valid identifier or
+                    // parameter, but then we define that as an error, instead
+                    // of considering this a normal comment.)
+                    let type_span = Span {
+                        start: span.start + colon_pos + 1,
+                        end: span.end,
+                    };
+                    let hole_fragment = self.parse_type_annotation(type_span)?;
+                    let hole_span = hole_fragment.span();
+
+                    match hole_fragment {
+                        frag@Fragment::TypedIdent(..) => {
+                            fragment.end = hole_span.start;
+                            fragments.push(Fragment::Verbatim(fragment));
+                            fragments.push(frag);
+                        }
+                        frag@Fragment::TypedParam(..) => {
+                            // If this type annotation turned out to annotate a
+                            // parameter, then we replace the parameter fragment
+                            // that we pushed previously with the new typed
+                            // parameter fragment.
+                            fragments.pop();
+                            fragment = fragments
+                                .pop()
+                                .expect("Must have a fragment before parameter fragment.")
+                                .span();
+                            fragment.end = hole_span.start;
+                            fragments.push(Fragment::Verbatim(fragment));
+                            fragments.push(frag);
+                        }
+                        _ => panic!("Invalid fragment: {:?}", hole_fragment),
                     }
-                },
+                    fragment.start = hole_span.end;
+                    fragment.end = hole_span.end;
+                    self.consume();
+                }
                 sql::Token::Param => {
                     fragment.end = span.start;
                     fragments.push(Fragment::Verbatim(fragment));

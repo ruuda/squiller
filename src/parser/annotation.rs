@@ -70,10 +70,15 @@ impl<'a> Parser<'a> {
     }
 
     /// Return the token and its span under the cursor, if there is one.
-    fn peek_with_span(&self) -> Option<(Token, &'a str)> {
+    fn peek_with_span(&self) -> Option<(Token, Span)> {
         self.tokens
             .get(self.cursor)
-            .map(|t| (t.0, t.1.resolve(self.input)))
+            .map(|t| (t.0, t.1))
+    }
+
+    /// Return the token before the cursor, assuming it exists.
+    fn previous_span(&self) -> Span {
+        self.tokens[self.cursor - 1].1
     }
 
     /// Advance the cursor by one token, consuming the token under the cursor.
@@ -106,6 +111,7 @@ impl<'a> Parser<'a> {
             Token::Colon,
             "Expected a ':' here before the start of the type signature.",
         )?;
+
         let type_ = self.parse_type()?;
 
         let result = TypedIdent { ident, type_ };
@@ -119,17 +125,35 @@ impl<'a> Parser<'a> {
     /// contsructed at a higher level.
     pub fn parse_type(&mut self) -> PResult<Type> {
         match self.peek_with_span() {
-            Some((Token::LParen, _)) => Ok(Type::Tuple(self.parse_tuple()?)),
-            Some((Token::Ident, span)) => match span {
+            Some((Token::LParen, span)) => {
+                let inner = self.parse_tuple()?;
+                let final_span = self.previous_span();
+                let full_span = Span {
+                    start: span.start,
+                    end: final_span.end,
+                };
+                Ok(Type::Tuple(full_span, inner))
+            }
+            Some((Token::Ident, span)) => match span.resolve(self.input) {
                 "Iterator" => {
                     self.consume();
                     let inner = self.parse_inner_generic_type()?;
-                    Ok(Type::Iterator(Box::new(inner)))
+                    let final_span = self.previous_span();
+                    let full_span = Span {
+                        start: span.start,
+                        end: final_span.end,
+                    };
+                    Ok(Type::Iterator(full_span, Box::new(inner)))
                 }
                 "Option" => {
                     self.consume();
                     let inner = self.parse_inner_generic_type()?;
-                    Ok(Type::Option(Box::new(inner)))
+                    let final_span = self.previous_span();
+                    let full_span = Span {
+                        start: span.start,
+                        end: final_span.end,
+                    };
+                    Ok(Type::Option(full_span, Box::new(inner)))
                 }
                 _ => {
                     let span = self.consume();
@@ -229,7 +253,7 @@ impl<'a> Parser<'a> {
     pub fn parse_annotation(&mut self) -> PResult<Annotation> {
         // 1. The @query that marks the start of the annotation.
         match self.peek_with_span() {
-            Some((Token::Annotation, "@query")) => self.consume(),
+            Some((Token::Annotation, ann)) if ann.resolve(self.input) == "@query" => self.consume(),
             Some((Token::Annotation, _)) => {
                 return self.error("Invalid annotation, only '@query' is understood.")
             }
