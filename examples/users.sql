@@ -14,7 +14,7 @@ values
   ("piet", "piet@example.com");
 
 -- Insert a new user and return its id.
--- @query add_user(name: &str, email: &str) -> i64
+-- @query insert_user(name: str, email: str) -> i64
 insert into
   users (name, email)
 values
@@ -23,34 +23,50 @@ returning
   id;
 
 -- Insert a new user and return it.
--- @query add_user_alt(name: &str, email: &str) -> NewUser
+-- @query insert_user_alt_return(name: str, email: str) -> User
 insert into
   users (name, email)
 values
   (:name, :email)
 returning
-  id as "id: i64",
-  name as "name: String",
-  email as "email: String";
+  id    /* :str */,
+  name  /* :str */,
+  email /* :str */;
+
+-- Insert a new user and return its id.
+-- @query insert_user_alt_arg(user: InsertUser) -> i64
+insert into
+  users (name, email)
+values
+  (:name /* :str */, :email /* :str */)
+returning
+  id;
 
 -- Select a particular user by id.
--- @query get_user_by_id(id: i64) -> User
+-- @query select_user_by_id(id: i64) -> User
 select
-  id as "id: i64",
-  name as "name: String",
-  email as "email: String"
+  id    /* :i64 */,
+  name  /* :str */,
+  email /* :str */
 from
   users
 where
   id = :id;
 
 -- Iterate over all users ordered by id.
--- @query list_all_users() -> Iterator<User>
+-- @query select_all_users() -> Iterator<User>
 select
-  id as "id: i64",
-  name as "name: String",
-  email as "email: String"
+  id    /* :i64 */,
+  name  /* :str */,
+  email /* :str */
 from
   users
 order by
   id asc;
+
+-- Select the length of the longest email address.
+-- @query select_longest_email_length() -> Option<i64>
+select
+  max(length(email))
+from
+  users;

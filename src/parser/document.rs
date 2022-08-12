@@ -128,20 +128,14 @@ impl<'a> Parser<'a> {
                         return Ok(Section::Verbatim(section_span));
                     }
                 }
-                sql::Token::Comment => {
-                    // Cut off the leading "--" by bumping the start offset.
-                    let comment_span = Span {
-                        start: span.start + 2,
-                        end: span.end,
-                    };
-
+                sql::Token::CommentInner => {
                     // Potentially this comment could contain an annotation.
                     // Before we lex the entire thing, check if it contains the
                     // '@' marker.
-                    let span_bytes = &self.input.as_bytes()[comment_span.start..comment_span.end];
+                    let span_bytes = &self.input.as_bytes()[span.start..span.end];
                     if span_bytes.contains(&b'@') {
                         let mut comment_lexer = ann::Lexer::new(self.input);
-                        comment_lexer.run(comment_span);
+                        comment_lexer.run(span);
                         match comment_lexer.tokens().first() {
                             // If the comment starts with an annotation, then
                             // this means we are inside a query section, and we
@@ -157,7 +151,7 @@ impl<'a> Parser<'a> {
                     // If it was not an annotation, we still record the comment,
                     // because if we later encounter an annotation, the
                     // preceding comments serve as the doc comment for the query.
-                    comments.push(comment_span);
+                    comments.push(span);
                 }
                 _ => {}
             }
@@ -180,14 +174,13 @@ impl<'a> Parser<'a> {
                     self.consume();
                     continue;
                 }
-                Some(sql::Token::Comment) => {
-                    // Cut off the leading "--" by bumping the start offset.
+                Some(sql::Token::CommentOuter) => {
+                    self.consume();
+                    continue;
+                }
+                Some(sql::Token::CommentInner) => {
                     let span = self.tokens[self.cursor].1;
-                    let comment_span = Span {
-                        start: span.start + 2,
-                        end: span.end,
-                    };
-                    comment_lexer.run(comment_span);
+                    comment_lexer.run(span);
                     self.consume();
                 }
                 None => {

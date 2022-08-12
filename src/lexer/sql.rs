@@ -7,7 +7,8 @@ enum State {
     Base,
     InSingleQuote,
     InDoubleQuote,
-    InComment,
+    InLineComment,
+    InInlineComment,
     InParam,
     InSpace,
     InIdent,
@@ -27,8 +28,10 @@ pub enum Token {
     SingleQuoted,
     /// Content between double quotes.
     DoubleQuoted,
-    /// A comment that starts with `--` and ends at a newline (not included).
-    Comment,
+    /// The `--` or `/*` or `*/` that open or close comments.
+    CommentOuter,
+    /// A comment, excluding its opening and closing markers, and excluding terminating newline.
+    CommentInner,
     /// `(`.
     LParen,
     /// `)`.
@@ -104,7 +107,8 @@ impl<'a> Lexer<'a> {
                 State::Base => self.lex_base()?,
                 State::InSingleQuote => self.lex_in_single_quote()?,
                 State::InDoubleQuote => self.lex_in_double_quote()?,
-                State::InComment => self.lex_in_comment(),
+                State::InLineComment => self.lex_in_line_comment(),
+                State::InInlineComment => self.lex_in_inline_comment()?,
                 State::InParam => self.lex_in_param(),
                 State::InSpace => self.lex_in_space(),
                 State::InIdent => self.lex_in_ident(),
@@ -139,7 +143,10 @@ impl<'a> Lexer<'a> {
             return Ok((self.start, State::Done));
         }
         if input.starts_with(b"--") {
-            return Ok((self.start, State::InComment));
+            return Ok((self.start, State::InLineComment));
+        }
+        if input.starts_with(b"/*") {
+            return Ok((self.start, State::InInlineComment));
         }
         if input.starts_with(b"'") {
             return Ok((self.start, State::InSingleQuote));
@@ -240,8 +247,30 @@ impl<'a> Lexer<'a> {
         self.lex_skip_then_while(0, include, token)
     }
 
-    fn lex_in_comment(&mut self) -> (usize, State) {
-        self.lex_while(|ch| ch != b'\n', Token::Comment)
+    fn lex_in_line_comment(&mut self) -> (usize, State) {
+        // The `--` is its own token.
+        self.push(Token::CommentOuter, 2);
+        self.start += 2;
+        self.lex_while(|ch| ch != b'\n', Token::CommentInner)
+    }
+
+    fn lex_in_inline_comment(&mut self) -> PResult<(usize, State)> {
+        // The `/*` is its own token.
+        self.push(Token::CommentOuter, 2);
+        self.start += 2;
+
+        let input = &self.input.as_bytes()[self.start..];
+
+        for len in 0..input.len() {
+            if input[len..].starts_with(b"*/") {
+                self.push(Token::CommentInner, len);
+                self.start += len;
+                self.push(Token::CommentOuter, 2);
+                return Ok((self.start + 2, State::Base));
+            }
+        }
+
+        self.error_while(|_ch| true, "Unclosed /* */ comment.")
     }
 
     fn lex_in_param(&mut self) -> (usize, State) {
@@ -326,7 +355,8 @@ mod test {
             input,
             &[
                 (Token::Space, "\n        "),
-                (Token::Comment, "-- Comment"),
+                (Token::CommentOuter, "--"),
+                (Token::CommentInner, " Comment"),
                 (Token::Space, "\n        "),
                 (Token::Ident, "SELECT"),
                 (Token::Space, " "),
@@ -344,6 +374,27 @@ mod test {
                 (Token::Space, " "),
                 (Token::Ident, "1"),
                 (Token::Semicolon, ";"),
+            ],
+        );
+    }
+
+    #[test]
+    fn it_lexes_inline_comments() {
+        let input = r#"
+        SELECT /* hello */ FROM
+        "#;
+        test_tokens(
+            input,
+            &[
+                (Token::Space, "\n        "),
+                (Token::Ident, "SELECT"),
+                (Token::Space, " "),
+                (Token::CommentOuter, "/*"),
+                (Token::CommentInner, " hello "),
+                (Token::CommentOuter, "*/"),
+                (Token::Space, " "),
+                (Token::Ident, "FROM"),
+                (Token::Space, "\n        "),
             ],
         );
     }
