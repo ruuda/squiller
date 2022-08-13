@@ -428,8 +428,10 @@ impl<'a> Parser<'a> {
                                 .expect("Must have a fragment before parameter fragment.")
                                 .span();
                             fragment.end = hole_span.start;
-                            debug_assert!(fragment.start < fragment.end);
-                            fragments.push(Fragment::Verbatim(fragment));
+                            debug_assert!(fragment.start <= fragment.end);
+                            if fragment.len() > 0 {
+                                fragments.push(Fragment::Verbatim(fragment));
+                            }
                             fragments.push(frag);
                         }
                         _ => panic!("Invalid fragment: {:?}", hole_fragment),
@@ -613,9 +615,19 @@ mod test {
     }
 
     #[test]
-    fn it_parses_a_query_with_invalid_type_annotation() {
+    fn it_does_not_crash_on_invalid_type_annotation_after_ident() {
         // The fuzzer found this input to trigger an assertion failure.
         let input = "--@query q()\nx--:T";
+        with_parser(input, |p| {
+            let result = p.parse_section();
+            assert!(result.is_err());
+        });
+    }
+
+    #[test]
+    fn it_does_not_crash_on_invalid_type_annotation_after_param() {
+        // The fuzzer found this input to trigger an assertion failure.
+        let input = "--@query q()\n:x--:T";
         with_parser(input, |p| {
             let result = p.parse_section();
             assert!(result.is_err());
