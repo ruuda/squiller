@@ -609,4 +609,14 @@ mod test {
             assert_eq!(result, expected);
         });
     }
+
+    #[test]
+    fn it_parses_a_query_with_invalid_type_annotation() {
+        // The fuzzer found this input to trigger an assertion failure.
+        let input = "--@query q()\nx--:T";
+        with_parser(input, |p| {
+            let result = p.parse_section();
+            assert!(result.is_err());
+        });
+    }
 }
