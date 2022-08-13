@@ -328,7 +328,7 @@ impl<'a> Parser<'a> {
                     break;
                 }
                 sql::Token::Param => {
-                    result = Some(Fragment::TypedIdent(full_span, ident));
+                    result = Some(Fragment::TypedParam(full_span, ident));
                     break;
                 }
                 _ => break,
@@ -411,6 +411,7 @@ impl<'a> Parser<'a> {
                     match hole_fragment {
                         frag @ Fragment::TypedIdent(..) => {
                             fragment.end = hole_span.start;
+                            debug_assert!(fragment.start < fragment.end);
                             fragments.push(Fragment::Verbatim(fragment));
                             fragments.push(frag);
                         }
@@ -425,6 +426,7 @@ impl<'a> Parser<'a> {
                                 .expect("Must have a fragment before parameter fragment.")
                                 .span();
                             fragment.end = hole_span.start;
+                            debug_assert!(fragment.start < fragment.end);
                             fragments.push(Fragment::Verbatim(fragment));
                             fragments.push(frag);
                         }
@@ -432,7 +434,6 @@ impl<'a> Parser<'a> {
                     }
                     fragment.start = hole_span.end;
                     fragment.end = hole_span.end;
-                    self.consume();
                 }
                 sql::Token::Param => {
                     fragment.end = span.start;
@@ -578,6 +579,34 @@ mod test {
         with_parser(input, |p| {
             let result = p.parse_section().unwrap();
             assert_eq!(result.resolve(input), Section::Verbatim("---@"));
+        });
+    }
+
+    #[test]
+    fn handles_typed_params_with_annotation_in_inline_comment() {
+        let input = "/* @query q() */ SELECT a from b where c = :c /* :str */;";
+        with_parser(input, |p| {
+            let result = p.parse_section().unwrap().resolve(input);
+            let expected = Section::Query(Query {
+                docs: vec![],
+                annotation: Annotation {
+                    name: "q",
+                    parameters: vec![],
+                    result_type: Type::Unit,
+                },
+                fragments: vec![
+                    Fragment::Verbatim("SELECT a from b where c = "),
+                    Fragment::TypedParam(
+                        ":c /* :str */",
+                        TypedIdent {
+                            ident: ":c",
+                            type_: Type::Simple("str"),
+                        },
+                    ),
+                    Fragment::Verbatim(";"),
+                ],
+            });
+            assert_eq!(result, expected);
         });
     }
 }

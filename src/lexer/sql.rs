@@ -405,6 +405,22 @@ mod test {
     }
 
     #[test]
+    fn it_lexes_semicolons_after_inline_comments() {
+        let input = "SELECT /* */;";
+        test_tokens(
+            input,
+            &[
+                (Token::Ident, "SELECT"),
+                (Token::Space, " "),
+                (Token::CommentStart, "/*"),
+                (Token::CommentInner, " "),
+                (Token::CommentEnd, "*/"),
+                (Token::Semicolon, ";"),
+            ],
+        );
+    }
+
+    #[test]
     fn ascii_control_bytes_result_in_error() {
         let input = "\x01";
         let error = Lexer::new(input).run().err().unwrap();
