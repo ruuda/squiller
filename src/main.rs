@@ -9,7 +9,7 @@ use std::io;
 use std::path::PathBuf;
 
 use querybinder::error::Error;
-use querybinder::lexer::sql::Lexer;
+use querybinder::lexer::document::Lexer;
 use querybinder::parser::document::Parser;
 use querybinder::target::Target;
 

@@ -1,6 +1,6 @@
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation as ann;
-use crate::lexer::sql;
+use crate::lexer::document as doc;
 use crate::parser::annotation as parse_ann;
 use crate::Span;
 
@@ -16,15 +16,15 @@ type TypedIdent = crate::ast::TypedIdent<Span>;
 /// Parses a tokenized SQL document into a list of queries with their metadata.
 pub struct Parser<'a> {
     input: &'a str,
-    tokens: &'a [(sql::Token, Span)],
+    tokens: &'a [(doc::Token, Span)],
     cursor: usize,
 
     /// The unclosed opening brackets (all of `()`, `[]`, `{}`) encountered.
-    bracket_stack: Vec<(sql::Token, Span)>,
+    bracket_stack: Vec<(doc::Token, Span)>,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(input: &'a str, tokens: &'a [(sql::Token, Span)]) -> Parser<'a> {
+    pub fn new(input: &'a str, tokens: &'a [(doc::Token, Span)]) -> Parser<'a> {
         Parser {
             input: input,
             tokens: tokens,
@@ -72,7 +72,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Return the token under the cursor, if there is one.
-    fn peek(&self) -> Option<sql::Token> {
+    fn peek(&self) -> Option<doc::Token> {
         self.tokens.get(self.cursor).map(|t| t.0)
     }
 
@@ -99,7 +99,7 @@ impl<'a> Parser<'a> {
         self.consume();
         self.bracket_stack.push(start_token);
         match start_token.0 {
-            sql::Token::LBrace | sql::Token::LParen | sql::Token::LBracket => {}
+            doc::Token::LBrace | doc::Token::LParen | doc::Token::LBracket => {}
             invalid => unreachable!("Invalid token for `push_bracket`: {:?}", invalid),
         };
     }
@@ -111,17 +111,17 @@ impl<'a> Parser<'a> {
         let actual_end_token = self.tokens[self.cursor].0;
         let top = match self.bracket_stack.pop() {
             None => match actual_end_token {
-                sql::Token::RParen => return self.error("Found unmatched ')'."),
-                sql::Token::RBrace => return self.error("Found unmatched '}'."),
-                sql::Token::RBracket => return self.error("Found unmatched ']'."),
+                doc::Token::RParen => return self.error("Found unmatched ')'."),
+                doc::Token::RBrace => return self.error("Found unmatched '}'."),
+                doc::Token::RBracket => return self.error("Found unmatched ']'."),
                 invalid => unreachable!("Invalid token for `pop_bracket`: {:?}", invalid),
             },
             Some(t) => t,
         };
         let expected_end_token = match top.0 {
-            sql::Token::LParen => sql::Token::RParen,
-            sql::Token::LBrace => sql::Token::RBrace,
-            sql::Token::LBracket => sql::Token::RBracket,
+            doc::Token::LParen => doc::Token::RParen,
+            doc::Token::LBrace => doc::Token::RBrace,
+            doc::Token::LBracket => doc::Token::RBracket,
             invalid => unreachable!("Invalid token on bracket stack: {:?}", invalid),
         };
 
@@ -131,13 +131,13 @@ impl<'a> Parser<'a> {
         }
 
         match expected_end_token {
-            sql::Token::RParen => {
+            doc::Token::RParen => {
                 self.error_with_note("Expected ')'.", top.1, "Unmatched '(' opened here.")
             }
-            sql::Token::RBrace => {
+            doc::Token::RBrace => {
                 self.error_with_note("Expected '}'.", top.1, "Unmatched '{' opened here.")
             }
-            sql::Token::RBracket => {
+            doc::Token::RBracket => {
                 self.error_with_note("Expected ']'.", top.1, "Unmatched '[' opened here.")
             }
             _ => unreachable!("End token is one of the above three."),
@@ -152,13 +152,13 @@ impl<'a> Parser<'a> {
         };
 
         match top.0 {
-            sql::Token::LParen => {
+            doc::Token::LParen => {
                 self.error_with_note("Expected ')'.", top.1, "Unmatched '(' opened here.")
             }
-            sql::Token::LBrace => {
+            doc::Token::LBrace => {
                 self.error_with_note("Expected '}'.", top.1, "Unmatched '{' opened here.")
             }
-            sql::Token::LBracket => {
+            doc::Token::LBracket => {
                 self.error_with_note("Expected ']'.", top.1, "Unmatched '[' opened here.")
             }
             _ => unreachable!("Opening token is one of the above three."),
@@ -195,7 +195,7 @@ impl<'a> Parser<'a> {
             self.consume();
 
             match token {
-                sql::Token::Space => {
+                doc::Token::Space => {
                     let span_bytes = &self.input.as_bytes()[span.start..span.end];
                     let num_newlines = span_bytes.iter().filter(|ch| **ch == b'\n').count();
                     if num_newlines >= 2 {
@@ -206,7 +206,7 @@ impl<'a> Parser<'a> {
                         return Ok(Section::Verbatim(section_span));
                     }
                 }
-                sql::Token::CommentInner => {
+                doc::Token::CommentInner => {
                     // Potentially this comment could contain an annotation.
                     // Before we lex the entire thing, check if it contains the
                     // '@' marker.
@@ -248,13 +248,13 @@ impl<'a> Parser<'a> {
     fn parse_annotation(&mut self, mut comment_lexer: ann::Lexer<'a>) -> PResult<Annotation> {
         loop {
             match self.peek() {
-                Some(sql::Token::Space)
-                | Some(sql::Token::CommentStart)
-                | Some(sql::Token::CommentEnd) => {
+                Some(doc::Token::Space)
+                | Some(doc::Token::CommentStart)
+                | Some(doc::Token::CommentEnd) => {
                     self.consume();
                     continue;
                 }
-                Some(sql::Token::CommentInner) => {
+                Some(doc::Token::CommentInner) => {
                     let span = self.tokens[self.cursor].1;
                     comment_lexer.run(span);
                     self.consume();
@@ -299,7 +299,7 @@ impl<'a> Parser<'a> {
 
         // The comment we were inside of could have been a /* */ style comment
         // with an end token. Consume that as well, if it's there.
-        if let Some(sql::Token::CommentEnd) = self.peek() {
+        if let Some(doc::Token::CommentEnd) = self.peek() {
             self.consume();
         }
 
@@ -320,18 +320,18 @@ impl<'a> Parser<'a> {
                 end: end_span.end,
             };
             match prev_token {
-                sql::Token::Space => {
+                doc::Token::Space => {
                     // We put the type in the typed ident and then if we are not
                     // going to use it we pull it back out here, to make the
                     // borrow checker happy, to avoid cloning the type.
                     type_ = ident.type_;
                     continue;
                 }
-                sql::Token::Ident => {
+                doc::Token::Ident => {
                     result = Some(Fragment::TypedIdent(full_span, ident));
                     break;
                 }
-                sql::Token::Param => {
+                doc::Token::Param => {
                     result = Some(Fragment::TypedParam(full_span, ident));
                     break;
                 }
@@ -372,13 +372,13 @@ impl<'a> Parser<'a> {
 
         while let Some((token, span)) = self.tokens.get(self.cursor) {
             match token {
-                sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
+                doc::Token::LParen | doc::Token::LBrace | doc::Token::LBracket => {
                     self.push_bracket();
                 }
-                sql::Token::RParen | sql::Token::RBrace | sql::Token::RBracket => {
+                doc::Token::RParen | doc::Token::RBrace | doc::Token::RBracket => {
                     self.pop_bracket()?;
                 }
-                sql::Token::CommentInner => {
+                doc::Token::CommentInner => {
                     // If there is a comment, and it starts with a `:`,
                     // optionally preceded by whitespace, then we interpret that
                     // as a type comment. So first, check if we are in that case
@@ -441,7 +441,7 @@ impl<'a> Parser<'a> {
                     fragment.start = hole_span.end;
                     fragment.end = hole_span.end;
                 }
-                sql::Token::Param => {
+                doc::Token::Param => {
                     fragment.end = span.start;
                     fragments.push(Fragment::Verbatim(fragment));
                     fragments.push(Fragment::Param(*span));
@@ -449,7 +449,7 @@ impl<'a> Parser<'a> {
                     fragment.end = span.end;
                     self.consume();
                 }
-                sql::Token::Semicolon => {
+                doc::Token::Semicolon => {
                     // The semicolon marks the end of the query.
                     self.ensure_bracket_stack_empty()?;
 
@@ -479,7 +479,7 @@ mod test {
     use super::Parser;
     use crate::ast::{Annotation, Fragment, Query, Section, Type, TypedIdent};
     use crate::error::Error;
-    use crate::lexer::sql::Lexer;
+    use crate::lexer::document::Lexer;
     use crate::Span;
 
     fn with_parser<F: FnOnce(&mut Parser)>(input: &str, f: F) {

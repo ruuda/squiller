@@ -9,7 +9,7 @@ pub mod ast;
 pub mod error;
 pub mod lexer {
     pub mod annotation;
-    pub mod sql;
+    pub mod document;
 }
 pub mod parser {
     pub mod annotation;
