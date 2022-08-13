@@ -272,6 +272,9 @@ impl<'a> Lexer<'a> {
             }
         }
 
+        // If we did not return by now, then the comment is unclosed. Reset the
+        // start position to the start of the comment to get a nicer error.
+        self.start -= 2;
         self.error_while(|_ch| true, "Unclosed /* */ comment.")
     }
 
@@ -430,5 +433,19 @@ mod test {
             }
         );
         assert_eq!(error.span.resolve(input), "'unclosed");
+    }
+
+    #[test]
+    fn unmatched_inline_comment_reports_error_at_comment_start() {
+        let input = "select /* unclosed";
+        let error = Lexer::new(input).run().err().unwrap();
+        assert_eq!(
+            error.span,
+            Span {
+                start: "select ".len(),
+                end: input.len()
+            }
+        );
+        assert_eq!(error.span.resolve(input), "/* unclosed");
     }
 }
