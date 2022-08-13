@@ -339,14 +339,20 @@ mod test {
         let input = "Option<i64>";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Option(Box::new(Type::Simple("i64")));
+            let expected = Type::Option(
+                "Option<i64>",
+                Box::new(Type::Simple("i64")),
+            );
             assert_eq!(result, expected);
         });
 
         let input = "Iterator<i64>";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Iterator(Box::new(Type::Simple("i64")));
+            let expected = Type::Iterator(
+                "Iterator<i64>",
+                Box::new(Type::Simple("i64")),
+            );
             assert_eq!(result, expected);
         });
 
@@ -361,14 +367,20 @@ mod test {
         let input = "()";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple(Vec::new());
+            let expected = Type::Tuple(
+                "()",
+                Vec::new(),
+            );
             assert_eq!(result, expected);
         });
 
         let input = "(f64)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple(vec![Type::Simple("f64")]);
+            let expected = Type::Tuple(
+                "(f64)",
+                vec![Type::Simple("f64")],
+            );
             assert_eq!(result, expected);
         });
 
@@ -376,14 +388,20 @@ mod test {
         let input = "(f64,)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple(vec![Type::Simple("f64")]);
+            let expected = Type::Tuple(
+                "(f64,)",
+                vec![Type::Simple("f64")],
+            );
             assert_eq!(result, expected);
         });
 
         let input = "(f64, String)";
         with_parser(input, |p| {
             let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple(vec![Type::Simple("f64"), Type::Simple("String")]);
+            let expected = Type::Tuple(
+                "(f64, String)",
+                vec![Type::Simple("f64"), Type::Simple("String")],
+            );
             assert_eq!(result, expected);
         });
 

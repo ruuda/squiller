@@ -281,6 +281,16 @@ impl<'a> Parser<'a> {
     ) -> PResult<Fragment> {
         let mut lexer = ann::Lexer::new(self.input);
         lexer.run(type_span);
+
+        if lexer.tokens().len() == 0 {
+            let err = ParseError {
+                span: type_span,
+                message: "Empty type annotation, expected a type after the ':'.",
+                note: None,
+            };
+            return Err(err);
+        }
+
         let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
         let type_ = parser.parse_type()?;
 
@@ -472,26 +482,45 @@ mod test {
     }
 
     #[test]
-    fn empty_double_quoted_is_error_typed_ident() {
+    fn empty_type_annotation_is_error() {
         let input = r#"
         -- @query q()
-        SELECT id as "" FROM t;
+        SELECT id /* : */ FROM t;
         "#;
         with_parser(input, |p| {
             let err = p.parse_section().err().unwrap();
-            assert_eq!(err.span.resolve(input), "\"\"");
+            let wider_span = Span {
+                start: err.span.start - 2,
+                end: err.span.end + 2,
+            };
+            assert_eq!(wider_span.resolve(input), " : */");
         });
     }
 
     #[test]
-    fn unexpected_token_after_as_returns_error_on_that_token() {
-        let input = r#"
+    fn it_parses_a_type_annotation() {
+        let input = "
         -- @query q()
-        SELECT wow AS very_error FROM such_table;
-        "#;
+        SELECT name /* : str */ FROM t;
+        ";
         with_parser(input, |p| {
-            let err = p.parse_section().err().unwrap();
-            assert_eq!(err.span.resolve(input), "very_error");
+            let result = p.parse_section().unwrap();
+            let query = match result {
+                Section::Query(q) => q,
+                _ => panic!("Expected query."),
+            };
+            let fragments = query.resolve(input).fragments;
+            let expected = [
+                Fragment::Verbatim("SELECT "),
+                Fragment::TypedIdent("name /* : str */",
+                    TypedIdent {
+                        ident: "name",
+                        type_: Type::Simple("str"),
+                    },
+                ),
+                Fragment::Verbatim(" FROM t;"),
+            ];
+            assert_eq!(fragments, expected);
         });
     }
 
@@ -503,25 +532,6 @@ mod test {
         with_parser(input, |p| {
             let result = p.parse_section().unwrap();
             assert_eq!(result.resolve(input), Section::Verbatim("---@"));
-        });
-    }
-
-    #[test]
-    fn error_in_typed_ident_is_reported_at_the_right_location_simple() {
-        let input = "\"y\"";
-        with_parser(input, |p| {
-            let err = p.parse_typed_ident().err().unwrap();
-            assert_eq!(err.span, Span { start: 2, end: 2 });
-        });
-    }
-
-    #[test]
-    fn error_in_typed_ident_is_reported_at_the_right_location_complexer() {
-        let input = "-- @query?()\nSELECT y as \"y\";";
-        with_parser(input, |p| {
-            let err = p.parse_section().err().unwrap();
-            let start = "-- @query?()\nSELECT y as \"y".len();
-            assert_eq!(err.span, Span { start: start, end: start });
         });
     }
 }
