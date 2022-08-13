@@ -170,11 +170,7 @@ impl<'a> Parser<'a> {
     fn parse_annotation(&mut self, mut comment_lexer: ann::Lexer<'a>) -> PResult<Annotation> {
         loop {
             match self.peek() {
-                Some(sql::Token::Space) => {
-                    self.consume();
-                    continue;
-                }
-                Some(sql::Token::CommentOuter) => {
+                Some(sql::Token::Space) | Some(sql::Token::CommentStart) | Some(sql::Token::CommentEnd) => {
                     self.consume();
                     continue;
                 }
@@ -292,17 +288,64 @@ impl<'a> Parser<'a> {
         }
 
         let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
-        let type_ = parser.parse_type()?;
+        let mut type_ = parser.parse_type()?;
 
-        // TODO: Compute the right spans.
-        let result = Fragment::TypedIdent(
-            type_span,
-            TypedIdent {
-                ident: Span { start: type_span.start - 5, end: type_span.start - 5},
+        // Consume the CommentInner token that we are parsing the annotation from.
+        let annotation_token_index = self.cursor;
+        self.consume();
+
+        // The comment we were inside of could have been a /* */ style comment
+        // with an end token. Consume that as well, if it's there.
+        if let Some(sql::Token::CommentEnd) = self.peek() {
+            self.consume();
+        }
+
+        let end_span = self.tokens[self.cursor - 1].1;
+        let mut result: Option<Fragment> = None;
+
+        // Now that we have the annotation itself, we need to walk back to find
+        // the token which is being annotated. We must be inside a comment, so
+        // preceding this token must be a CommentStart token that we skip over.
+        for i in (0..annotation_token_index - 1).rev() {
+            let (prev_token, prev_span) = self.tokens[i];
+            let ident = TypedIdent {
+                ident: prev_span,
                 type_: type_,
-            },
-        );
-        Ok(result)
+            };
+            let full_span = Span {
+                start: prev_span.start,
+                end: end_span.end,
+            };
+            match prev_token {
+                sql::Token::Space => {
+                    // We put the type in the typed ident and then if we are not
+                    // going to use it we pull it back out here, to make the
+                    // borrow checker happy, to avoid cloning the type.
+                    type_ = ident.type_;
+                    continue
+                },
+                sql::Token::Ident => {
+                    result = Some(Fragment::TypedIdent(full_span, ident));
+                    break;
+                }
+                sql::Token::Param => {
+                    result = Some(Fragment::TypedIdent(full_span, ident));
+                    break;
+                }
+                _ => break,
+            }
+        }
+
+        match result {
+            None => {
+                self.cursor = annotation_token_index;
+                self.error(
+                    "Invalid type annotation, expected \
+                    an identifier or parameter before the annotation."
+                )
+            }
+            Some(fragment) => Ok(fragment),
+        }
     }
 
     /// Parse a single section from the document.

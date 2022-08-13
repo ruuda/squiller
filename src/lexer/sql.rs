@@ -28,9 +28,11 @@ pub enum Token {
     SingleQuoted,
     /// Content between double quotes.
     DoubleQuoted,
-    /// The `--` or `/*` or `*/` that open or close comments.
-    CommentOuter,
-    /// A comment, excluding its opening and closing markers, and excluding terminating newline.
+    /// The `--` or `/*` that open comments.
+    CommentStart,
+    /// The `*/` that closes comments. (But not a newline after `--`.)
+    CommentEnd,
+    /// A comment, excluding its opening and closing tokens, and excluding terminating newline.
     CommentInner,
     /// `(`.
     LParen,
@@ -249,14 +251,14 @@ impl<'a> Lexer<'a> {
 
     fn lex_in_line_comment(&mut self) -> (usize, State) {
         // The `--` is its own token.
-        self.push(Token::CommentOuter, 2);
+        self.push(Token::CommentStart, 2);
         self.start += 2;
         self.lex_while(|ch| ch != b'\n', Token::CommentInner)
     }
 
     fn lex_in_inline_comment(&mut self) -> PResult<(usize, State)> {
         // The `/*` is its own token.
-        self.push(Token::CommentOuter, 2);
+        self.push(Token::CommentStart, 2);
         self.start += 2;
 
         let input = &self.input.as_bytes()[self.start..];
@@ -265,7 +267,7 @@ impl<'a> Lexer<'a> {
             if input[len..].starts_with(b"*/") {
                 self.push(Token::CommentInner, len);
                 self.start += len;
-                self.push(Token::CommentOuter, 2);
+                self.push(Token::CommentEnd, 2);
                 return Ok((self.start + 2, State::Base));
             }
         }
@@ -355,7 +357,7 @@ mod test {
             input,
             &[
                 (Token::Space, "\n        "),
-                (Token::CommentOuter, "--"),
+                (Token::CommentStart, "--"),
                 (Token::CommentInner, " Comment"),
                 (Token::Space, "\n        "),
                 (Token::Ident, "SELECT"),
@@ -389,9 +391,9 @@ mod test {
                 (Token::Space, "\n        "),
                 (Token::Ident, "SELECT"),
                 (Token::Space, " "),
-                (Token::CommentOuter, "/*"),
+                (Token::CommentStart, "/*"),
                 (Token::CommentInner, " hello "),
-                (Token::CommentOuter, "*/"),
+                (Token::CommentEnd, "*/"),
                 (Token::Space, " "),
                 (Token::Ident, "FROM"),
                 (Token::Space, "\n        "),
