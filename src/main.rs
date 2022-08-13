@@ -12,6 +12,7 @@ use querybinder::error::Error;
 use querybinder::lexer::document::Lexer;
 use querybinder::parser::document::Parser;
 use querybinder::target::Target;
+use querybinder::typecheck;
 
 use clap::ValueEnum;
 
@@ -66,6 +67,7 @@ fn process_input(
     let tokens = Lexer::new(&input_str).run()?;
     let mut parser = Parser::new(&input_str, &tokens);
     let doc = parser.parse_document()?;
+    let doc = typecheck::check_document(&input_str, doc)?;
     target
         .process_file(&input_str, doc, out)
         .expect("Failed to print output.");

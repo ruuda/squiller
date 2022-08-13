@@ -7,6 +7,18 @@
 
 use crate::Span;
 
+/// The primitive types that we support.
+///
+/// These types map to SQL types on the one hand, and types in the target
+/// language on the other.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PrimitiveType {
+    Str,
+    I32,
+    I64,
+    Bytes,
+}
+
 /// Types of parameters and results.
 #[derive(Debug, Eq, PartialEq)]
 pub enum Type<TSpan> {
@@ -16,7 +28,17 @@ pub enum Type<TSpan> {
     Unit,
 
     /// A simple type that for our purposes cannot be broken down further.
+    ///
+    /// Used early in the compilation process, before resolving types. The
+    /// parser outputs simple types and does not resolve them to structs or
+    /// primitive types.
     Simple(TSpan),
+
+    /// A primitive type.
+    ///
+    /// Primitive types are not produced by the parser, they are generated from
+    /// simple types by the type resolution phase.
+    Primitive(TSpan, PrimitiveType),
 
     /// An iterator, for queries that may return multiple rows.
     ///
@@ -45,6 +67,7 @@ impl Type<Span> {
         match self {
             Type::Unit => Type::Unit,
             Type::Simple(span) => Type::Simple(span.resolve(input)),
+            Type::Primitive(span, t) => Type::Primitive(span.resolve(input), *t),
             Type::Iterator(s, t) => Type::Iterator(s.resolve(input), Box::new(t.resolve(input))),
             Type::Option(s, t) => Type::Option(s.resolve(input), Box::new(t.resolve(input))),
             Type::Tuple(s, ts) => Type::Tuple(
@@ -63,10 +86,11 @@ impl Type<Span> {
         match self {
             Type::Unit => panic!("Unit does not have a span."),
             Type::Simple(s) => *s,
+            Type::Primitive(s, _) => *s,
             Type::Iterator(s, _) => *s,
             Type::Option(s, _) => *s,
             Type::Tuple(s, _) => *s,
-            Type::Struct(..) => panic!("Struct does not have a span."),
+            Type::Struct(s, _) => *s,
         }
     }
 }

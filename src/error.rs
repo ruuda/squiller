@@ -46,7 +46,7 @@ impl dyn Error {
         }
 
         if let Some(hint) = self.hint() {
-            println!("{}Hint:{} {}", bold_yellow, reset, hint);
+            println!("\n{}Hint:{} {}", bold_yellow, reset, hint);
         }
     }
 }
@@ -161,6 +161,64 @@ impl Error for ParseError {
 
 /// A parse result, either the parsed value, or a parse error.
 pub type PResult<T> = std::result::Result<T, ParseError>;
+
+#[derive(Debug)]
+pub struct TypeError {
+    pub span: Span,
+    pub message: &'static str,
+    pub note: Option<(String, Span)>,
+    pub hint: Option<String>,
+}
+
+impl TypeError {
+    pub fn new(span: Span, message: &'static str) -> Self {
+        Self {
+            span,
+            message,
+            note: None,
+            hint: None,
+        }
+    }
+
+    pub fn with_hint(span: Span, message: &'static str, hint: &'static str) -> Self {
+        Self {
+            span,
+            message,
+            note: None,
+            hint: Some(hint.to_string()),
+        }
+    }
+}
+
+impl From<TypeError> for Box<dyn Error> {
+    fn from(err: TypeError) -> Self {
+        Box::new(err)
+    }
+}
+
+impl Error for TypeError {
+    fn span(&self) -> Span {
+        self.span
+    }
+    fn message(&self) -> &str {
+        self.message
+    }
+    fn note(&self) -> Option<(&str, Span)> {
+        match &self.note {
+            None => None,
+            Some((note, span)) => Some((&note[..], *span)),
+        }
+    }
+    fn hint(&self) -> Option<&str> {
+        match &self.hint {
+            None => None,
+            Some(hint) => Some(&hint[..]),
+        }
+    }
+}
+
+/// A typechecking result, either the typed value, or an error.
+pub type TResult<T> = std::result::Result<T, TypeError>;
 
 #[cfg(test)]
 mod test {

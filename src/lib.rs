@@ -16,6 +16,7 @@ pub mod parser {
     pub mod document;
 }
 pub mod target;
+pub mod typecheck;
 
 /// Check if a byte is part of an identifier.
 ///
