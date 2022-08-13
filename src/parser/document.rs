@@ -99,7 +99,7 @@ impl<'a> Parser<'a> {
         self.consume();
         self.bracket_stack.push(start_token);
         match start_token.0 {
-            sql::Token::LBrace | sql::Token::LParen | sql::Token::LBracket => {},
+            sql::Token::LBrace | sql::Token::LParen | sql::Token::LBracket => {}
             invalid => unreachable!("Invalid token for `push_bracket`: {:?}", invalid),
         };
     }
