@@ -411,8 +411,10 @@ impl<'a> Parser<'a> {
                     match hole_fragment {
                         frag @ Fragment::TypedIdent(..) => {
                             fragment.end = hole_span.start;
-                            debug_assert!(fragment.start < fragment.end);
-                            fragments.push(Fragment::Verbatim(fragment));
+                            debug_assert!(fragment.start <= fragment.end);
+                            if fragment.len() > 0 {
+                                fragments.push(Fragment::Verbatim(fragment));
+                            }
                             fragments.push(frag);
                         }
                         frag @ Fragment::TypedParam(..) => {
