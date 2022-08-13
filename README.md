@@ -16,8 +16,8 @@ Given the following input:
 
 ```sql
 -- Look up a user by username.
--- @query get_user_by_name(name: &str) -> Option<User>
-select id as "id: i64", name as "name: String", email as "email: String"
+-- @query get_user_by_name(name: str) -> Option<User>
+select id /* :i64 */, name /* :str */, email /* :str */
 from users
 where name = :name;
 ```

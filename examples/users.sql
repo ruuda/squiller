@@ -29,7 +29,7 @@ insert into
 values
   (:name, :email)
 returning
-  id    /* :str */,
+  id    /* :i64 */,
   name  /* :str */,
   email /* :str */;
 
