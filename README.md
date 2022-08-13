@@ -35,7 +35,7 @@ struct User {
 pub fn get_user_by_name(connection: &Connection, name: &str) -> Result<Option<User>> {
     let mut statement = connection.prepare(
         r#"
-        select id as id, name as name, email as email
+        select id, name, email
         from users
         where name = :name;
         "#
