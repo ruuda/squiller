@@ -58,4 +58,11 @@ impl Span {
     pub fn len(&self) -> usize {
         self.end - self.start
     }
+
+    pub fn trim_start(&self, n: usize) -> Span {
+        Span {
+            start: self.start + n,
+            end: self.end,
+        }
+    }
 }
