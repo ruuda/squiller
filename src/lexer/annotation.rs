@@ -328,10 +328,7 @@ mod test {
     #[test]
     fn lex_subset_of_input_shoud_keep_token_end_in_bounds() {
         let input = "\"a\"";
-        let span = Span {
-            start: 1,
-            end: 2,
-        };
+        let span = Span { start: 1, end: 2 };
         let mut lexer = Lexer::new(input);
         lexer.run(span);
 

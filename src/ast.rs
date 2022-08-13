@@ -47,7 +47,10 @@ impl Type<Span> {
             Type::Simple(span) => Type::Simple(span.resolve(input)),
             Type::Iterator(s, t) => Type::Iterator(s.resolve(input), Box::new(t.resolve(input))),
             Type::Option(s, t) => Type::Option(s.resolve(input), Box::new(t.resolve(input))),
-            Type::Tuple(s, ts) => Type::Tuple(s.resolve(input), ts.iter().map(|t| t.resolve(input)).collect()),
+            Type::Tuple(s, ts) => Type::Tuple(
+                s.resolve(input),
+                ts.iter().map(|t| t.resolve(input)).collect(),
+            ),
             Type::Struct(name, fields) => Type::Struct(
                 name.resolve(input),
                 fields.iter().map(|f| f.resolve(input)).collect(),

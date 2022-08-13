@@ -170,7 +170,9 @@ impl<'a> Parser<'a> {
     fn parse_annotation(&mut self, mut comment_lexer: ann::Lexer<'a>) -> PResult<Annotation> {
         loop {
             match self.peek() {
-                Some(sql::Token::Space) | Some(sql::Token::CommentStart) | Some(sql::Token::CommentEnd) => {
+                Some(sql::Token::Space)
+                | Some(sql::Token::CommentStart)
+                | Some(sql::Token::CommentEnd) => {
                     self.consume();
                     continue;
                 }
@@ -271,10 +273,7 @@ impl<'a> Parser<'a> {
     ///
     /// Returns the parsed identifier and type, but also the span of the quoted
     /// string, excluding any preceding whitespace but including the quotes.
-    fn parse_type_annotation(
-        &mut self,
-        type_span: Span,
-    ) -> PResult<Fragment> {
+    fn parse_type_annotation(&mut self, type_span: Span) -> PResult<Fragment> {
         let mut lexer = ann::Lexer::new(self.input);
         lexer.run(type_span);
 
@@ -322,8 +321,8 @@ impl<'a> Parser<'a> {
                     // going to use it we pull it back out here, to make the
                     // borrow checker happy, to avoid cloning the type.
                     type_ = ident.type_;
-                    continue
-                },
+                    continue;
+                }
                 sql::Token::Ident => {
                     result = Some(Fragment::TypedIdent(full_span, ident));
                     break;
@@ -341,7 +340,7 @@ impl<'a> Parser<'a> {
                 self.cursor = annotation_token_index;
                 self.error(
                     "Invalid type annotation, expected \
-                    an identifier or parameter before the annotation."
+                    an identifier or parameter before the annotation.",
                 )
             }
             Some(fragment) => Ok(fragment),
@@ -390,7 +389,10 @@ impl<'a> Parser<'a> {
                         }
                         Some(i) => i,
                     };
-                    if !content[..colon_pos].bytes().all(|ch| ch.is_ascii_whitespace()) {
+                    if !content[..colon_pos]
+                        .bytes()
+                        .all(|ch| ch.is_ascii_whitespace())
+                    {
                         self.consume();
                         continue;
                     }
@@ -407,12 +409,12 @@ impl<'a> Parser<'a> {
                     let hole_span = hole_fragment.span();
 
                     match hole_fragment {
-                        frag@Fragment::TypedIdent(..) => {
+                        frag @ Fragment::TypedIdent(..) => {
                             fragment.end = hole_span.start;
                             fragments.push(Fragment::Verbatim(fragment));
                             fragments.push(frag);
                         }
-                        frag@Fragment::TypedParam(..) => {
+                        frag @ Fragment::TypedParam(..) => {
                             // If this type annotation turned out to annotate a
                             // parameter, then we replace the parameter fragment
                             // that we pushed previously with the new typed
@@ -466,10 +468,10 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::Parser;
-    use crate::Span;
     use crate::ast::{Annotation, Fragment, Query, Section, Type, TypedIdent};
     use crate::error::Error;
     use crate::lexer::sql::Lexer;
+    use crate::Span;
 
     fn with_parser<F: FnOnce(&mut Parser)>(input: &str, f: F) {
         let tokens = Lexer::new(input).run().expect("Failed to lex the input.");
@@ -555,7 +557,8 @@ mod test {
             let fragments = query.resolve(input).fragments;
             let expected = [
                 Fragment::Verbatim("SELECT "),
-                Fragment::TypedIdent("name /* : str */",
+                Fragment::TypedIdent(
+                    "name /* : str */",
                     TypedIdent {
                         ident: "name",
                         type_: Type::Simple("str"),

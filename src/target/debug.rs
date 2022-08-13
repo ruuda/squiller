@@ -79,7 +79,13 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            write!(out, "{}{}{}", yellow, parsed.type_.span().resolve(input), reset)?;
+                            write!(
+                                out,
+                                "{}{}{}",
+                                yellow,
+                                parsed.type_.span().resolve(input),
+                                reset
+                            )?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                         Fragment::Param(s) => {
@@ -96,7 +102,13 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            write!(out, "{}{}{}", yellow, parsed.type_.span().resolve(input), reset)?;
+                            write!(
+                                out,
+                                "{}{}{}",
+                                yellow,
+                                parsed.type_.span().resolve(input),
+                                reset
+                            )?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                     }
