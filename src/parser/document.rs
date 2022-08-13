@@ -18,6 +18,9 @@ pub struct Parser<'a> {
     input: &'a str,
     tokens: &'a [(sql::Token, Span)],
     cursor: usize,
+
+    /// The unclosed opening brackets (all of `()`, `[]`, `{}`) encountered.
+    bracket_stack: Vec<(sql::Token, Span)>,
 }
 
 impl<'a> Parser<'a> {
@@ -26,6 +29,7 @@ impl<'a> Parser<'a> {
             input: input,
             tokens: tokens,
             cursor: 0,
+            bracket_stack: Vec::new(),
         }
     }
 
@@ -85,6 +89,80 @@ impl<'a> Parser<'a> {
         );
 
         result
+    }
+
+    /// Push an opening bracket onto the stack of brackets when inside a query.
+    ///
+    /// Consumes the token under the cursor.
+    fn push_bracket(&mut self) {
+        let start_token = self.tokens[self.cursor];
+        self.consume();
+        self.bracket_stack.push(start_token);
+        match start_token.0 {
+            sql::Token::LBrace | sql::Token::LParen | sql::Token::LBracket => {},
+            invalid => unreachable!("Invalid token for `push_bracket`: {:?}", invalid),
+        };
+    }
+
+    /// Pop a closing bracket while verifying that it is the right one.
+    ///
+    /// Consumes the token under the cursor.
+    fn pop_bracket(&mut self) -> PResult<()> {
+        let actual_end_token = self.tokens[self.cursor].0;
+        let top = match self.bracket_stack.pop() {
+            None => match actual_end_token {
+                sql::Token::RParen => return self.error("Found unmatched ')'."),
+                sql::Token::RBrace => return self.error("Found unmatched '}'."),
+                sql::Token::RBracket => return self.error("Found unmatched ']'."),
+                invalid => unreachable!("Invalid token for `pop_bracket`: {:?}", invalid),
+            },
+            Some(t) => t,
+        };
+        let expected_end_token = match top.0 {
+            sql::Token::LParen => sql::Token::RParen,
+            sql::Token::LBrace => sql::Token::RBrace,
+            sql::Token::LBracket => sql::Token::RBracket,
+            invalid => unreachable!("Invalid token on bracket stack: {:?}", invalid),
+        };
+
+        if actual_end_token == expected_end_token {
+            self.consume();
+            return Ok(());
+        }
+
+        match expected_end_token {
+            sql::Token::RParen => {
+                self.error_with_note("Expected ')'.", top.1, "Unmatched '(' opened here.")
+            }
+            sql::Token::RBrace => {
+                self.error_with_note("Expected '}'.", top.1, "Unmatched '{' opened here.")
+            }
+            sql::Token::RBracket => {
+                self.error_with_note("Expected ']'.", top.1, "Unmatched '[' opened here.")
+            }
+            _ => unreachable!("End token is one of the above three."),
+        }
+    }
+
+    /// Report an error if there are unclosed brackets.
+    pub fn ensure_bracket_stack_empty(&self) -> PResult<()> {
+        let top = match self.bracket_stack.last() {
+            None => return Ok(()),
+            Some(t) => t,
+        };
+
+        match top.0 {
+            sql::Token::LParen => {
+                self.error_with_note("Expected ')'.", top.1, "Unmatched '(' opened here.")
+            }
+            sql::Token::LBrace => {
+                self.error_with_note("Expected '}'.", top.1, "Unmatched '{' opened here.")
+            }
+            sql::Token::LBracket => {
+                self.error_with_note("Expected ']'.", top.1, "Unmatched '[' opened here.")
+            }
+            _ => unreachable!("Opening token is one of the above three."),
+        }
     }
 
     /// Parse a single section from the document.
@@ -195,80 +273,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Consume tokens enclosed by (), [], or {}.
-    ///
-    /// The cursor must be on the opening bracket, and this method will consume
-    /// everything up to and including the matching closing bracket.
-    ///
-    /// If any parameter is encountered inside the brackets, the span is added
-    /// to the list of fragments, and the current fragment is updated.
-    fn consume_until_matching_close(
-        &mut self,
-        fragments: &mut Vec<Fragment>,
-        fragment: &mut Span,
-    ) -> PResult<()> {
-        let start_token = self
-            .peek()
-            .expect("Must be called with opening token under cursor.");
-        let end_token = match start_token {
-            sql::Token::LParen => sql::Token::RParen,
-            sql::Token::LBrace => sql::Token::RBrace,
-            sql::Token::LBracket => sql::Token::RBracket,
-            _ => panic!("Invalid start token for this method: {:?}.", start_token),
-        };
-        let start_span = self.tokens[self.cursor].1;
-        self.consume();
-
-        while let Some(token) = self.peek() {
-            let span = self.tokens[self.cursor].1;
-
-            if token == end_token {
-                self.consume();
-                return Ok(());
-            }
-
-            match token {
-                sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
-                    // TODO: This might cause a stack overflow for deeply nested
-                    // parens. Add some kind of depth counter to limit this.
-                    self.consume_until_matching_close(fragments, fragment)?;
-                }
-                sql::Token::RParen => return self.error("Found unmatched ')'."),
-                sql::Token::RBrace => return self.error("Found unmatched '}'."),
-                sql::Token::RBracket => return self.error("Found unmatched ']'."),
-                sql::Token::Param => {
-                    fragment.end = span.start;
-                    fragments.push(Fragment::Verbatim(*fragment));
-                    fragments.push(Fragment::Param(span));
-                    fragment.start = span.end;
-                    fragment.end = span.end;
-                    self.consume();
-                }
-                sql::Token::Semicolon => {
-                    // The statement ends here, but we havent' found a closing
-                    // bracket yet, fall through to the end error here.
-                    break;
-                }
-                _ => {
-                    self.consume();
-                }
-            }
-        }
-
-        match end_token {
-            sql::Token::RParen => {
-                self.error_with_note("Expected ')'.", start_span, "Unmatched '(' opened here.")
-            }
-            sql::Token::RBrace => {
-                self.error_with_note("Expected '}'.", start_span, "Unmatched '{' opened here.")
-            }
-            sql::Token::RBracket => {
-                self.error_with_note("Expected ']'.", start_span, "Unmatched '[' opened here.")
-            }
-            _ => unreachable!("End token is one of the above three."),
-        }
-    }
-
     /// Skip whitespace, then parse a double quoted string as typed identifier.
     ///
     /// Returns the parsed identifier and type, but also the span of the quoted
@@ -368,13 +372,11 @@ impl<'a> Parser<'a> {
 
         while let Some((token, span)) = self.tokens.get(self.cursor) {
             match token {
-                // If there are things enclosed in brackets, we do not look
-                // inside those brackets for things aside from parameters. E.g.
-                // if you have a subquery, we don't care about type comments in
-                // inside there. TODO: That is wrong, we do need to parse type
-                // comments, inside parens.
                 sql::Token::LParen | sql::Token::LBrace | sql::Token::LBracket => {
-                    self.consume_until_matching_close(&mut fragments, &mut fragment)?;
+                    self.push_bracket();
+                }
+                sql::Token::RParen | sql::Token::RBrace | sql::Token::RBracket => {
+                    self.pop_bracket()?;
                 }
                 sql::Token::CommentInner => {
                     // If there is a comment, and it starts with a `:`,
@@ -449,6 +451,8 @@ impl<'a> Parser<'a> {
                 }
                 sql::Token::Semicolon => {
                     // The semicolon marks the end of the query.
+                    self.ensure_bracket_stack_empty()?;
+
                     fragment.end = span.end;
                     fragments.push(Fragment::Verbatim(fragment));
                     self.consume();
