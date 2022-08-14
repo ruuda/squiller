@@ -6,6 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 use std::io;
+use std::io::Read;
 use std::path::PathBuf;
 
 use querybinder::error::Error;
@@ -23,7 +24,7 @@ pub struct Args {
     #[clap(arg_enum, long = "target", short = 't', hide_possible_values = true)]
     pub target: Target,
 
-    /// SQL files to process.
+    /// SQL files to process, or "-" for stdin.
     #[clap(value_parser, value_name = "FILE", required = true)]
     pub input_files: Vec<PathBuf>,
 }
@@ -86,7 +87,16 @@ fn main() {
     let mut stdout = stdout.lock();
 
     for fname in &args.input_files {
-        let input = std::fs::read(fname).expect("Failed to read input file.");
+        let input = match fname.to_str() {
+            Some("-") => {
+                let mut result = Vec::new();
+                std::io::stdin()
+                    .read_to_end(&mut result)
+                    .expect("Failed to read input from stdin.");
+                result
+            }
+            _ => std::fs::read(fname).expect("Failed to read input file."),
+        };
         let result = process_input(&input, args.target, &mut stdout);
         if let Err(err) = result {
             err.print(&fname, &input);
