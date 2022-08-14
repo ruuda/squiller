@@ -1,0 +1,9 @@
+-- @query q() invalid_token
+SELECT 1;
+
+
+ --> stdin:1:14
+  |
+1 | -- @query q() invalid_token
+  |               ^~~~~~~~~~~~~
+Error: Expected either the end of the annotation and start of the query, or '->' followed by a result type.

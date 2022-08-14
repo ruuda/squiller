@@ -59,10 +59,16 @@ pub fn get_user_by_name(connection: &Connection, name: &str) -> Result<Option<Us
 
 To fuzz the parser:
 
-```
-cargo +nightly-2022-06-25 install cargo-fuzz --version 0.11.0
-cargo +nightly-2022-06-25 fuzz run parse
-```
+    cargo +nightly-2022-06-25 install cargo-fuzz --version 0.11.0
+    cargo +nightly-2022-06-25 fuzz run parse
+
+To run the golden tests:
+
+    prove --recurse --exec golden/run.py golden
+
+To see the failure, run with `--verbose`, or run the offending test directly:
+
+    golden/run.py golden/error/annotation_token_after_paren.t
 
 ## License
 
