@@ -85,21 +85,25 @@ fn main() {
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    let fname_stdin = "stdin".into();
 
     for fname in &args.input_files {
-        let input = match fname.to_str() {
+        let (fname_display, input) = match fname.to_str() {
             Some("-") => {
-                let mut result = Vec::new();
+                let mut bytes = Vec::new();
                 std::io::stdin()
-                    .read_to_end(&mut result)
+                    .read_to_end(&mut bytes)
                     .expect("Failed to read input from stdin.");
-                result
+                (&fname_stdin, bytes)
             }
-            _ => std::fs::read(fname).expect("Failed to read input file."),
+            _ => {
+                let bytes = std::fs::read(fname).expect("Failed to read input file.");
+                (fname, bytes)
+            },
         };
         let result = process_input(&input, args.target, &mut stdout);
         if let Err(err) = result {
-            err.print(&fname, &input);
+            err.print(&fname_display, &input);
             std::process::exit(1);
         }
     }
