@@ -4,7 +4,8 @@
 A test runner for running the golden tests.
 
 The runner takes golden input files, splits them into inputs and expectations,
-and then prints whether they match.
+and then prints whether they match. Inputs and expectations are separated by a
+double blank line.
 
 Output is TAP (Test Anything Protocol) compliant, so you can run all of the
 golden tests with Prove while using this script as interpreter (with --exec).
