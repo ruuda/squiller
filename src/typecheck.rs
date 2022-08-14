@@ -88,49 +88,98 @@ fn resolve_annotation(input: &str, ann: Annotation<Span>) -> TResult<Annotation<
     Ok(result)
 }
 
-/// Check the query for consistency and resolve its types.
-///
-/// Resolving means converting `Type::Simple` into either `Type::Primitive` or
-/// `Type::Struct`. Furthermore, we ensure that every query parameter that
-/// occurs in the query is known (either because the query argument is a struct,
-/// or because the parameter was listed explicitly).
-pub fn resolve_types(input: &str, query: Query<Span>) -> TResult<Query<Span>> {
-    let annotation = resolve_annotation(input, query.annotation)?;
+/// Holds the state across various stages of checking a query.
+struct QueryChecker<'a> {
+    /// Input file that the spans reference.
+    input: &'a str,
 
-    // For inputs and outputs we keep both a hash map and a vec. The map to
-    // locate things by name, the vec so we can preserve the order in which
-    // things occur in the query.
-    let mut query_args: HashMap<&str, &TypedIdent<Span>> = HashMap::new();
-    let mut query_args_used: HashSet<&str> = HashSet::new();
-    let mut input_fields: HashMap<&str, &TypedIdent<Span>> = HashMap::new();
-    let mut output_fields: HashMap<&str, &TypedIdent<Span>> = HashMap::new();
-    let mut input_fields_vec: Vec<&TypedIdent<Span>> = Vec::new();
-    let mut output_fields_vec: Vec<&TypedIdent<Span>> = Vec::new();
+    /// All the arguments specified in the annotation.
+    query_args: HashMap<&'a str, &'a TypedIdent<Span>>,
 
-    // Populate the query args (those provided in the annotation), and at the
-    // same time ensure there are no duplicates.
-    for arg in &annotation.parameters {
-        let name = arg.ident.resolve(input);
-        match query_args.entry(name) {
-            Entry::Vacant(vacancy) => vacancy.insert(arg),
-            Entry::Occupied(_) => {
-                panic!("TODO: Report duplicate arg error.")
-            }
-        };
+    /// Arguments that are referenced in the query body.
+    query_args_used: HashSet<&'a str>,
+
+    /// Typed parameters in the query body.
+    ///
+    /// The key does not include the leading `:`, but the typed ident value does.
+    input_fields: HashMap<&'a str, &'a TypedIdent<Span>>,
+
+    /// Typed parameters in the query body in the order in which they occur.
+    ///
+    /// Does not contain duplicates, only the first reference.
+    input_fields_vec: Vec<&'a TypedIdent<Span>>,
+
+    /// Typed identifiers in the query body.
+    output_fields: HashMap<&'a str, &'a TypedIdent<Span>>,
+
+    /// Typed identifiers in the query body in the order in which they occur.
+    output_fields_vec: Vec<&'a TypedIdent<Span>>,
+}
+
+impl<'a> QueryChecker<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            input,
+            query_args: HashMap::new(),
+            query_args_used: HashSet::new(),
+            input_fields: HashMap::new(),
+            input_fields_vec: Vec::new(),
+            output_fields: HashMap::new(),
+            output_fields_vec: Vec::new(),
+        }
     }
 
-    // Next we loop over the body of the query and collect or check all of the
-    // selections and parameters we find.
-    for fragment in &query.fragments {
+    /// Check the query for consistency and resolve its types.
+    ///
+    /// Resolving means converting `Type::Simple` into either `Type::Primitive` or
+    /// `Type::Struct`. Furthermore, we ensure that every query parameter that
+    /// occurs in the query is known (either because the query argument is a struct,
+    /// or because the parameter was listed explicitly).
+    pub fn resolve_types<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
+        let annotation = resolve_annotation(input, query.annotation)?;
+        let mut checker = Self::new(input);
+
+        checker.populate_query_args(&annotation)?;
+
+        // TODO: Need to resolve types in fragments as well.
+        for fragment in &query.fragments {
+            checker.populate_inputs_outputs(fragment)?;
+        }
+
+        let query = Query {
+            annotation: annotation,
+            ..query
+        };
+
+        Ok(query)
+    }
+
+    fn populate_query_args(&mut self, annotation: &'a Annotation<Span>) -> TResult<()> {
+        // Populate the query args map with the args those provided in the
+        // annotation, and at the same time ensure there are no duplicates.
+        for arg in &annotation.parameters {
+            let name = arg.ident.resolve(self.input);
+            match self.query_args.entry(name) {
+                Entry::Vacant(vacancy) => vacancy.insert(arg),
+                Entry::Occupied(_) => {
+                    panic!("TODO: Report duplicate arg error.")
+                }
+            };
+        }
+        Ok(())
+    }
+
+    /// Handle a single fragment of the query body, populate inputs and outputs.
+    fn populate_inputs_outputs(&mut self, fragment: &'a Fragment<Span>) -> TResult<()> {
         match fragment {
-            Fragment::Verbatim(..) => continue,
+            Fragment::Verbatim(..) => return Ok(()),
             Fragment::TypedIdent(_span, ti) => {
                 // A typed identifier is an output that the query selects.
-                let name = ti.ident.resolve(input);
-                match output_fields.entry(name) {
+                let name = ti.ident.resolve(self.input);
+                match self.output_fields.entry(name) {
                     Entry::Vacant(vacancy) => {
                         vacancy.insert(ti);
-                        output_fields_vec.push(ti);
+                        self.output_fields_vec.push(ti);
                     }
                     Entry::Occupied(_) => {
                         panic!("TODO: Report duplicate select error.");
@@ -142,12 +191,12 @@ pub fn resolve_types(input: &str, query: Query<Span>) -> TResult<Query<Span>> {
                 // must be defined already.
 
                 // Trim off the `:` that query parameters start with.
-                let name = span.trim_start(1).resolve(input);
-                match query_args.get(name) {
+                let name = span.trim_start(1).resolve(self.input);
+                match self.query_args.get(name) {
                     Some(..) => {
                         // Record that the argument was used, so that we can
                         // warn about unused arguments later.
-                        query_args_used.insert(name);
+                        self.query_args_used.insert(name);
                     }
                     None => {
                         panic!("TODO: Report unknown query param error.");
@@ -157,17 +206,17 @@ pub fn resolve_types(input: &str, query: Query<Span>) -> TResult<Query<Span>> {
             Fragment::TypedParam(_span, ti) => {
                 // A typed parameter is an input to the query that should not
                 // occur in the arguments already.
-                let name = ti.ident.trim_start(1).resolve(input);
-                match input_fields.entry(name) {
+                let name = ti.ident.trim_start(1).resolve(self.input);
+                match self.input_fields.entry(name) {
                     Entry::Vacant(vacancy) => {
                         vacancy.insert(ti);
-                        input_fields_vec.push(ti);
+                        self.input_fields_vec.push(ti);
                     }
                     Entry::Occupied(_) => {
                         panic!("TODO: Verify that the two are compatible.");
                     }
                 }
-                match query_args.get(name) {
+                match self.query_args.get(name) {
                     None => { /* Fine, no conflict. */ }
                     Some(_) => {
                         panic!("TODO: Verify that the two are compatible.");
@@ -175,14 +224,8 @@ pub fn resolve_types(input: &str, query: Query<Span>) -> TResult<Query<Span>> {
                 }
             }
         }
+        Ok(())
     }
-
-    let query = Query {
-        annotation: annotation,
-        ..query
-    };
-
-    Ok(query)
 }
 
 /// Apply `resolve_types` to every query in the document.
@@ -192,7 +235,9 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
     for section in doc.sections {
         match section {
             Section::Verbatim(s) => sections.push(Section::Verbatim(s)),
-            Section::Query(q) => sections.push(Section::Query(resolve_types(input, q)?)),
+            Section::Query(q) => {
+                sections.push(Section::Query(QueryChecker::resolve_types(input, q)?))
+            }
         }
     }
 
