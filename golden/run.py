@@ -7,14 +7,19 @@ The runner takes golden input files, splits them into inputs and expectations,
 and then prints whether they match. Inputs and expectations are separated by a
 double blank line.
 
-Output is TAP (Test Anything Protocol) compliant, so you can run all of the
-golden tests with Prove while using this script as interpreter (with --exec).
+SYNOPSIS
 
-Standalone usage:
-  golden/run.py file.t
+  golden/run.py [--rewrite-output] [<file>...]
+  golden/run.py --help
 
-Interpreter usage:
-  prove --exec golden/run.py golden
+OPTIONS
+
+  <file>...          One or more input files to test. When empty, all .test
+                     files in the golden directory are used.
+
+  --rewrite-output   Rewrite the input files to contain the actual output. Use
+                     this to update the goldens after making an intentional
+                     change.
 """
 
 import difflib
@@ -27,9 +32,15 @@ from typing import Iterable, List, Iterator
 
 
 STRIP_ESCAPES = re.compile("\x1b[^m]+m")
+RED = "\x1b[31m"
+GREEN = "\x1b[32m"
+RESET = "\x1b[0m"
 
 
-def main(fname: str) -> None:
+def test_one(fname: str, *, rewrite_output: bool) -> bool:
+    """
+    Run the given golden test, return whether it was succesful.
+    """
     input_lines: List[str] = []
     golden_lines: List[str] = []
 
@@ -47,15 +58,11 @@ def main(fname: str) -> None:
             if consecutive_blank >= 2:
                 target = golden_lines
 
-    # Print the number of tests we are going to run,
-    # in accordance with the TAP v12 protocol.
-    print(f'1..1', flush=True)
-
-    #Run with RUST_BACKTRACE=1 so we get a backtrace if the process panics.
-    os.putenv('RUST_BACKTRACE', "1")
+    # Run with RUST_BACKTRACE=1 so we get a backtrace if the process panics.
+    os.putenv("RUST_BACKTRACE", "1")
 
     result = subprocess.run(
-        ['target/debug/querybinder', "--target=debug", "-"],
+        ["target/debug/querybinder", "--target=debug", "-"],
         input="".join(input_lines),
         capture_output=True,
         encoding="utf-8",
@@ -67,9 +74,6 @@ def main(fname: str) -> None:
     ]
 
     is_good = True
-    red = "\x1b[31m";
-    green = "\x1b[32m";
-    reset = "\x1b[0m";
 
     for diff_line in difflib.unified_diff(
         a=output_lines,
@@ -78,33 +82,68 @@ def main(fname: str) -> None:
         tofile="golden",
         lineterm="",
     ):
-        is_good = False
+        if is_good:
+            print(f"\r[{RED}fail{RESET}]\n")
+            is_good = False
+
         if diff_line.startswith("-"):
-            print(red + diff_line + reset)
+            print(RED + diff_line + RESET)
         elif diff_line.startswith("+"):
-            print(green + diff_line + reset)
+            print(GREEN + diff_line + RESET)
         else:
             print(diff_line)
 
     if is_good:
-        print('ok 1', flush=True)
+        print(f"\r[{GREEN} ok {RESET}]")
     else:
-        fname_actual = fname + ".actual"
-        print(f"not ok 1 - Output written to {fname_actual}", flush=True)
+        print()
 
-        with open(fname_actual, "w", encoding="utf-8") as f:
+    if rewrite_output:
+        with open(fname, "w", encoding="utf-8") as f:
             for line in input_lines:
                 f.write(line)
             for line in output_lines:
                 f.write(line)
                 f.write("\n")
 
+    return is_good
 
-if __name__ == '__main__':
-    fname = None
 
-    if len(sys.argv) != 2:
+def main() -> None:
+    rewrite_output = False
+
+    if "--rewrite-output" in sys.argv:
+        sys.argv.remove("--rewrite-output")
+        rewrite_output = True
+
+    if "--help" in sys.argv:
         print(__doc__)
+        sys.exit(0)
+
+    fnames = sys.argv[1:]
+
+    if len(fnames) == 0:
+        for root, _dirs, files in os.walk("golden"):
+            for fname in files:
+                if fname.endswith(".test"):
+                    fnames.append(os.path.join(root, fname))
+
+    fnames.sort()
+    num_good = 0
+
+    for fname in fnames:
+        # Print a status line. The test will later overwrite the status.
+        print(f"[ .. ] {fname}", end="", flush=True)
+        num_good += int(test_one(fname, rewrite_output=rewrite_output))
+
+    num_bad = len(fnames) - num_good
+    print(f"Tested {len(fnames)} inputs, {num_good} good, {num_bad} bad.")
+
+    if num_good == len(fnames):
+        sys.exit(0)
+    else:
         sys.exit(1)
 
-    main(sys.argv[1])
+
+if __name__ == "__main__":
+    main()

@@ -64,11 +64,15 @@ To fuzz the parser:
 
 To run the golden tests:
 
-    prove --recurse --exec golden/run.py golden
+    golden/run.py
 
-To see the failure, run with `--verbose`, or run the offending test directly:
+To update golden tests, if a change is intentional:
 
-    golden/run.py golden/error/annotation_token_after_paren.t
+    golden/run.py --rewrite-output
+
+To run a particular golden test:
+
+    golden/run.py golden/error/annotation_token_after_paren.test
 
 ## License
 
