@@ -99,7 +99,7 @@ fn main() {
             _ => {
                 let bytes = std::fs::read(fname).expect("Failed to read input file.");
                 (fname, bytes)
-            },
+            }
         };
         let result = process_input(&input, args.target, &mut stdout);
         if let Err(err) = result {
