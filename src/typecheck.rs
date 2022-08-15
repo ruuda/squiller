@@ -161,8 +161,14 @@ impl<'a> QueryChecker<'a> {
             let name = arg.ident.resolve(self.input);
             match self.query_args.entry(name) {
                 Entry::Vacant(vacancy) => vacancy.insert(arg),
-                Entry::Occupied(_) => {
-                    panic!("TODO: Report duplicate arg error.")
+                Entry::Occupied(previous) => {
+                    let error = TypeError::with_note(
+                        arg.ident,
+                        "Redefinition of query parameter.",
+                        previous.get().ident,
+                        "First defined here.",
+                    );
+                    return Err(error);
                 }
             };
         }

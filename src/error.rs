@@ -180,6 +180,15 @@ impl TypeError {
         }
     }
 
+    pub fn with_note(span: Span, message: &'static str, note_span: Span, note: &'static str) -> Self {
+        Self {
+            span,
+            message,
+            note: Some((note.to_string(), note_span)),
+            hint: None,
+        }
+    }
+
     pub fn with_hint(span: Span, message: &'static str, hint: &'static str) -> Self {
         Self {
             span,
