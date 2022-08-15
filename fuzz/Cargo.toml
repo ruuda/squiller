@@ -23,3 +23,9 @@ name = "parse"
 path = "fuzz_targets/parse.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "typecheck"
+path = "fuzz_targets/typecheck.rs"
+test = false
+doc = false
