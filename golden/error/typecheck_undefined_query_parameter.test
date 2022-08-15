@@ -1,0 +1,12 @@
+-- @query q(okay_1: i32)
+SELECT 1
+WHERE :okay_1 AND :okay_2 /* :i32 */ AND :undefined;
+
+
+ --> stdin:3:41
+  |
+3 | WHERE :okay_1 AND :okay_2 /* :i32 */ AND :undefined;
+  |                                          ^~~~~~~~~~
+Error: Undefined query parameter.
+
+Hint: Define the parameter in the query signature, or add a type annotation here.

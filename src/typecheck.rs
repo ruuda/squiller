@@ -205,7 +205,13 @@ impl<'a> QueryChecker<'a> {
                         self.query_args_used.insert(name);
                     }
                     None => {
-                        panic!("TODO: Report unknown query param error.");
+                        let error = TypeError::with_hint(
+                            *span,
+                            "Undefined query parameter.",
+                            "Define the parameter in the query signature, \
+                            or add a type annotation here.",
+                        );
+                        return Err(error);
                     }
                 }
             }
