@@ -1,0 +1,15 @@
+-- @query q() -> Foo
+SELECT foo.id /* :i32 */, bar.id /* :i32 */ FROM foo, bar;
+
+
+ --> stdin:2:30
+  |
+2 | SELECT foo.id /* :i32 */, bar.id /* :i32 */ FROM foo, bar;
+  |                               ^~
+Error: Redefinition of query output.
+
+ --> stdin:2:11
+  |
+2 | SELECT foo.id /* :i32 */, bar.id /* :i32 */ FROM foo, bar;
+  |            ^~
+Note: First defined here.

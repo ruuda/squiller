@@ -187,8 +187,14 @@ impl<'a> QueryChecker<'a> {
                         vacancy.insert(ti);
                         self.output_fields_vec.push(ti);
                     }
-                    Entry::Occupied(_) => {
-                        panic!("TODO: Report duplicate select error.");
+                    Entry::Occupied(previous) => {
+                        let error = TypeError::with_note(
+                            ti.ident,
+                            "Redefinition of query output.",
+                            previous.get().ident,
+                            "First defined here.",
+                        );
+                        return Err(error);
                     }
                 }
             }
