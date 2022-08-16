@@ -8,6 +8,7 @@ nav:
   - Overview: index.md
   - User guide:
     - Terminology: terminology.md
+    - Data types: datatypes.md
   - Development:
     - Building: building.md
     - Golden tests: golden-tests.md
