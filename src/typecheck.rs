@@ -230,8 +230,18 @@ impl<'a> QueryChecker<'a> {
                         vacancy.insert(ti);
                         self.input_fields_vec.push(ti);
                     }
-                    Entry::Occupied(_) => {
-                        panic!("TODO: Verify that the two are compatible.");
+                    Entry::Occupied(previous) => {
+                        let prev_type = previous.get().type_.resolve(self.input);
+                        let self_type = ti.type_.resolve(self.input);
+                        if !prev_type.is_equal_to(&self_type) {
+                            let error = TypeError::with_note(
+                                ti.type_.span(),
+                                "Parameter type differs from an earlier definition.",
+                                previous.get().type_.span(),
+                                "First defined here.",
+                            );
+                            return Err(error);
+                        }
                     }
                 }
                 match self.query_args.get(name) {

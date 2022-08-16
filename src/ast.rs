@@ -95,6 +95,35 @@ impl Type<Span> {
     }
 }
 
+impl<'a> Type<&'a str> {
+    /// Test equivalence of the types, regardless of the spans or formatting.
+    pub fn is_equal_to(&self, other: &Type<&'a str>) -> bool {
+        match (self, other) {
+            (Type::Unit, Type::Unit) => true,
+            (Type::Simple(s1), Type::Simple(s2)) => s1 == s2,
+            (Type::Primitive(_, t1), Type::Primitive(_, t2)) => t1 == t2,
+            (Type::Iterator(_, t1), Type::Iterator(_, t2)) => t1.is_equal_to(t2),
+            (Type::Option(_, t1), Type::Option(_, t2)) => t1.is_equal_to(t2),
+            (Type::Tuple(_, fields1), Type::Tuple(_, fields2)) => {
+                fields1.len() == fields2.len()
+                    && fields1
+                        .iter()
+                        .zip(fields2)
+                        .all(|(t1, t2)| t1.is_equal_to(t2))
+            }
+            (Type::Struct(name1, fields1), Type::Struct(name2, fields2)) => {
+                name1 == name2
+                    && fields1.len() == fields2.len()
+                    && fields1
+                        .iter()
+                        .zip(fields2)
+                        .all(|(f1, f2)| f1.ident == f2.ident && f1.type_.is_equal_to(&f2.type_))
+            }
+            _ => false,
+        }
+    }
+}
+
 /// An identifier and a type, e.g. `name: &str`.
 #[derive(Debug, Eq, PartialEq)]
 pub struct TypedIdent<TSpan> {
