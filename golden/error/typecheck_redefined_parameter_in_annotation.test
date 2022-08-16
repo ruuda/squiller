@@ -1,0 +1,15 @@
+-- @query q(param: i32)
+SELECT 1 WHERE :param /* :i64 */ = 1;
+
+
+ --> stdin:2:26
+  |
+2 | SELECT 1 WHERE :param /* :i64 */ = 1;
+  |                           ^~~
+Error: Parameter type differs from an earlier definition.
+
+ --> stdin:1:19
+  |
+1 | -- @query q(param: i32)
+  |                    ^~~
+Note: First defined here.

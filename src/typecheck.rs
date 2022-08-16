@@ -242,12 +242,24 @@ impl<'a> QueryChecker<'a> {
                             );
                             return Err(error);
                         }
+                        // If the parameter was already defined, but the types
+                        // are compatible, there is nothing to do here.
                     }
                 }
                 match self.query_args.get(name) {
                     None => { /* Fine, no conflict. */ }
-                    Some(_) => {
-                        panic!("TODO: Verify that the two are compatible.");
+                    Some(previous) => {
+                        let prev_type = previous.type_.resolve(self.input);
+                        let self_type = ti.type_.resolve(self.input);
+                        if !prev_type.is_equal_to(&self_type) {
+                            let error = TypeError::with_note(
+                                ti.type_.span(),
+                                "Parameter type differs from an earlier definition.",
+                                previous.type_.span(),
+                                "First defined here.",
+                            );
+                            return Err(error);
+                        }
                     }
                 }
             }
