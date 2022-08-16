@@ -17,6 +17,7 @@
             nativeBuildInputs = [
               pkgs.mkdocs
               pkgs.rustup
+              pkgs.python3
             ];
           };
         });
@@ -25,9 +26,7 @@
           default = pkgs.rustPlatform.buildRustPackage {
             inherit name version;
             src = ./.;
-            cargoLock = {
-              lockFile = ./Cargo.lock;
-            };
+            cargoLock.lockFile = ./Cargo.lock;
           };
         });
       };

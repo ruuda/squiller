@@ -1,0 +1,13 @@
+site_name: Querybinder
+repo_url: https://github.com/ruuda/querybinder
+strict: true
+theme:
+  name: null
+  custom_dir: docs/theme
+nav:
+  - Overview: index.md
+  - User guide:
+    - Terminology: terminology.md
+  - Development:
+    - Building: building.md
+    - Golden tests: golden-tests.md
