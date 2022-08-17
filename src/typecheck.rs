@@ -163,7 +163,7 @@ impl<'a> QueryChecker<'a> {
     /// `Type::Struct`. Furthermore, we ensure that every query parameter that
     /// occurs in the query is known (either because the query argument is a struct,
     /// or because the parameter was listed explicitly).
-    pub fn resolve_types<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
+    pub fn check_and_resolve<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
         let mut annotation = resolve_annotation(input, query.annotation)?;
         let fragments = resolve_fragments(input, query.fragments)?;
 
@@ -370,7 +370,7 @@ impl<'a> QueryChecker<'a> {
     }
 }
 
-/// Apply `resolve_types` to every query in the document.
+/// Apply `check_and_resolve` to every query in the document.
 pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span>> {
     let mut sections = Vec::with_capacity(doc.sections.len());
 
@@ -378,7 +378,7 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
         match section {
             Section::Verbatim(s) => sections.push(Section::Verbatim(s)),
             Section::Query(q) => {
-                sections.push(Section::Query(QueryChecker::resolve_types(input, q)?))
+                sections.push(Section::Query(QueryChecker::check_and_resolve(input, q)?))
             }
         }
     }
@@ -386,4 +386,49 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
     let result = Document { sections };
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::Span;
+    use crate::ast::{Query, Section, Type};
+    use crate::error::Result;
+    use super::QueryChecker;
+
+    fn check_and_resolve_query(input: &str) -> Result<Query<Span>> {
+        use crate::lexer::document::Lexer;
+        use crate::parser::document::Parser;
+
+        let lexer = Lexer::new(&input);
+        let tokens = lexer.run()?;
+        let mut parser = Parser::new(&input, &tokens);
+        let mut doc = parser.parse_document()?;
+
+        assert_eq!(doc.sections.len(), 1, "Input should consist of a single section.");
+        let query = match doc.sections.pop().unwrap() {
+            Section::Verbatim(..) => panic!("Expected input to be a single query."),
+            Section::Query(q) => q,
+        };
+
+        Ok(QueryChecker::check_and_resolve(&input, query)?)
+    }
+
+    #[test]
+    fn fill_input_struct_populates_top_level() {
+        let input =
+          "-- @query f(user: User)
+          select id /* :i64 */, name /* :str */ from users;";
+
+        let mut query = check_and_resolve_query(input).unwrap();
+
+        assert_eq!(query.annotation.parameters.len(), 1);
+        let param = query.annotation.parameters.pop().unwrap();
+
+        match param.type_.resolve(&input) {
+            Type::Struct("User", fields) => {
+                // TODO: Check fields.
+            }
+            _ => panic!("Incorrect type for this parameter.")
+        }
+    }
 }

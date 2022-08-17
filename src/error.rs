@@ -9,7 +9,9 @@ use std::path::Path;
 
 use crate::Span;
 
-pub trait Error {
+pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+pub trait Error: std::fmt::Debug {
     /// The source location of the error.
     fn span(&self) -> Span;
 

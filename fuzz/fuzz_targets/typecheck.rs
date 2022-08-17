@@ -1,13 +1,12 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
+use querybinder::error::Result;
 use querybinder::lexer::document::Lexer;
 use querybinder::parser::document::Parser;
 use querybinder::typecheck;
 
-type Error = Box<dyn querybinder::error::Error>;
-
-fn handle_input(input: &str) -> Result<(), Error> {
+fn handle_input(input: &str) -> Result<()> {
     let lexer = Lexer::new(&input);
     let tokens = lexer.run()?;
     let mut parser = Parser::new(&input, &tokens);

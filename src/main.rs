@@ -9,7 +9,7 @@ use std::io;
 use std::io::Read;
 use std::path::PathBuf;
 
-use querybinder::error::Error;
+use querybinder::error::Result;
 use querybinder::lexer::document::Lexer;
 use querybinder::parser::document::Parser;
 use querybinder::target::Target;
@@ -63,7 +63,7 @@ fn process_input(
     input_bytes: &[u8],
     target: Target,
     out: &mut dyn io::Write,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let input_str = querybinder::str_from_utf8(input_bytes)?;
     let tokens = Lexer::new(&input_str).run()?;
     let mut parser = Parser::new(&input_str, &tokens);
