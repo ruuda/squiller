@@ -362,7 +362,13 @@ impl<'a> QueryChecker<'a> {
         // do a second pass and put the params in.
         for param in annotation.parameters.iter_mut() {
             if let Type::Struct(_, ref mut fields) = param.type_.inner_mut() {
-                fields.extend(self.input_fields_vec.drain(..));
+                // Originally, all the typed idents for the parameter include
+                // the colon, but we don't want those in the field names, so
+                // remove them.
+                for mut ti in self.input_fields_vec.drain(..) {
+                    ti.ident = ti.ident.trim_start(1);
+                    fields.push(ti);
+                }
             }
         }
 
@@ -390,10 +396,10 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
 
 #[cfg(test)]
 mod test {
-    use crate::Span;
-    use crate::ast::{Query, Section, Type};
-    use crate::error::Result;
     use super::QueryChecker;
+    use crate::ast::{PrimitiveType, Query, Section, Type, TypedIdent};
+    use crate::error::Result;
+    use crate::Span;
 
     fn check_and_resolve_query(input: &str) -> Result<Query<Span>> {
         use crate::lexer::document::Lexer;
@@ -404,7 +410,11 @@ mod test {
         let mut parser = Parser::new(&input, &tokens);
         let mut doc = parser.parse_document()?;
 
-        assert_eq!(doc.sections.len(), 1, "Input should consist of a single section.");
+        assert_eq!(
+            doc.sections.len(),
+            1,
+            "Input should consist of a single section."
+        );
         let query = match doc.sections.pop().unwrap() {
             Section::Verbatim(..) => panic!("Expected input to be a single query."),
             Section::Query(q) => q,
@@ -415,9 +425,16 @@ mod test {
 
     #[test]
     fn fill_input_struct_populates_top_level() {
-        let input =
-          "-- @query f(user: User)
-          select id /* :i64 */, name /* :str */ from users;";
+        let input = "\
+          -- @query f(user: User) -> i64
+          select
+            max(karma)
+          from
+            users
+          where
+            id = :id /* :i64 */
+            and name = :name /* :str */
+          ;";
 
         let mut query = check_and_resolve_query(input).unwrap();
 
@@ -426,9 +443,19 @@ mod test {
 
         match param.type_.resolve(&input) {
             Type::Struct("User", fields) => {
-                // TODO: Check fields.
+                let expected = [
+                    TypedIdent {
+                        ident: "id",
+                        type_: Type::Primitive("i64", PrimitiveType::I64),
+                    },
+                    TypedIdent {
+                        ident: "name",
+                        type_: Type::Primitive("str", PrimitiveType::Str),
+                    },
+                ];
+                assert_eq!(&fields, &expected);
             }
-            _ => panic!("Incorrect type for this parameter.")
+            _ => panic!("Incorrect type for this parameter."),
         }
     }
 }
