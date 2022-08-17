@@ -122,7 +122,7 @@ struct QueryChecker<'a> {
     input: &'a str,
 
     /// All the parameters specified in the annotation.
-    query_args: HashMap<&'a str, &'a TypedIdent<Span>>,
+    query_args: HashMap<&'a str, TypedIdent<Span>>,
 
     /// Parameters that are referenced in the query body.
     query_args_used: HashSet<&'a str>,
@@ -130,18 +130,18 @@ struct QueryChecker<'a> {
     /// Typed parameters in the query body.
     ///
     /// The key does not include the leading `:`, but the typed ident value does.
-    input_fields: HashMap<&'a str, &'a TypedIdent<Span>>,
+    input_fields: HashMap<&'a str, TypedIdent<Span>>,
 
     /// Typed parameters in the query body in the order in which they occur.
     ///
     /// Does not contain duplicates, only the first reference.
-    input_fields_vec: Vec<&'a TypedIdent<Span>>,
+    input_fields_vec: Vec<TypedIdent<Span>>,
 
     /// Typed identifiers (outputs) in the query body.
-    output_fields: HashMap<&'a str, &'a TypedIdent<Span>>,
+    output_fields: HashMap<&'a str, TypedIdent<Span>>,
 
     /// Typed identifiers in the query body in the order in which they occur.
-    output_fields_vec: Vec<&'a TypedIdent<Span>>,
+    output_fields_vec: Vec<TypedIdent<Span>>,
 }
 
 impl<'a> QueryChecker<'a> {
@@ -164,12 +164,14 @@ impl<'a> QueryChecker<'a> {
     /// occurs in the query is known (either because the query argument is a struct,
     /// or because the parameter was listed explicitly).
     pub fn resolve_types<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
-        let annotation = resolve_annotation(input, query.annotation)?;
+        let mut annotation = resolve_annotation(input, query.annotation)?;
         let fragments = resolve_fragments(input, query.fragments)?;
 
         let mut checker = Self::new(input);
         checker.populate_query_args(&annotation)?;
         checker.populate_inputs_outputs(&fragments)?;
+
+        checker.fill_input_struct(input, &mut annotation)?;
 
         let query = Query {
             annotation: annotation,
@@ -180,13 +182,13 @@ impl<'a> QueryChecker<'a> {
         Ok(query)
     }
 
-    fn populate_query_args(&mut self, annotation: &'a Annotation<Span>) -> TResult<()> {
+    fn populate_query_args(&mut self, annotation: &Annotation<Span>) -> TResult<()> {
         // Populate the query args map with the args those provided in the
         // annotation, and at the same time ensure there are no duplicates.
         for arg in &annotation.parameters {
             let name = arg.ident.resolve(self.input);
             match self.query_args.entry(name) {
-                Entry::Vacant(vacancy) => vacancy.insert(arg),
+                Entry::Vacant(vacancy) => vacancy.insert(arg.clone()),
                 Entry::Occupied(previous) => {
                     let error = TypeError::with_note(
                         arg.ident,
@@ -202,7 +204,7 @@ impl<'a> QueryChecker<'a> {
     }
 
     /// Handle fragments of the query body, populate inputs and outputs.
-    fn populate_inputs_outputs(&mut self, fragments: &'a [Fragment<Span>]) -> TResult<()> {
+    fn populate_inputs_outputs(&mut self, fragments: &[Fragment<Span>]) -> TResult<()> {
         for fragment in fragments {
             self.populate_input_output(fragment)?;
         }
@@ -210,7 +212,7 @@ impl<'a> QueryChecker<'a> {
     }
 
     /// Handle a single fragment of the query body, populate inputs and outputs.
-    fn populate_input_output(&mut self, fragment: &'a Fragment<Span>) -> TResult<()> {
+    fn populate_input_output(&mut self, fragment: &Fragment<Span>) -> TResult<()> {
         match fragment {
             Fragment::Verbatim(..) => return Ok(()),
             Fragment::TypedIdent(_span, ti) => {
@@ -218,8 +220,8 @@ impl<'a> QueryChecker<'a> {
                 let name = ti.ident.resolve(self.input);
                 match self.output_fields.entry(name) {
                     Entry::Vacant(vacancy) => {
-                        vacancy.insert(ti);
-                        self.output_fields_vec.push(ti);
+                        vacancy.insert(ti.clone());
+                        self.output_fields_vec.push(ti.clone());
                     }
                     Entry::Occupied(previous) => {
                         let error = TypeError::with_note(
@@ -238,31 +240,31 @@ impl<'a> QueryChecker<'a> {
 
                 // Trim off the `:` that query parameters start with.
                 let name = span.trim_start(1).resolve(self.input);
-                match self.query_args.get(name) {
-                    Some(..) => {
-                        // Record that the argument was used, so that we can
-                        // warn about unused arguments later.
-                        self.query_args_used.insert(name);
-                    }
-                    None => {
-                        let error = TypeError::with_hint(
-                            *span,
-                            "Undefined query parameter.",
-                            "Define the parameter in the query signature, \
-                            or add a type annotation here.",
-                        );
-                        return Err(error);
-                    }
+
+                // Record that the argument was used, so that we can
+                // warn about unused arguments later.
+                self.query_args_used.insert(name);
+
+                if self.query_args.get(name).is_none() {
+                    let error = TypeError::with_hint(
+                        *span,
+                        "Undefined query parameter.",
+                        "Define the parameter in the query signature, \
+                        or add a type annotation here.",
+                    );
+                    return Err(error);
                 }
             }
             Fragment::TypedParam(_span, ti) => {
                 // A typed parameter is an input to the query that should not
                 // occur in the arguments already.
                 let name = ti.ident.trim_start(1).resolve(self.input);
+                self.query_args_used.insert(name);
+
                 match self.input_fields.entry(name) {
                     Entry::Vacant(vacancy) => {
-                        vacancy.insert(ti);
-                        self.input_fields_vec.push(ti);
+                        vacancy.insert(ti.clone());
+                        self.input_fields_vec.push(ti.clone());
                     }
                     Entry::Occupied(previous) => {
                         let prev_type = previous.get().type_.resolve(self.input);
@@ -280,24 +282,90 @@ impl<'a> QueryChecker<'a> {
                         // are compatible, there is nothing to do here.
                     }
                 }
-                match self.query_args.get(name) {
-                    None => { /* Fine, no conflict. */ }
-                    Some(previous) => {
-                        let prev_type = previous.type_.resolve(self.input);
-                        let self_type = ti.type_.resolve(self.input);
-                        if !prev_type.is_equal_to(&self_type) {
-                            let error = TypeError::with_note(
-                                ti.type_.span(),
-                                "Parameter type differs from an earlier definition.",
-                                previous.type_.span(),
-                                "First defined here.",
-                            );
-                            return Err(error);
-                        }
+
+                if let Some(previous) = self.query_args.get(name) {
+                    // If the parameter is typed but it was also defined in the
+                    // arguments, then check they agree.
+                    let prev_type = previous.type_.resolve(self.input);
+                    let self_type = ti.type_.resolve(self.input);
+                    if !prev_type.is_equal_to(&self_type) {
+                        let error = TypeError::with_note(
+                            ti.type_.span(),
+                            "Parameter type differs from an earlier definition.",
+                            previous.type_.span(),
+                            "First defined here.",
+                        );
+                        return Err(error);
                     }
                 }
             }
         }
+
+        Ok(())
+    }
+
+    /// If there is a struct type among the inputs, fill its fields.
+    ///
+    /// This moves the fields out of `self.input_fields_vec`, which becomes
+    /// empty.
+    fn fill_input_struct(
+        &mut self,
+        input: &'a str,
+        annotation: &mut Annotation<Span>,
+    ) -> TResult<()> {
+        let mut first_struct = None;
+
+        // Before we can put the fields in, make sure that parameter to put them
+        // in is unique -- there can only be one struct per query.
+        for param in annotation.parameters.iter() {
+            match (param.type_.inner(), first_struct) {
+                (Type::Struct(name_span, _), None) => {
+                    first_struct = Some(name_span);
+                    // A type struct that we fill is not unused.
+                    self.query_args_used.insert(name_span.resolve(input));
+                }
+                (Type::Struct(name_span, _), Some(prev)) => {
+                    let mut error = TypeError::with_note(
+                        *name_span,
+                        "Encountered a second struct parameter.",
+                        *prev,
+                        "First struct parameter defined here.",
+                    );
+                    error.hint =
+                        Some("There can be at most one struct parameter per query.".into());
+                    return Err(error);
+                }
+                _ => {}
+            }
+        }
+
+        // Before we put the fields in, check if we have any. If not, but there
+        // is a struct param, that's an error, because we would make an empty
+        // struct.
+        if self.input_fields_vec.len() == 0 {
+            match first_struct {
+                None => return Ok(()),
+                Some(name_span) => {
+                    let error = TypeError::with_hint(
+                        *name_span,
+                        "Annotation contains a struct parameter, \
+                        but the query body contains no typed outputs.",
+                        "Add type annotations to your query outputs \
+                        to turn them into fields of the struct.",
+                    );
+                    return Err(error);
+                }
+            }
+        }
+
+        // Now that we know the struct is unique, and it won't be empty, we can
+        // do a second pass and put the params in.
+        for param in annotation.parameters.iter_mut() {
+            if let Type::Struct(_, ref mut fields) = param.type_.inner_mut() {
+                fields.extend(self.input_fields_vec.drain(..));
+            }
+        }
+
         Ok(())
     }
 }

@@ -20,7 +20,7 @@ pub enum PrimitiveType {
 }
 
 /// Types of parameters and results.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Type<TSpan> {
     /// The unit type, for queries that do not return anything.
     ///
@@ -93,6 +93,36 @@ impl Type<Span> {
             Type::Struct(s, _) => *s,
         }
     }
+
+    /// For nested types, return the innermost type.
+    ///
+    /// For non-nested type, return itself. For structs and tuples, which can
+    /// contain multiple inner types, also returns the type itself without
+    /// descending further.
+    pub fn inner(&self) -> &Type<Span> {
+        match self {
+            Type::Unit => self,
+            Type::Simple(..) => self,
+            Type::Primitive(..) => self,
+            Type::Iterator(_, inner) => inner.inner(),
+            Type::Option(_, inner) => inner.inner(),
+            Type::Tuple(..) => self,
+            Type::Struct(..) => self,
+        }
+    }
+
+    /// Same as [`inner`], but mutable.
+    pub fn inner_mut(&mut self) -> &mut Type<Span> {
+        match self {
+            Type::Unit => self,
+            Type::Simple(..) => self,
+            Type::Primitive(..) => self,
+            Type::Iterator(_, inner) => inner.inner_mut(),
+            Type::Option(_, inner) => inner.inner_mut(),
+            Type::Tuple(..) => self,
+            Type::Struct(..) => self,
+        }
+    }
 }
 
 impl<'a> Type<&'a str> {
@@ -125,7 +155,7 @@ impl<'a> Type<&'a str> {
 }
 
 /// An identifier and a type, e.g. `name: &str`.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TypedIdent<TSpan> {
     pub ident: TSpan,
     pub type_: Type<TSpan>,
