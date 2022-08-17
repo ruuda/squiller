@@ -1,0 +1,19 @@
+-- How would we know on which struct to put the `id` field?
+-- It makes no sense to have more than one struct parameter.
+-- @query f(u1: User1, u2: User2)
+select 1 from users where id = :id /* :i64 */;
+
+
+ --> stdin:3:27
+  |
+3 | -- @query f(u1: User1, u2: User2)
+  |                            ^~~~~
+Error: Encountered a second struct parameter.
+
+ --> stdin:3:16
+  |
+3 | -- @query f(u1: User1, u2: User2)
+  |                 ^~~~~
+Note: First struct parameter defined here.
+
+Hint: There can be at most one struct parameter per query.
