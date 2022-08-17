@@ -168,13 +168,8 @@ impl<'a> QueryChecker<'a> {
         let fragments = resolve_fragments(input, query.fragments)?;
 
         let mut checker = Self::new(input);
-
         checker.populate_query_args(&annotation)?;
-
-        // TODO: Need to resolve types in fragments as well.
-        for fragment in &fragments {
-            checker.populate_inputs_outputs(fragment)?;
-        }
+        checker.populate_inputs_outputs(&fragments)?;
 
         let query = Query {
             annotation: annotation,
@@ -206,8 +201,16 @@ impl<'a> QueryChecker<'a> {
         Ok(())
     }
 
+    /// Handle fragments of the query body, populate inputs and outputs.
+    fn populate_inputs_outputs(&mut self, fragments: &'a [Fragment<Span>]) -> TResult<()> {
+        for fragment in fragments {
+            self.populate_input_output(fragment)?;
+        }
+        Ok(())
+    }
+
     /// Handle a single fragment of the query body, populate inputs and outputs.
-    fn populate_inputs_outputs(&mut self, fragment: &'a Fragment<Span>) -> TResult<()> {
+    fn populate_input_output(&mut self, fragment: &'a Fragment<Span>) -> TResult<()> {
         match fragment {
             Fragment::Verbatim(..) => return Ok(()),
             Fragment::TypedIdent(_span, ti) => {
