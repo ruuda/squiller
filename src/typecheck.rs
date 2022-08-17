@@ -88,15 +88,43 @@ fn resolve_annotation(input: &str, ann: Annotation<Span>) -> TResult<Annotation<
     Ok(result)
 }
 
+fn resolve_fragments(input: &str, fragments: Vec<Fragment<Span>>) -> TResult<Vec<Fragment<Span>>> {
+    let mut result = Vec::with_capacity(fragments.len());
+
+    for fragment in fragments {
+        let new_fragment = match fragment {
+            Fragment::Verbatim(_) => fragment,
+            Fragment::TypedIdent(span, ti) => Fragment::TypedIdent(
+                span,
+                TypedIdent {
+                    type_: resolve_type(input, ti.type_)?,
+                    ident: ti.ident,
+                },
+            ),
+            Fragment::Param(_) => fragment,
+            Fragment::TypedParam(span, ti) => Fragment::TypedParam(
+                span,
+                TypedIdent {
+                    type_: resolve_type(input, ti.type_)?,
+                    ident: ti.ident,
+                },
+            ),
+        };
+        result.push(new_fragment);
+    }
+
+    Ok(result)
+}
+
 /// Holds the state across various stages of checking a query.
 struct QueryChecker<'a> {
     /// Input file that the spans reference.
     input: &'a str,
 
-    /// All the arguments specified in the annotation.
+    /// All the parameters specified in the annotation.
     query_args: HashMap<&'a str, &'a TypedIdent<Span>>,
 
-    /// Arguments that are referenced in the query body.
+    /// Parameters that are referenced in the query body.
     query_args_used: HashSet<&'a str>,
 
     /// Typed parameters in the query body.
@@ -109,7 +137,7 @@ struct QueryChecker<'a> {
     /// Does not contain duplicates, only the first reference.
     input_fields_vec: Vec<&'a TypedIdent<Span>>,
 
-    /// Typed identifiers in the query body.
+    /// Typed identifiers (outputs) in the query body.
     output_fields: HashMap<&'a str, &'a TypedIdent<Span>>,
 
     /// Typed identifiers in the query body in the order in which they occur.
@@ -137,17 +165,20 @@ impl<'a> QueryChecker<'a> {
     /// or because the parameter was listed explicitly).
     pub fn resolve_types<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
         let annotation = resolve_annotation(input, query.annotation)?;
+        let fragments = resolve_fragments(input, query.fragments)?;
+
         let mut checker = Self::new(input);
 
         checker.populate_query_args(&annotation)?;
 
         // TODO: Need to resolve types in fragments as well.
-        for fragment in &query.fragments {
+        for fragment in &fragments {
             checker.populate_inputs_outputs(fragment)?;
         }
 
         let query = Query {
             annotation: annotation,
+            fragments: fragments,
             ..query
         };
 
