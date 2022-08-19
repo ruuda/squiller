@@ -7,8 +7,68 @@
 
 use std::io;
 
-use crate::ast::{Document, Fragment, Section};
+use crate::ast::{Document, Fragment, Type, PrimitiveType, Section};
 use crate::Span;
+
+fn print_type(
+    input: &str,
+    type_: &Type<Span>,
+    out: &mut dyn io::Write,
+) -> io::Result<()> {
+    let yellow = "\x1b[33m";
+    let reset = "\x1b[0m";
+
+    write!(out, "{}", yellow)?;
+
+    match type_ {
+        Type::Unit => {
+            panic!("Unit should never be printed.");
+        }
+        Type::Simple(..) => {
+            panic!("Simple types should have been resolved by now.");
+        }
+        Type::Primitive(span, _) => {
+            write!(out, "{}{}{}", yellow, span.resolve(input), reset)?;
+        }
+        Type::Iterator(_span, inner) => {
+            write!(out, "{}Iterator{}<", yellow, reset)?;
+            print_type(input, inner, out)?;
+            write!(out, ">")?;
+        }
+        Type::Option(_span, inner) => {
+            write!(out, "{}Option{}<", yellow, reset)?;
+            print_type(input, inner, out)?;
+            write!(out, ">")?;
+        }
+        Type::Tuple(_span, fields) => {
+            write!(out, "(")?;
+            let mut is_first = true;
+            for field_type in fields {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                print_type(input, field_type, out)?;
+                is_first = false;
+            }
+            write!(out, ")")?;
+        }
+        Type::Struct(name_span, fields) => {
+            write!(out, "{}{}{} {{ ", yellow, name_span.resolve(input), reset)?;
+            let mut is_first = true;
+            for field in fields {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                write!(out, "{}: ", field.ident.resolve(input))?;
+                print_type(input, &field.type_, out)?;
+                is_first = false;
+            }
+            write!(out, " }}")?;
+        }
+    }
+
+    Ok(())
+}
 
 /// Pretty-print the parsed file, for debugging purposes.
 pub fn process_file(
@@ -45,23 +105,19 @@ pub fn process_file(
                 )?;
 
                 for param in &annotation.parameters {
-                    writeln!(
-                        out,
-                        "{}-- {}: {}{}",
-                        reset,
-                        param.ident.resolve(input),
-                        yellow,
-                        param.type_.span().resolve(input),
-                    )?;
+                    write!(out, "-- {}: ", param.ident.resolve(input))?;
+                    print_type(input, &param.type_, out)?;
+                    writeln!(out)?;
                 }
-                writeln!(
-                    out,
-                    "{}-- -> {}{:?}{}",
-                    reset,
-                    yellow,
-                    annotation.result_type.resolve(input),
-                    reset,
-                )?;
+
+                match annotation.result_type {
+                    Type::Unit => {}
+                    _ => {
+                        write!(out, "-- -> ")?;
+                        print_type(input, &annotation.result_type, out)?;
+                        writeln!(out)?;
+                    }
+                }
 
                 for fragment in &query.fragments {
                     match fragment {
@@ -79,13 +135,7 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            write!(
-                                out,
-                                "{}{}{}",
-                                yellow,
-                                parsed.type_.span().resolve(input),
-                                reset
-                            )?;
+                            print_type(input, &parsed.type_, out)?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                         Fragment::Param(s) => {
@@ -102,13 +152,7 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            write!(
-                                out,
-                                "{}{}{}",
-                                yellow,
-                                parsed.type_.span().resolve(input),
-                                reset
-                            )?;
+                            print_type(input, &parsed.type_, out)?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                     }

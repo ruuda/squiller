@@ -182,6 +182,7 @@ impl<'a> QueryChecker<'a> {
         Ok(query)
     }
 
+    /// Walk the arguments in the query's annotation and record them.
     fn populate_query_args(&mut self, annotation: &Annotation<Span>) -> TResult<()> {
         // Populate the query args map with the args those provided in the
         // annotation, and at the same time ensure there are no duplicates.
