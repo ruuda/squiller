@@ -396,10 +396,7 @@ impl<'a> QueryChecker<'a> {
     ///
     /// This moves the fields out of `self.output_fields_vec`, which becomes
     /// empty.
-    fn fill_output_struct(
-        &mut self,
-        annotation: &mut Annotation<Span>,
-    ) -> TResult<()> {
+    fn fill_output_struct(&mut self, annotation: &mut Annotation<Span>) -> TResult<()> {
         // Before we put the fields in, check if we have any. If not, but there
         // is a struct result type, that's an error, because we would make an
         // empty struct.
@@ -524,6 +521,74 @@ mod test {
                 assert_eq!(&fields, &expected);
             }
             _ => panic!("Incorrect type for this parameter."),
+        }
+    }
+
+    #[test]
+    fn fill_output_struct_populates_top_level() {
+        let input = "\
+          -- @query get_admin() -> User
+          select
+            id   /* :i64 */,
+            name /* :str */
+          from
+            users
+          where
+            id = 13
+          ;";
+
+        let query = check_and_resolve_query(input).unwrap();
+        match query.annotation.result_type.resolve(&input) {
+            Type::Struct("User", fields) => {
+                let expected = [
+                    TypedIdent {
+                        ident: "id",
+                        type_: Type::Primitive("i64", PrimitiveType::I64),
+                    },
+                    TypedIdent {
+                        ident: "name",
+                        type_: Type::Primitive("str", PrimitiveType::Str),
+                    },
+                ];
+                assert_eq!(&fields, &expected);
+            }
+            _ => panic!("Incorrect result type."),
+        }
+    }
+
+    #[test]
+    fn fill_output_struct_populates_inner_types() {
+        let input = "\
+          -- @query iterate_parents() -> Iterator<Node>
+          select
+            id        /* :i64 */,
+            parent_id /* :Option<i64> */
+          from
+            nodes
+          ;";
+
+        let query = check_and_resolve_query(input).unwrap();
+        match query.annotation.result_type.resolve(&input) {
+            Type::Iterator(_, inner) => match *inner {
+                Type::Struct("Node", fields) => {
+                    let expected = [
+                        TypedIdent {
+                            ident: "id",
+                            type_: Type::Primitive("i64", PrimitiveType::I64),
+                        },
+                        TypedIdent {
+                            ident: "parent_id",
+                            type_: Type::Option(
+                                "Option<i64>",
+                                Box::new(Type::Primitive("i64", PrimitiveType::I64)),
+                            ),
+                        },
+                    ];
+                    assert_eq!(&fields, &expected);
+                }
+                _ => panic!("Incorrect result type."),
+            },
+            _ => panic!("Incorrect result type."),
         }
     }
 }
