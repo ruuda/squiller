@@ -427,7 +427,7 @@ impl<'a> QueryChecker<'a> {
                     ti.ident,
                     "Cannot create a field, query does not return a struct.",
                     "Annotated outputs in the query body become fields of a \
-                    struct, but this query does not return a struct.",
+                    struct, so this query would need to return a struct.",
                 );
                 return Err(error);
             }

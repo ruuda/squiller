@@ -1,0 +1,18 @@
+-- Note, there is no struct result to put the outputs in.
+-- @query select_admin()
+SELECT
+  id    /* :i64 */,
+  email /* :str */
+FROM
+  users
+WHERE
+  id = 13;
+
+
+ --> stdin:4:2
+  |
+4 |   id    /* :i64 */,
+  |   ^~
+Error: Cannot create a field, query does not return a struct.
+
+Hint: Annotated outputs in the query body become fields of a struct, so this query would need to return a struct.
