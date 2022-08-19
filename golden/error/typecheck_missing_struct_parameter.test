@@ -1,0 +1,6 @@
+-- Note, there is no struct argument to put the query parameters in.
+-- @query insert_user()
+INSERT INTO users (name, email) VALUES (:name /* :str */, :email /* :str */);
+
+
+TODO: Add an error for this too.

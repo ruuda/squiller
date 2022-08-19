@@ -349,8 +349,8 @@ impl<'a> QueryChecker<'a> {
                     let error = TypeError::with_hint(
                         *name_span,
                         "Annotation contains a struct parameter, \
-                        but the query body contains no typed outputs.",
-                        "Add type annotations to your query outputs \
+                        but the query body contains no query parameters.",
+                        "Add query parameters with type annotations to the query, \
                         to turn them into fields of the struct.",
                     );
                     return Err(error);
