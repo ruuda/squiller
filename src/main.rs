@@ -25,7 +25,7 @@ pub struct Args {
     pub target: Target,
 
     /// SQL files to process, or "-" for stdin.
-    #[clap(value_parser, value_name = "FILE", required = true)]
+    #[clap(value_parser, value_name = "FILE")]
     pub input_files: Vec<PathBuf>,
 }
 
@@ -77,6 +77,11 @@ fn main() {
     if args.target == Target::Help {
         print_available_targets().expect("Oh no, failed to print.");
         std::process::exit(0);
+    } else {
+        if args.input_files.len() == 0 {
+            println!("No input files provided.");
+            std::process::exit(0);
+        }
     }
 
     let stdout = io::stdout();
