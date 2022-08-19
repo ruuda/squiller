@@ -53,17 +53,13 @@ fn print_type(
             write!(out, ")")?;
         }
         Type::Struct(name_span, fields) => {
-            write!(out, "{}{}{} {{ ", yellow, name_span.resolve(input), reset)?;
-            let mut is_first = true;
+            writeln!(out, "{}{}{} {{", yellow, name_span.resolve(input), reset)?;
             for field in fields {
-                if !is_first {
-                    write!(out, ", ")?;
-                }
-                write!(out, "{}: ", field.ident.resolve(input))?;
+                write!(out, "--   {}: ", field.ident.resolve(input))?;
                 print_type(out, input, &field.type_)?;
-                is_first = false;
+                writeln!(out, ",")?;
             }
-            write!(out, " }}")?;
+            write!(out, "-- }}")?;
         }
     }
 
