@@ -358,6 +358,22 @@ impl<'a> QueryChecker<'a> {
             }
         }
 
+        // Conversely, if there are parameters, but no struct, then we have
+        // nowhere to put them.
+        match (self.input_fields_vec.iter().next(), first_struct) {
+            (Some(ti), None) => {
+                    let error = TypeError::with_hint(
+                        ti.ident,
+                        "Cannot create a field, query has no struct parameter.",
+                        "Annotated query parameters in the query body \
+                        become fields of a struct, but this query has no struct \
+                        parameter in its signature."
+                    );
+                    return Err(error);
+            }
+            _ => {}
+        }
+
         // Now that we know the struct is unique, and it won't be empty, we can
         // do a second pass and put the params in.
         for param in annotation.parameters.iter_mut() {

@@ -3,4 +3,10 @@
 INSERT INTO users (name, email) VALUES (:name /* :str */, :email /* :str */);
 
 
-TODO: Add an error for this too.
+ --> stdin:3:40
+  |
+3 | INSERT INTO users (name, email) VALUES (:name /* :str */, :email /* :str */);
+  |                                         ^~~~~
+Error: Cannot create a field, query has no struct parameter.
+
+Hint: Annotated query parameters in the query body become fields of a struct, but this query has no struct parameter in its signature.
