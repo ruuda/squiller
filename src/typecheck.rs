@@ -172,6 +172,7 @@ impl<'a> QueryChecker<'a> {
         checker.populate_inputs_outputs(&fragments)?;
 
         checker.fill_input_struct(input, &mut annotation)?;
+        checker.fill_output_struct(&mut annotation)?;
 
         let query = Query {
             annotation: annotation,
@@ -361,18 +362,17 @@ impl<'a> QueryChecker<'a> {
 
         // Conversely, if there are parameters, but no struct, then we have
         // nowhere to put them.
-        match (self.input_fields_vec.iter().next(), first_struct) {
-            (Some(ti), None) => {
-                let error = TypeError::with_hint(
-                    ti.ident,
-                    "Cannot create a field, query has no struct parameter.",
-                    "Annotated query parameters in the query body \
-                    become fields of a struct, but this query has no struct \
-                    parameter in its signature.",
-                );
-                return Err(error);
-            }
-            _ => {}
+        if first_struct.is_none() {
+            // Does not go out of bounds, if it was empty we returned already.
+            let ti = &self.input_fields_vec[0];
+            let error = TypeError::with_hint(
+                ti.ident,
+                "Cannot create a field, query has no struct parameter.",
+                "Annotated query parameters in the query body \
+                become fields of a struct, but this query has no struct \
+                parameter in its signature.",
+            );
+            return Err(error);
         }
 
         // Now that we know the struct is unique, and it won't be empty, we can
@@ -387,6 +387,57 @@ impl<'a> QueryChecker<'a> {
                     fields.push(ti);
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    /// If the result type is a struct, fill its fields.
+    ///
+    /// This moves the fields out of `self.output_fields_vec`, which becomes
+    /// empty.
+    fn fill_output_struct(
+        &mut self,
+        annotation: &mut Annotation<Span>,
+    ) -> TResult<()> {
+        // Before we put the fields in, check if we have any. If not, but there
+        // is a struct result type, that's an error, because we would make an
+        // empty struct.
+        if self.output_fields_vec.len() == 0 {
+            match &annotation.result_type {
+                Type::Struct(name_span, _fields) => {
+                    let error = TypeError::with_hint(
+                        *name_span,
+                        "The annotation specifies a struct as result type, \
+                        but the query body contains no annotated outputs.",
+                        "Add a SELECT or RETURNING clause with type annotations \
+                        to the query, to turn them into fields of the struct.",
+                    );
+                    return Err(error);
+                }
+                _ => return Ok(()),
+            }
+        }
+
+        // Conversely, if there are outputs, but no struct, then we have nowhere
+        // to put them.
+        let fields = match annotation.result_type.inner_mut() {
+            Type::Struct(_name_span, fields) => fields,
+            _not_struct => {
+                // Does not go out of bounds, if it was empty we returned already.
+                let ti = &self.output_fields_vec[0];
+                let error = TypeError::with_hint(
+                    ti.ident,
+                    "Cannot create a field, query does not return a struct.",
+                    "Annotated outputs in the query body become fields of a \
+                    struct, but this query does not return a struct.",
+                );
+                return Err(error);
+            }
+        };
+
+        for ti in self.output_fields_vec.drain(..) {
+            fields.push(ti);
         }
 
         Ok(())
