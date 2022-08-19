@@ -7,13 +7,13 @@
 
 use std::io;
 
-use crate::ast::{Document, Fragment, Type, PrimitiveType, Section};
+use crate::ast::{Document, Fragment, Type, Section};
 use crate::Span;
 
 fn print_type(
+    out: &mut dyn io::Write,
     input: &str,
     type_: &Type<Span>,
-    out: &mut dyn io::Write,
 ) -> io::Result<()> {
     let yellow = "\x1b[33m";
     let reset = "\x1b[0m";
@@ -32,12 +32,12 @@ fn print_type(
         }
         Type::Iterator(_span, inner) => {
             write!(out, "{}Iterator{}<", yellow, reset)?;
-            print_type(input, inner, out)?;
+            print_type(out, input, inner)?;
             write!(out, ">")?;
         }
         Type::Option(_span, inner) => {
             write!(out, "{}Option{}<", yellow, reset)?;
-            print_type(input, inner, out)?;
+            print_type(out, input, inner)?;
             write!(out, ">")?;
         }
         Type::Tuple(_span, fields) => {
@@ -47,7 +47,7 @@ fn print_type(
                 if !is_first {
                     write!(out, ", ")?;
                 }
-                print_type(input, field_type, out)?;
+                print_type(out, input, field_type)?;
                 is_first = false;
             }
             write!(out, ")")?;
@@ -60,7 +60,7 @@ fn print_type(
                     write!(out, ", ")?;
                 }
                 write!(out, "{}: ", field.ident.resolve(input))?;
-                print_type(input, &field.type_, out)?;
+                print_type(out, input, &field.type_)?;
                 is_first = false;
             }
             write!(out, " }}")?;
@@ -78,7 +78,6 @@ pub fn process_file(
 ) -> io::Result<()> {
     let red = "\x1b[31m";
     let green = "\x1b[32m";
-    let yellow = "\x1b[33m";
     let blue = "\x1b[34;1m";
     let white = "\x1b[37;1m";
     let reset = "\x1b[0m";
@@ -106,7 +105,7 @@ pub fn process_file(
 
                 for param in &annotation.parameters {
                     write!(out, "-- {}: ", param.ident.resolve(input))?;
-                    print_type(input, &param.type_, out)?;
+                    print_type(out, input, &param.type_)?;
                     writeln!(out)?;
                 }
 
@@ -114,7 +113,7 @@ pub fn process_file(
                     Type::Unit => {}
                     _ => {
                         write!(out, "-- -> ")?;
-                        print_type(input, &annotation.result_type, out)?;
+                        print_type(out, input, &annotation.result_type)?;
                         writeln!(out)?;
                     }
                 }
@@ -135,7 +134,7 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            print_type(input, &parsed.type_, out)?;
+                            print_type(out, input, &parsed.type_)?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                         Fragment::Param(s) => {
@@ -152,7 +151,7 @@ pub fn process_file(
                                 end: raw.end,
                             };
                             write!(out, "{}", mid.resolve(input))?;
-                            print_type(input, &parsed.type_, out)?;
+                            print_type(out, input, &parsed.type_)?;
                             write!(out, "{}", end.resolve(input))?;
                         }
                     }
