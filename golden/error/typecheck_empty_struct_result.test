@@ -1,0 +1,20 @@
+-- Note, the query does not contain any (annotated) outputs,
+-- so the generated struct would be empty, which is invalid.
+-- @query select_admin() -> User
+SELECT
+  -- Note how these have no type annotations.
+  name,
+  email
+FROM
+  users
+WHERE
+  email = 'eldon@tyrell.com';
+
+
+ --> stdin:3:28
+  |
+3 | -- @query select_admin() -> User
+  |                             ^~~~
+Error: The annotation specifies a struct as result type, but the query body contains no annotated outputs.
+
+Hint: Add a SELECT or RETURNING clause with type annotations to the query, to turn them into fields of the struct.
