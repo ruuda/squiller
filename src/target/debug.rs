@@ -7,14 +7,10 @@
 
 use std::io;
 
-use crate::ast::{Document, Fragment, Type, Section};
+use crate::ast::{Document, Fragment, Section, Type};
 use crate::Span;
 
-fn print_type(
-    out: &mut dyn io::Write,
-    input: &str,
-    type_: &Type<Span>,
-) -> io::Result<()> {
+fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::Result<()> {
     let yellow = "\x1b[33m";
     let reset = "\x1b[0m";
 

@@ -363,14 +363,14 @@ impl<'a> QueryChecker<'a> {
         // nowhere to put them.
         match (self.input_fields_vec.iter().next(), first_struct) {
             (Some(ti), None) => {
-                    let error = TypeError::with_hint(
-                        ti.ident,
-                        "Cannot create a field, query has no struct parameter.",
-                        "Annotated query parameters in the query body \
-                        become fields of a struct, but this query has no struct \
-                        parameter in its signature."
-                    );
-                    return Err(error);
+                let error = TypeError::with_hint(
+                    ti.ident,
+                    "Cannot create a field, query has no struct parameter.",
+                    "Annotated query parameters in the query body \
+                    become fields of a struct, but this query has no struct \
+                    parameter in its signature.",
+                );
+                return Err(error);
             }
             _ => {}
         }
