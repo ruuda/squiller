@@ -2,7 +2,7 @@
 // Input files:
 // - examples/users.sql
 
-// use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
@@ -62,13 +62,10 @@ create table if not exists users
   );
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -84,13 +81,10 @@ returning
   id;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -114,13 +108,10 @@ returning
   email;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -141,13 +132,10 @@ returning
   id;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -171,13 +159,10 @@ where
   id = :id;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -201,13 +186,10 @@ order by
   id asc;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }
@@ -221,13 +203,10 @@ from
   users;
     "#;
 
-    let query_id = 0;
-    let statement = match self.statements.entry(query_id) {
+    let sql_hash = 0;
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = self.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     Ok(())
 }

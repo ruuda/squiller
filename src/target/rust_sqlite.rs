@@ -67,12 +67,9 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
 const GET_STATEMENT: &'static str = r#"
-    let statement = match tx.statements.entry(query_id) {
+    let statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
-        Vacant(vacancy) => {
-            let statement = tx.connection.prepare(sql)?;
-            vacancy.insert(statement)
-        }
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
 "#;
 
@@ -250,7 +247,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             writeln!(out, "\n    \"#;")?;
 
             // TODO: Generate a unique cache key per query.
-            writeln!(out, "\n    let query_id = 0;")?;
+            writeln!(out, "\n    let sql_hash = 0;")?;
             // The literal starts with a newline that we don't want here.
             out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
 
