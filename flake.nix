@@ -16,8 +16,9 @@
           default = pkgs.mkShell {
             nativeBuildInputs = [
               pkgs.mkdocs
-              pkgs.rustup
               pkgs.python3
+              pkgs.rustup
+              pkgs.sqlite
             ];
           };
         });
@@ -27,6 +28,7 @@
             inherit name version;
             src = ./.;
             cargoLock.lockFile = ./Cargo.lock;
+            nativeBuildInputs = [ pkgs.sqlite ];
           };
         });
       };
