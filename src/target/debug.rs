@@ -7,8 +7,8 @@
 
 use std::io;
 
-use crate::ast::{Document, Fragment, Section, Type};
-use crate::Span;
+use crate::ast::{Fragment, Section, Type};
+use crate::{NamedDocument, Span};
 
 fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::Result<()> {
     let yellow = "\x1b[33m";
@@ -63,88 +63,88 @@ fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::R
 }
 
 /// Pretty-print the parsed file, for debugging purposes.
-pub fn process_file(
-    input: &str,
-    parsed: Document<Span>,
-    out: &mut dyn io::Write,
-) -> io::Result<()> {
+pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
     let red = "\x1b[31m";
     let green = "\x1b[32m";
     let blue = "\x1b[34;1m";
     let white = "\x1b[37;1m";
     let reset = "\x1b[0m";
 
-    for section in &parsed.sections {
-        match section {
-            Section::Verbatim(s) => {
-                write!(out, "{}", s.resolve(input))?;
-            }
-            Section::Query(query) => {
-                let annotation = &query.annotation;
-
-                for doc_line in &query.docs {
-                    writeln!(out, "{}--{}", red, doc_line.resolve(input))?;
+    for named_document in documents {
+        let input = named_document.input;
+        let document = &named_document.document;
+        for section in &document.sections {
+            match section {
+                Section::Verbatim(s) => {
+                    write!(out, "{}", s.resolve(input))?;
                 }
+                Section::Query(query) => {
+                    let annotation = &query.annotation;
 
-                writeln!(
-                    out,
-                    "{}-- {}@query{} {}",
-                    reset,
-                    green,
-                    reset,
-                    annotation.name.resolve(input)
-                )?;
+                    for doc_line in &query.docs {
+                        writeln!(out, "{}--{}", red, doc_line.resolve(input))?;
+                    }
 
-                for param in &annotation.parameters {
-                    write!(out, "-- {}: ", param.ident.resolve(input))?;
-                    print_type(out, input, &param.type_)?;
-                    writeln!(out)?;
-                }
+                    writeln!(
+                        out,
+                        "{}-- {}@query{} {}",
+                        reset,
+                        green,
+                        reset,
+                        annotation.name.resolve(input)
+                    )?;
 
-                match annotation.result_type {
-                    Type::Unit => {}
-                    _ => {
-                        write!(out, "-- -> ")?;
-                        print_type(out, input, &annotation.result_type)?;
+                    for param in &annotation.parameters {
+                        write!(out, "-- {}: ", param.ident.resolve(input))?;
+                        print_type(out, input, &param.type_)?;
                         writeln!(out)?;
                     }
-                }
 
-                for fragment in &query.fragments {
-                    match fragment {
-                        Fragment::Verbatim(s) => {
-                            write!(out, "{}", s.resolve(input))?;
+                    match annotation.result_type {
+                        Type::Unit => {}
+                        _ => {
+                            write!(out, "-- -> ")?;
+                            print_type(out, input, &annotation.result_type)?;
+                            writeln!(out)?;
                         }
-                        Fragment::TypedIdent(raw, parsed) => {
-                            write!(out, "{}{}{}", blue, parsed.ident.resolve(input), reset)?;
-                            let mid = Span {
-                                start: parsed.ident.end,
-                                end: parsed.type_.span().start,
-                            };
-                            let end = Span {
-                                start: parsed.type_.span().end,
-                                end: raw.end,
-                            };
-                            write!(out, "{}", mid.resolve(input))?;
-                            print_type(out, input, &parsed.type_)?;
-                            write!(out, "{}", end.resolve(input))?;
-                        }
-                        Fragment::Param(s) => {
-                            write!(out, "{}{}{}", white, s.resolve(input), reset)?;
-                        }
-                        Fragment::TypedParam(raw, parsed) => {
-                            write!(out, "{}{}{}", white, parsed.ident.resolve(input), reset)?;
-                            let mid = Span {
-                                start: parsed.ident.end,
-                                end: parsed.type_.span().start,
-                            };
-                            let end = Span {
-                                start: parsed.type_.span().end,
-                                end: raw.end,
-                            };
-                            write!(out, "{}", mid.resolve(input))?;
-                            print_type(out, input, &parsed.type_)?;
-                            write!(out, "{}", end.resolve(input))?;
+                    }
+
+                    for fragment in &query.fragments {
+                        match fragment {
+                            Fragment::Verbatim(s) => {
+                                write!(out, "{}", s.resolve(input))?;
+                            }
+                            Fragment::TypedIdent(raw, parsed) => {
+                                write!(out, "{}{}{}", blue, parsed.ident.resolve(input), reset)?;
+                                let mid = Span {
+                                    start: parsed.ident.end,
+                                    end: parsed.type_.span().start,
+                                };
+                                let end = Span {
+                                    start: parsed.type_.span().end,
+                                    end: raw.end,
+                                };
+                                write!(out, "{}", mid.resolve(input))?;
+                                print_type(out, input, &parsed.type_)?;
+                                write!(out, "{}", end.resolve(input))?;
+                            }
+                            Fragment::Param(s) => {
+                                write!(out, "{}{}{}", white, s.resolve(input), reset)?;
+                            }
+                            Fragment::TypedParam(raw, parsed) => {
+                                write!(out, "{}{}{}", white, parsed.ident.resolve(input), reset)?;
+                                let mid = Span {
+                                    start: parsed.ident.end,
+                                    end: parsed.type_.span().start,
+                                };
+                                let end = Span {
+                                    start: parsed.type_.span().end,
+                                    end: raw.end,
+                                };
+                                write!(out, "{}", mid.resolve(input))?;
+                                print_type(out, input, &parsed.type_)?;
+                                write!(out, "{}", end.resolve(input))?;
+                            }
                         }
                     }
                 }

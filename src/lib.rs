@@ -18,6 +18,11 @@ pub mod parser {
 pub mod target;
 pub mod typecheck;
 
+use ast::Document;
+use lexer::document::Lexer;
+use parser::document::Parser;
+use std::path::Path;
+
 /// Check if a byte is part of an identifier.
 ///
 /// This returns true also for digits, even though identifiers should not start
@@ -27,7 +32,7 @@ fn is_ascii_identifier(ch: u8) -> bool {
 }
 
 /// As `str::from_utf8`, but map errors to a type that we can print.
-pub fn str_from_utf8(input: &[u8]) -> error::PResult<&str> {
+fn str_from_utf8(input: &[u8]) -> error::PResult<&str> {
     use std::str;
     str::from_utf8(input).map_err(|err| error::ParseError {
         span: Span {
@@ -64,5 +69,36 @@ impl Span {
             start: self.start + n,
             end: self.end,
         }
+    }
+}
+
+/// A parsed document, along with its source code and source file name.
+pub struct NamedDocument<'a> {
+    pub fname: &'a Path,
+    pub input: &'a str,
+    pub document: Document<Span>,
+}
+
+impl<'a> NamedDocument<'a> {
+    /// Parse and typecheck one input file.
+    ///
+    /// The file name is not used here to load the bytes, it is only added to
+    /// the result, so it can later be used for error reporting, or for deriving
+    /// module names.
+    pub fn process_input(
+        fname: &'a Path,
+        input_bytes: &'a [u8],
+    ) -> error::Result<NamedDocument<'a>> {
+        let input_str = str_from_utf8(input_bytes)?;
+        let tokens = Lexer::new(input_str).run()?;
+        let mut parser = Parser::new(input_str, &tokens);
+        let doc = parser.parse_document()?;
+        let doc = typecheck::check_document(input_str, doc)?;
+        let result = NamedDocument {
+            fname,
+            input: input_str,
+            document: doc,
+        };
+        Ok(result)
     }
 }

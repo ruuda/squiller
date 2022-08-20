@@ -6,14 +6,11 @@
 // A copy of the License has been included in the root of the repository.
 
 use std::io;
-use std::io::Read;
-use std::path::PathBuf;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 
-use querybinder::error::Result;
-use querybinder::lexer::document::Lexer;
-use querybinder::parser::document::Parser;
 use querybinder::target::Target;
-use querybinder::typecheck;
+use querybinder::NamedDocument;
 
 use clap::ValueEnum;
 
@@ -38,7 +35,6 @@ impl Args {
 }
 
 fn print_available_targets() -> io::Result<()> {
-    use std::io::Write;
     use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
     let mut stdout = StandardStream::stdout(ColorChoice::Always);
 
@@ -59,16 +55,23 @@ fn print_available_targets() -> io::Result<()> {
     Ok(())
 }
 
-fn process_input(input_bytes: &[u8], target: Target, out: &mut dyn io::Write) -> Result<()> {
-    let input_str = querybinder::str_from_utf8(input_bytes)?;
-    let tokens = Lexer::new(&input_str).run()?;
-    let mut parser = Parser::new(&input_str, &tokens);
-    let doc = parser.parse_document()?;
-    let doc = typecheck::check_document(&input_str, doc)?;
+fn process_inputs(out: &mut dyn Write, target: Target, inputs: &[(&Path, Vec<u8>)]) {
+    let mut documents = Vec::with_capacity(inputs.len());
+
+    for (fname, input_bytes) in inputs {
+        let named_document = match NamedDocument::process_input(fname, input_bytes) {
+            Ok(doc) => doc,
+            Err(err) => {
+                err.print(fname, input_bytes);
+                std::process::exit(1);
+            }
+        };
+        documents.push(named_document);
+    }
+
     target
-        .process_file(&input_str, doc, out)
-        .expect("Failed to print output.");
-    Ok(())
+        .process_files(out, &documents[..])
+        .expect("Failed to write output.");
 }
 
 fn main() {
@@ -86,26 +89,25 @@ fn main() {
 
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
-    let fname_stdin = "stdin".into();
+    let fname_stdin: PathBuf = "stdin".into();
 
-    for fname in &args.input_files {
-        let (fname_display, input) = match fname.to_str() {
+    let inputs: Vec<_> = args
+        .input_files
+        .iter()
+        .map(|fname| match fname.to_str() {
             Some("-") => {
                 let mut bytes = Vec::new();
                 std::io::stdin()
                     .read_to_end(&mut bytes)
                     .expect("Failed to read input from stdin.");
-                (&fname_stdin, bytes)
+                (fname_stdin.as_ref(), bytes)
             }
             _ => {
                 let bytes = std::fs::read(fname).expect("Failed to read input file.");
-                (fname, bytes)
+                (fname.as_ref(), bytes)
             }
-        };
-        let result = process_input(&input, args.target, &mut stdout);
-        if let Err(err) = result {
-            err.print(&fname_display, &input);
-            std::process::exit(1);
-        }
-    }
+        })
+        .collect();
+
+    process_inputs(&mut stdout, args.target, &inputs);
 }
