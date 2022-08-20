@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{Fragment, PrimitiveType, Section, Type};
+use crate::ast::{Annotation, Fragment, PrimitiveType, Type, TypedIdent};
 use std::io;
 
 use crate::NamedDocument;
@@ -92,26 +92,29 @@ fn main() {
 "#;
 
 #[derive(Copy, Clone)]
-enum TypePosition {
-    Input,
-    Output,
+enum Ownership {
+    Borrow,
+    BorrowNamed,
+    Owned,
 }
 
 fn write_type(
     out: &mut dyn io::Write,
-    type_: Type<&str>,
-    position: TypePosition,
+    owned: Ownership,
+    type_: &Type<&str>,
 ) -> io::Result<()> {
-    use TypePosition::{Input, Output};
+    use Ownership::{Borrow, BorrowNamed, Owned};
     match type_ {
         Type::Unit => write!(out, "()"),
         Type::Simple(..) => panic!("Should not occur any more at output time."),
         Type::Primitive(_, prim) => {
-            let name = match (prim, position) {
-                (PrimitiveType::Str, Input) => "&str",
-                (PrimitiveType::Str, Output) => "String",
-                (PrimitiveType::Bytes, Input) => "&[u8]",
-                (PrimitiveType::Bytes, Output) => "Vec<u8>",
+            let name = match (prim, owned) {
+                (PrimitiveType::Str, Borrow) => "&str",
+                (PrimitiveType::Str, BorrowNamed) => "&'a str",
+                (PrimitiveType::Str, Owned) => "String",
+                (PrimitiveType::Bytes, Borrow) => "&[u8]",
+                (PrimitiveType::Bytes, BorrowNamed) => "&'a [u8]",
+                (PrimitiveType::Bytes, Owned) => "Vec<u8>",
                 (PrimitiveType::I32, _) => "i32",
                 (PrimitiveType::I64, _) => "i64",
             };
@@ -120,12 +123,12 @@ fn write_type(
         Type::Iterator(_full_span, inner) => {
             // TODO: What to do with generated iterator types?
             write!(out, "impl Iterator<Item = ")?;
-            write_type(out, *inner, position)?;
+            write_type(out, owned, inner)?;
             write!(out, ">")
         }
         Type::Option(_full_span, inner) => {
             write!(out, "Option<")?;
-            write_type(out, *inner, position)?;
+            write_type(out, owned, inner)?;
             write!(out, ">")
         }
         Type::Tuple(_full_span, fields) => {
@@ -135,13 +138,50 @@ fn write_type(
                 if !is_first {
                     write!(out, ", ")?;
                 }
-                write_type(out, field_type, position)?;
+                write_type(out, owned, field_type)?;
                 is_first = false;
             }
             write!(out, ")")
         }
         Type::Struct(name, _fields) => write!(out, "{}", name),
     }
+}
+
+/// Generate Rust code for a struct type.
+fn write_struct_definition(
+    out: &mut dyn io::Write,
+    owned: Ownership,
+    name: &str,
+    fields: &[TypedIdent<&str>],
+) -> io::Result<()> {
+    // TODO: Would be nice to generate docs for cross-referencing.
+    writeln!(out, "\npub struct {} {{", name)?;
+    for field in fields {
+        write!(out, "    pub {}: ", field.ident)?;
+        write_type(out, owned, &field.type_)?;
+        writeln!(out, ",")?;
+    }
+    writeln!(out, "}}")
+}
+
+/// Generate code for all structs that occur in the query's type.
+fn write_struct_definitions(
+    out: &mut dyn io::Write,
+    annotation: Annotation<&str>,
+) -> io::Result<()> {
+    for param in &annotation.parameters {
+        param.type_.traverse(&mut |type_| match type_ {
+            Type::Struct(name, fields) =>
+                write_struct_definition(out, Ownership::BorrowNamed, name, &fields),
+            _ => Ok(()),
+        })?;
+    }
+
+    annotation.result_type.traverse(&mut |type_| match type_ {
+        Type::Struct(name, fields) =>
+            write_struct_definition(out, Ownership::Owned, name, fields),
+        _ => Ok(()),
+    })
 }
 
 /// Generate Rust code that uses the `sqlite` crate.
@@ -159,12 +199,15 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
     for named_document in documents {
         let input = named_document.input;
-        for section in &named_document.document.sections {
-            let query = match section {
-                Section::Verbatim(..) => continue,
-                Section::Query(q) => q,
-            };
+
+        for query in named_document.document.iter_queries() {
             let ann = &query.annotation;
+
+            // Before the query itself, define any types that it may reference.
+            // For now, we put these interspersed with the queries. If we share
+            // struct types in the future, we might group all types before the
+            // queries.
+            write_struct_definitions(out, query.annotation.resolve(input))?;
 
             writeln!(out)?;
 
@@ -180,13 +223,13 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             for arg in &ann.parameters {
                 write!(out, ", {}: ", arg.ident.resolve(input),)?;
-                write_type(out, arg.type_.resolve(input), TypePosition::Input)?;
+                write_type(out, Ownership::Borrow, &arg.type_.resolve(input))?;
             }
 
             write!(out, ") -> Result<")?;
             match &ann.result_type {
                 Type::Unit => write!(out, "()")?,
-                not_unit => write_type(out, not_unit.resolve(input), TypePosition::Output)?,
+                not_unit => write_type(out, Ownership::Owned, &not_unit.resolve(input))?,
             }
             writeln!(out, "> {{")?;
 
@@ -212,9 +255,6 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
     // TODO: Make this configurable.
     out.write_all(MAIN.as_bytes())?;
-
-    writeln!(out, "\n")?;
-    // TODO: Process the documents themselves.
 
     Ok(())
 }

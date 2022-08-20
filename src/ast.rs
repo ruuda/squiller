@@ -62,6 +62,30 @@ pub enum Type<TSpan> {
     Struct(TSpan, Vec<TypedIdent<TSpan>>),
 }
 
+impl<TSpan> Type<TSpan> {
+    /// Call the function on every type, including nested types.
+    ///
+    /// Performs a depth-first traversal. Calls the predicate on the outer type
+    /// before calling it on the inner type.
+    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E> where F: FnMut(&Type<TSpan>) -> Result<(), E> {
+        f(self)?;
+
+        match self {
+            Type::Iterator(_, inner) => inner.traverse(f)?,
+            Type::Option(_, inner) => inner.traverse(f)?,
+            Type::Tuple(_, fields) => for field_type in fields {
+                field_type.traverse(f)?;
+            },
+            Type::Struct(_, fields) => for field in fields {
+                field.type_.traverse(f)?;
+            },
+            _ => {}
+        }
+
+        Ok(())
+    }
+}
+
 impl Type<Span> {
     pub fn resolve<'a>(&self, input: &'a str) -> Type<&'a str> {
         match self {
@@ -178,6 +202,18 @@ pub struct Annotation<TSpan> {
     pub result_type: Type<TSpan>,
 }
 
+impl<TSpan> Annotation<TSpan> {
+    /// Call the function on every type, first parameters, then the result type.
+    ///
+    /// See also [`Type::traverse`].
+    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E> where F: FnMut(&Type<TSpan>) -> Result<(), E> {
+        for param in &self.parameters {
+            f(&param.type_)?;
+        }
+        f(&self.result_type)
+    }
+}
+
 impl Annotation<Span> {
     pub fn resolve<'a>(&self, input: &'a str) -> Annotation<&'a str> {
         Annotation {
@@ -288,5 +324,17 @@ impl Document<Span> {
         Document {
             sections: self.sections.iter().map(|s| s.resolve(input)).collect(),
         }
+    }
+}
+
+impl<TSpan> Document<TSpan> {
+    /// Extract all queries from the document.
+    pub fn iter_queries<'a>(&self) -> impl Iterator<Item = &Query<TSpan>> {
+        self.sections
+            .iter()
+            .filter_map(|section| match section {
+                Section::Verbatim(..) => None,
+                Section::Query(q) => Some(q),
+            })
     }
 }

@@ -77,6 +77,12 @@ returning
     Ok(())
 }
 
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
+}
+
 /// Insert a new user and return it.
 pub fn insert_user_alt_return(tx: &mut Transaction, name: &str, email: &str) -> Result<User> {
     let sql = r#"
@@ -92,6 +98,11 @@ returning
     Ok(())
 }
 
+pub struct InsertUser {
+    pub name: &'a str,
+    pub email: &'a str,
+}
+
 /// Insert a new user and return its id.
 pub fn insert_user_alt_arg(tx: &mut Transaction, user: InsertUser) -> Result<i64> {
     let sql = r#"
@@ -103,6 +114,12 @@ returning
   id;
     "#;
     Ok(())
+}
+
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
 }
 
 /// Select a particular user by id.
@@ -118,6 +135,12 @@ where
   id = :id;
     "#;
     Ok(())
+}
+
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub email: String,
 }
 
 /// Iterate over all users ordered by id.
