@@ -55,6 +55,20 @@ pub fn get_user_by_name(connection: &Connection, name: &str) -> Result<Option<Us
 }
 ```
 
+## Limitations
+
+ * Querybinder is not fully hygienic. This means that it can generate invalid
+   code, when user-specified names overlap with names that Querybinder uses
+   internally in the generated code. Because the generated code is intended to
+   be readable, it should be easy to work around this by choosing different
+   names in the input SQL.
+
+ * The generated code may not satisfy your style requirements. Querybinder does
+   try to generate readable code with sensible indentation, but it does not
+   break long lines, and it may generate output that your code formatter
+   disapproves of. If this is an issue, simply run the output through your
+   formatter of choice.
+
 ## Testing
 
 To fuzz the parser:
