@@ -40,14 +40,28 @@ fn print_available_targets() -> io::Result<()> {
 
     writeln!(&mut stdout, "Supported targets:\n")?;
 
-    for variant in Target::value_variants() {
-        let v = variant
-            .to_possible_value()
-            .expect("All variants should be documented.");
+    let possible_values: Vec<_> = Target::value_variants()
+        .iter()
+        .map(|variant| {
+            variant
+                .to_possible_value()
+                .expect("All variants should be documented.")
+        })
+        .collect();
+
+    let max_width = possible_values
+        .iter()
+        .map(|v| v.get_name().len())
+        .max()
+        .expect("There is at least one possible value.");
+
+    for v in possible_values {
         let name = v.get_name();
         let help = v.get_help().expect("All variants should have a help text.");
+        let pad = " ".repeat(max_width - name.len());
+        write!(&mut stdout, "  {}", pad)?;
         stdout.set_color(ColorSpec::new().set_fg(Some(Color::Green)))?;
-        write!(&mut stdout, "  {:>5}", name)?;
+        write!(&mut stdout, "{}", name)?;
         stdout.set_color(ColorSpec::new().set_fg(None))?;
         writeln!(&mut stdout, "    {}", help)?;
     }
