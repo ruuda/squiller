@@ -8,7 +8,7 @@ use std::collections::hash_map::HashMap;
 use sqlite;
 use sqlite::Statement;
 
-type Result<T> = sqlite::Result<T>;
+pub type Result<T> = sqlite::Result<T>;
 
 pub struct Connection<'a> {
     connection: &'a sqlite::Connection,
@@ -51,6 +51,34 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
     pub fn rollback(self) -> Result<()> {
         self.connection.execute("ROLLBACK;")
     }
+}
+
+pub fn setup_schema(tx: &mut Transaction) -> Result<()> {
+    Ok(())
+}
+
+pub fn insert_user(tx: &mut Transaction, name: str, email: str) -> Result<i64> {
+    Ok(())
+}
+
+pub fn insert_user_alt_return(tx: &mut Transaction, name: str, email: str) -> Result<User> {
+    Ok(())
+}
+
+pub fn insert_user_alt_arg(tx: &mut Transaction, user: InsertUser) -> Result<i64> {
+    Ok(())
+}
+
+pub fn select_user_by_id(tx: &mut Transaction, id: i64) -> Result<User> {
+    Ok(())
+}
+
+pub fn select_all_users(tx: &mut Transaction) -> Result<Iterator<User>> {
+    Ok(())
+}
+
+pub fn select_longest_email_length(tx: &mut Transaction) -> Result<Option<i64>> {
+    Ok(())
 }
 
 // A useless main function, included only to make the example compile with

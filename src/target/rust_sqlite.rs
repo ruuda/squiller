@@ -6,6 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 use std::io;
+use crate::ast::{Section, Type};
 
 use crate::NamedDocument;
 
@@ -16,7 +17,7 @@ use std::collections::hash_map::HashMap;
 use sqlite;
 use sqlite::Statement;
 
-type Result<T> = sqlite::Result<T>;
+pub type Result<T> = sqlite::Result<T>;
 
 pub struct Connection<'a> {
     connection: &'a sqlite::Connection,
@@ -102,6 +103,32 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
     }
 
     out.write_all(PREAMBLE.as_bytes())?;
+
+    for named_document in documents {
+        let input = named_document.input;
+        for section in &named_document.document.sections {
+            let query = match section {
+                Section::Verbatim(..) => continue,
+                Section::Query(q) => q,
+            };
+            let ann = &query.annotation;
+
+            write!(out, "\npub fn {}(tx: &mut Transaction", ann.name.resolve(input))?;
+
+            for arg in &ann.parameters {
+                // TODO: Translate types.
+                write!(out, ", {}: {}", arg.ident.resolve(input), arg.type_.span().resolve(input))?;
+            }
+
+            write!(out, ") -> Result<")?;
+            match &ann.result_type {
+                Type::Unit => write!(out, "()")?,
+                not_unit => write!(out, "{}", not_unit.span().resolve(input))?,
+            }
+            writeln!(out, "> {{\n    Ok(())")?;
+            writeln!(out, "}}")?;
+        }
+    }
 
     // TODO: Make this configurable.
     out.write_all(MAIN.as_bytes())?;
