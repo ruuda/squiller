@@ -18,18 +18,18 @@ use sqlite::Statement;
 
 type Result<T> = sqlite::Result<T>;
 
-pub struct Connection<'conn, 'stmt> {
-    connection: &'conn sqlite::Connection,
-    statements: HashMap<u64, Statement<'stmt>>,
+pub struct Connection<'a> {
+    connection: &'a sqlite::Connection,
+    statements: HashMap<u64, Statement<'a>>,
 }
 
-pub struct Transaction<'conn, 'stmt> {
-    connection: &'conn sqlite::Connection,
-    statements: &'conn mut HashMap<u64, Statement<'stmt>>,
+pub struct Transaction<'tx, 'a> {
+    connection: &'a sqlite::Connection,
+    statements: &'tx mut HashMap<u64, Statement<'a>>,
 }
 
-impl<'conn, 'stmt> Connection<'conn, 'stmt> {
-    pub fn new(connection: &'conn sqlite::Connection) -> Self {
+impl<'a> Connection<'a> {
+    pub fn new(connection: &'a sqlite::Connection) -> Self {
         Self {
             connection,
             // TODO: We could do with_capacity here, because we know the number
@@ -39,7 +39,7 @@ impl<'conn, 'stmt> Connection<'conn, 'stmt> {
     }
 
     /// Begin a new transaction by executing the `BEGIN` statement.
-    pub fn begin<'tx: 'conn>(&'tx mut self) -> Result<Transaction<'tx, 'stmt>> {
+    pub fn begin<'tx>(&'tx mut self) -> Result<Transaction<'tx, 'a>> {
         self.connection.execute("BEGIN;")?;
         let result = Transaction {
             connection: &self.connection,
@@ -49,7 +49,7 @@ impl<'conn, 'stmt> Connection<'conn, 'stmt> {
     }
 }
 
-impl<'conn, 'stmt> Transaction<'conn, 'stmt> {
+impl<'tx, 'a> Transaction<'tx, 'a> {
     /// Execute `COMMIT` statement.
     pub fn commit(self) -> Result<()> {
         self.connection.execute("COMMIT;")
@@ -81,8 +81,12 @@ const MAIN: &'static str = r#"
 fn main() {
     let raw_connection = sqlite::open(":memory:").unwrap();
     let mut connection = Connection::new(&raw_connection);
-    let transaction = connection.begin().unwrap();
-    transaction.commit().unwrap();
+
+    let tx = connection.begin().unwrap();
+    tx.rollback().unwrap();
+
+    let tx = connection.begin().unwrap();
+    tx.commit().unwrap();
 }
 "#;
 
