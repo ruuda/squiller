@@ -65,7 +65,7 @@ create table if not exists users
 }
 
 /// Insert a new user and return its id.
-pub fn insert_user(tx: &mut Transaction, name: str, email: str) -> Result<i64> {
+pub fn insert_user(tx: &mut Transaction, name: &str, email: &str) -> Result<i64> {
     let sql = r#"
 insert into
   users (name, email)
@@ -78,7 +78,7 @@ returning
 }
 
 /// Insert a new user and return it.
-pub fn insert_user_alt_return(tx: &mut Transaction, name: str, email: str) -> Result<User> {
+pub fn insert_user_alt_return(tx: &mut Transaction, name: &str, email: &str) -> Result<User> {
     let sql = r#"
 insert into
   users (name, email)
@@ -121,7 +121,7 @@ where
 }
 
 /// Iterate over all users ordered by id.
-pub fn select_all_users(tx: &mut Transaction) -> Result<Iterator<User>> {
+pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item = User>> {
     let sql = r#"
 select
   id,

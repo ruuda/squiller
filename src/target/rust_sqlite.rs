@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{Fragment, Section, Type};
+use crate::ast::{Fragment, PrimitiveType, Section, Type};
 use std::io;
 
 use crate::NamedDocument;
@@ -91,6 +91,59 @@ fn main() {
 }
 "#;
 
+#[derive(Copy, Clone)]
+enum TypePosition {
+    Input,
+    Output,
+}
+
+fn write_type(
+    out: &mut dyn io::Write,
+    type_: Type<&str>,
+    position: TypePosition,
+) -> io::Result<()> {
+    use TypePosition::{Input, Output};
+    match type_ {
+        Type::Unit => write!(out, "()"),
+        Type::Simple(..) => panic!("Should not occur any more at output time."),
+        Type::Primitive(_, prim) => {
+            let name = match (prim, position) {
+                (PrimitiveType::Str, Input) => "&str",
+                (PrimitiveType::Str, Output) => "String",
+                (PrimitiveType::Bytes, Input) => "&[u8]",
+                (PrimitiveType::Bytes, Output) => "Vec<u8>",
+                (PrimitiveType::I32, _) => "i32",
+                (PrimitiveType::I64, _) => "i64",
+            };
+            out.write_all(name.as_bytes())
+        }
+        Type::Iterator(_full_span, inner) => {
+            // TODO: What to do with generated iterator types?
+            write!(out, "impl Iterator<Item = ")?;
+            write_type(out, *inner, position)?;
+            write!(out, ">")
+        }
+        Type::Option(_full_span, inner) => {
+            write!(out, "Option<")?;
+            write_type(out, *inner, position)?;
+            write!(out, ">")
+        }
+        Type::Tuple(_full_span, fields) => {
+            write!(out, "(")?;
+            let mut is_first = true;
+            for field_type in fields {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                write_type(out, field_type, position)?;
+                is_first = false;
+            }
+            write!(out, ")")
+        }
+        Type::Struct(name, _fields) => write!(out, "{}", name),
+    }
+}
+
 /// Generate Rust code that uses the `sqlite` crate.
 pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
     writeln!(
@@ -126,19 +179,14 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             )?;
 
             for arg in &ann.parameters {
-                // TODO: Translate types.
-                write!(
-                    out,
-                    ", {}: {}",
-                    arg.ident.resolve(input),
-                    arg.type_.span().resolve(input)
-                )?;
+                write!(out, ", {}: ", arg.ident.resolve(input),)?;
+                write_type(out, arg.type_.resolve(input), TypePosition::Input)?;
             }
 
             write!(out, ") -> Result<")?;
             match &ann.result_type {
                 Type::Unit => write!(out, "()")?,
-                not_unit => write!(out, "{}", not_unit.span().resolve(input))?,
+                not_unit => write_type(out, not_unit.resolve(input), TypePosition::Output)?,
             }
             writeln!(out, "> {{")?;
 
