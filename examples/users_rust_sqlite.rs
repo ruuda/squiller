@@ -158,5 +158,3 @@ fn main() {
     let tx = connection.begin().unwrap();
     tx.commit().unwrap();
 }
-
-

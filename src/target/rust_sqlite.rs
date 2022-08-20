@@ -5,8 +5,8 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use std::io;
 use crate::ast::{Fragment, Section, Type};
+use std::io;
 
 use crate::NamedDocument;
 
@@ -119,11 +119,20 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "///{}", doc_line.resolve(input))?;
             }
 
-            write!(out, "pub fn {}(tx: &mut Transaction", ann.name.resolve(input))?;
+            write!(
+                out,
+                "pub fn {}(tx: &mut Transaction",
+                ann.name.resolve(input)
+            )?;
 
             for arg in &ann.parameters {
                 // TODO: Translate types.
-                write!(out, ", {}: {}", arg.ident.resolve(input), arg.type_.span().resolve(input))?;
+                write!(
+                    out,
+                    ", {}: {}",
+                    arg.ident.resolve(input),
+                    arg.type_.span().resolve(input)
+                )?;
             }
 
             write!(out, ") -> Result<")?;
