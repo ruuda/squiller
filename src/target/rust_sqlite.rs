@@ -6,7 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 use std::io;
-use crate::ast::{Section, Type};
+use crate::ast::{Fragment, Section, Type};
 
 use crate::NamedDocument;
 
@@ -113,7 +113,13 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             };
             let ann = &query.annotation;
 
-            write!(out, "\npub fn {}(tx: &mut Transaction", ann.name.resolve(input))?;
+            writeln!(out)?;
+
+            for doc_line in &query.docs {
+                writeln!(out, "///{}", doc_line.resolve(input))?;
+            }
+
+            write!(out, "pub fn {}(tx: &mut Transaction", ann.name.resolve(input))?;
 
             for arg in &ann.parameters {
                 // TODO: Translate types.
@@ -125,7 +131,24 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 Type::Unit => write!(out, "()")?,
                 not_unit => write!(out, "{}", not_unit.span().resolve(input))?,
             }
-            writeln!(out, "> {{\n    Ok(())")?;
+            writeln!(out, "> {{")?;
+
+            // TODO: indent the query.
+            writeln!(out, "    let sql = r#\"")?;
+            // TODO: Include the source file name and line number as a comment.
+            for fragment in &query.fragments {
+                let span = match fragment {
+                    Fragment::Verbatim(span) => span,
+                    Fragment::Param(span) => span,
+                    // When we put the SQL in the source code, omit the type
+                    // annotations, it's only a distraction.
+                    Fragment::TypedIdent(_full_span, ti) => &ti.ident,
+                    Fragment::TypedParam(_full_span, ti) => &ti.ident,
+                };
+                out.write_all(span.resolve(input).as_bytes())?;
+            }
+            writeln!(out, "\n    \"#;")?;
+            writeln!(out, "    Ok(())")?;
             writeln!(out, "}}")?;
         }
     }
