@@ -61,6 +61,15 @@ create table if not exists users
   , email string not null
   );
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -74,6 +83,15 @@ values
 returning
   id;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -95,6 +113,15 @@ returning
   name,
   email;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -113,6 +140,15 @@ values
 returning
   id;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -134,6 +170,15 @@ from
 where
   id = :id;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -155,6 +200,15 @@ from
 order by
   id asc;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 
@@ -166,6 +220,15 @@ select
 from
   users;
     "#;
+
+    let query_id = 0;
+    let statement = match self.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = self.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
     Ok(())
 }
 

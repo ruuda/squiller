@@ -11,7 +11,7 @@ use std::io;
 use crate::NamedDocument;
 
 const PREAMBLE: &'static str = r#"
-// use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
@@ -66,14 +66,14 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
 // It would be nice if we could make a method for this instead of repeating the
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
-const _GET_STATEMENT: &'static str = r#"
-        let statement = match self.statements.entry(key) {
-            Occupied(entry) => entry.get_mut(),
-            Vacant(vacancy) => {
-                let statement = self.connection.prepare(sql)?;
-                vacancy.insert(statement)
-            }
-        };
+const GET_STATEMENT: &'static str = r#"
+    let statement = match tx.statements.entry(query_id) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => {
+            let statement = tx.connection.prepare(sql)?;
+            vacancy.insert(statement)
+        }
+    };
 "#;
 
 const MAIN: &'static str = r#"
@@ -248,6 +248,12 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 out.write_all(span.resolve(input).as_bytes())?;
             }
             writeln!(out, "\n    \"#;")?;
+
+            // TODO: Generate a unique cache key per query.
+            writeln!(out, "\n    let query_id = 0;")?;
+            // The literal starts with a newline that we don't want here.
+            out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
+
             writeln!(out, "    Ok(())")?;
             writeln!(out, "}}")?;
         }
