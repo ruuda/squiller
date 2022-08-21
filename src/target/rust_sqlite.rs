@@ -7,6 +7,7 @@
 
 use crate::ast::{Annotation, Fragment, PrimitiveType, Type, TypedIdent};
 use std::io;
+use std::convert::Infallible;
 
 use crate::NamedDocument;
 
@@ -88,7 +89,7 @@ fn main() {
 }
 "#;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 enum Ownership {
     Borrow,
     BorrowNamed,
@@ -151,8 +152,34 @@ fn write_struct_definition(
     name: &str,
     fields: &[TypedIdent<&str>],
 ) -> io::Result<()> {
+    // TODO: This all feels a bit ad-hoc. I should probably parametrize the AST
+    // over the type type, then add a pass that translates the language-agnostic
+    // types into Rust types, and then have some helper methods on those for this
+    // kind of stuff.
+    let has_lifetime_types = fields
+        .iter()
+        .any(|field| {
+            let mut has_lifetime = false;
+            field.type_.traverse(&mut |type_| {
+                match type_ {
+                    Type::Primitive(_, PrimitiveType::Str) => has_lifetime = true,
+                    Type::Primitive(_, PrimitiveType::Bytes) => has_lifetime = true,
+                    _ => {}
+                }
+                Ok::<(), Infallible>(())
+            }).unwrap();
+            has_lifetime
+        });
+
     // TODO: Would be nice to generate docs for cross-referencing.
-    writeln!(out, "\npub struct {} {{", name)?;
+    write!(out, "\npub struct {}", name)?;
+
+    if has_lifetime_types && owned == Ownership::BorrowNamed {
+        write!(out, "<'a>")?;
+    }
+
+    writeln!(out, " {{")?;
+
     for field in fields {
         write!(out, "    pub {}: ", field.ident)?;
         write_type(out, owned, &field.type_)?;

@@ -117,7 +117,7 @@ returning
     Ok(())
 }
 
-pub struct InsertUser {
+pub struct InsertUser<'a> {
     pub name: &'a str,
     pub email: &'a str,
 }
