@@ -22,8 +22,9 @@ values
 returning
   id;
 
+-- TODO: Add global type detection, use a single "User" type everywhere.
 -- Insert a new user and return it.
--- @query insert_user_alt_return(name: str, email: str) -> User
+-- @query insert_user_alt_return(name: str, email: str) -> User1
 insert into
   users (name, email)
 values
@@ -43,7 +44,7 @@ returning
   id;
 
 -- Select a particular user by id.
--- @query select_user_by_id(id: i64) -> User
+-- @query select_user_by_id(id: i64) -> User2
 select
   id    /* :i64 */,
   name  /* :str */,
@@ -54,7 +55,7 @@ where
   id = :id;
 
 -- Iterate over all users ordered by id.
--- @query select_all_users() -> Iterator<User>
+-- @query select_all_users() -> Iterator<User3>
 select
   id    /* :i64 */,
   name  /* :str */,

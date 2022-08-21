@@ -89,14 +89,15 @@ returning
     Ok(())
 }
 
-pub struct User {
+pub struct User1 {
     pub id: i64,
     pub name: String,
     pub email: String,
 }
 
+/// TODO: Add global type detection, use a single "User" type everywhere.
 /// Insert a new user and return it.
-pub fn insert_user_alt_return(tx: &mut Transaction, name: &str, email: &str) -> Result<User> {
+pub fn insert_user_alt_return(tx: &mut Transaction, name: &str, email: &str) -> Result<User1> {
     let sql = r#"
 insert into
   users (name, email)
@@ -140,14 +141,14 @@ returning
     Ok(())
 }
 
-pub struct User {
+pub struct User2 {
     pub id: i64,
     pub name: String,
     pub email: String,
 }
 
 /// Select a particular user by id.
-pub fn select_user_by_id(tx: &mut Transaction, id: i64) -> Result<User> {
+pub fn select_user_by_id(tx: &mut Transaction, id: i64) -> Result<User2> {
     let sql = r#"
 select
   id,
@@ -167,14 +168,14 @@ where
     Ok(())
 }
 
-pub struct User {
+pub struct User3 {
     pub id: i64,
     pub name: String,
     pub email: String,
 }
 
 /// Iterate over all users ordered by id.
-pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item = User>> {
+pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item = User3>> {
     let sql = r#"
 select
   id,
