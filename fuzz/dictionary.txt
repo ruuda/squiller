@@ -8,7 +8,9 @@
 "i64"
 "i32"
 ")"
-"->"
+"->?"
+"->1"
+"->*"
 "Option<"
 "Iterator<"
 # Not magic, but put something in there that starts with a capital.

@@ -268,9 +268,27 @@ impl<'a> Parser<'a> {
         // 4. Optionally an arrow followed by the return type.
         let result_type = match self.peek() {
             None => Type::Unit,
-            Some(Token::Arrow) => {
+            Some(Token::ArrowOpt) => {
+                // TODO: Record the cardinality.
                 self.consume();
                 self.parse_type()?
+            }
+            Some(Token::ArrowOne) => {
+                // TODO: Record the cardinality.
+                self.consume();
+                self.parse_type()?
+            }
+            Some(Token::ArrowStar) => {
+                // TODO: Record the cardinality.
+                self.consume();
+                self.parse_type()?
+            }
+            Some(Token::Arrow) => {
+                return self.error(
+                    "A return type arrow must include the number of rows \
+                    that the query will return: '->?' for zero or one, \
+                    '->1' for exactly one, and '->*' for zero or more.",
+                )
             }
             Some(_unexpected) => {
                 return self.error(
@@ -468,7 +486,7 @@ mod test {
             });
         }
 
-        let input = "@query get_next_id() -> i64";
+        let input = "@query get_next_id() ->1 i64";
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {

@@ -1,4 +1,4 @@
--- @query q() -> Foo
+-- @query q() ->* Foo
 SELECT foo.id /* :i32 */, bar.id /* :i32 */ FROM foo, bar;
 
 

@@ -16,7 +16,7 @@ Given the following input:
 
 ```sql
 -- Look up a user by username.
--- @query get_user_by_name(name: str) -> Option<User>
+-- @query get_user_by_name(name: str) ->? User
 select id /* :i64 */, name /* :str */, email /* :str */
 from users
 where name = :name;
@@ -32,8 +32,8 @@ struct User {
 }
 
 /// Look up a user by username.
-pub fn get_user_by_name(connection: &Connection, name: &str) -> Result<Option<User>> {
-    let mut statement = connection.prepare(
+pub fn get_user_by_name(tx: &mut Transaction, name: &str) -> Result<Option<User>> {
+    let mut statement = tx.prepare(
         r#"
         select id, name, email
         from users

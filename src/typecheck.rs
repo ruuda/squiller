@@ -491,7 +491,7 @@ mod test {
     #[test]
     fn fill_input_struct_populates_top_level() {
         let input = "\
-          -- @query f(user: User) -> i64
+          -- @query f(user: User) ->1 i64
           select
             max(karma)
           from
@@ -527,7 +527,7 @@ mod test {
     #[test]
     fn fill_output_struct_populates_top_level() {
         let input = "\
-          -- @query get_admin() -> User
+          -- @query get_admin() ->1 User
           select
             id   /* :i64 */,
             name /* :str */
@@ -558,8 +558,10 @@ mod test {
 
     #[test]
     fn fill_output_struct_populates_inner_types() {
+        // TODO: The Iterator here should go away, it should be generated from
+        // the arrow.
         let input = "\
-          -- @query iterate_parents() -> Iterator<Node>
+          -- @query iterate_parents() ->* Iterator<Node>
           select
             id        /* :i64 */,
             parent_id /* :Option<i64> */

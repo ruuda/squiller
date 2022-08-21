@@ -21,7 +21,12 @@ pub enum Token {
     Semicolon,
     Comma,
     Minus,
+    /// A bare arrow is invalid in the grammar, but we have it here to be able
+    /// to generate more helpful error messages.
     Arrow,
+    ArrowOpt,
+    ArrowOne,
+    ArrowStar,
 }
 
 pub struct Lexer<'a> {
@@ -131,6 +136,18 @@ impl<'a> Lexer<'a> {
         if input[0] == b',' {
             self.push(Token::Comma, 1);
             return (self.start + 1, State::Base);
+        }
+        if input.starts_with(b"->?") {
+            self.push(Token::ArrowOpt, 3);
+            return (self.start + 3, State::Base);
+        }
+        if input.starts_with(b"->1") {
+            self.push(Token::ArrowOne, 3);
+            return (self.start + 3, State::Base);
+        }
+        if input.starts_with(b"->*") {
+            self.push(Token::ArrowStar, 3);
+            return (self.start + 3, State::Base);
         }
         if input.starts_with(b"->") {
             self.push(Token::Arrow, 2);

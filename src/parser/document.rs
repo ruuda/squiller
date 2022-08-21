@@ -494,7 +494,7 @@ mod test {
         -- @query multiline_signature(
         --   key: &str,
         --   value: &str,
-        -- ) -> i64
+        -- ) ->* i64
         SELECT * FROM kv;
         ";
         with_parser(input, |p| {
