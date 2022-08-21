@@ -12,4 +12,5 @@ termcolor = "1.1.3"
 
 [dev-dependencies]
 # For testing the generated code.
-sqlite = "0.26.0"
+# NB: 0.27 has some severe limitations: https://github.com/stainless-steel/sqlite/pull/44#issuecomment-1221576569
+sqlite = "=0.26.0"
