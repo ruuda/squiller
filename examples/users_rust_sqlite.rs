@@ -68,7 +68,6 @@ create table if not exists users
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-;
     let result = match statement.next()? {
         Row => panic!("Query 'setup_schema' unexpectedly returned a row."),
         Done => (),
@@ -95,7 +94,7 @@ returning
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
-    let decode_row = |statement| statement.read::<i64>(0)?;
+    let decode_row = |statement| Ok(statement.read::<i64>(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'insert_user' should return at least one row."),
@@ -131,11 +130,11 @@ returning
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
-    let decode_row = |statement| User1 {
+    let decode_row = |statement| Ok(User1 {
         id: statement.read::<i64>(0)?,
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
-    };
+    });
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'insert_user_alt_return' should return at least one row."),
@@ -167,7 +166,7 @@ returning
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
-    let decode_row = |statement| statement.read::<i64>(0)?;
+    let decode_row = |statement| Ok(statement.read::<i64>(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'insert_user_alt_arg' should return at least one row."),
@@ -201,11 +200,11 @@ where
     };
     statement.reset()?;
     statement.bind(1, id)?;
-    let decode_row = |statement| User2 {
+    let decode_row = |statement| Ok(User2 {
         id: statement.read::<i64>(0)?,
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
-    };
+    });
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'select_user_by_id' should return at least one row."),
@@ -238,12 +237,12 @@ order by
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    let decode_row = |statement| User3 {
+    let decode_row = |statement| Ok(User3 {
         id: statement.read::<i64>(0)?,
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
-    };
-    todo!("Implement iterators.");
+    });
+    let result = todo!("Implement iterators.");
     Ok(result)
 }
 
@@ -262,7 +261,7 @@ from
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    let decode_row = |statement| statement.read::<i64>(0)?;
+    let decode_row = |statement| Ok(statement.read::<i64>(0)?);
     let result = match statement.next()? {
         Row => Some(decode_row(statement)?),
         Done => None,

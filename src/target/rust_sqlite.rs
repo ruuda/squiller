@@ -336,20 +336,22 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             match &query.annotation.result_type {
                 Type::Option(_, inner) => {
-                    write!(out, "    let decode_row = |statement| ")?;
-                    write_return_value(out, 0, inner.resolve(input))?
+                    write!(out, "    let decode_row = |statement| Ok(")?;
+                    write_return_value(out, 0, inner.resolve(input))?;
+                    writeln!(out, ");")?;
                 },
                 Type::Iterator(_, inner) => {
-                    write!(out, "    let decode_row = |statement| ")?;
-                    write_return_value(out, 0, inner.resolve(input))?
+                    write!(out, "    let decode_row = |statement| Ok(")?;
+                    write_return_value(out, 0, inner.resolve(input))?;
+                    writeln!(out, ");")?;
                 },
                 Type::Unit => {}
                 other => {
-                    write!(out, "    let decode_row = |statement| ")?;
-                    write_return_value(out, 0, other.resolve(input))?
+                    write!(out, "    let decode_row = |statement| Ok(")?;
+                    write_return_value(out, 0, other.resolve(input))?;
+                    writeln!(out, ");")?;
                 },
             }
-            writeln!(out, ";")?;
 
             match &query.annotation.result_type {
                 Type::Option(..) => {
@@ -359,7 +361,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     writeln!(out, "    }};")?;
                 }
                 Type::Iterator(..) => {
-                    writeln!(out, "    todo!(\"Implement iterators.\");")?;
+                    writeln!(out, "    let result = todo!(\"Implement iterators.\");")?;
                 }
                 Type::Unit => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
