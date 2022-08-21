@@ -206,11 +206,7 @@ fn write_struct_definitions(
 }
 
 /// Generate code that calls `.read` on the statement, and constructs a return value.
-fn write_return_value(
-    out: &mut dyn io::Write,
-    index: usize,
-    type_: Type<&str>,
-) -> io::Result<()> {
+fn write_return_value(out: &mut dyn io::Write, index: usize, type_: Type<&str>) -> io::Result<()> {
     match type_ {
         Type::Unit => panic!("Should not generate code for unit return value."),
         Type::Simple(..) => panic!("Should not occur here."),
@@ -339,18 +335,18 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     write!(out, "    let decode_row = |statement| Ok(")?;
                     write_return_value(out, 0, inner.resolve(input))?;
                     writeln!(out, ");")?;
-                },
+                }
                 Type::Iterator(_, inner) => {
                     write!(out, "    let decode_row = |statement| Ok(")?;
                     write_return_value(out, 0, inner.resolve(input))?;
                     writeln!(out, ");")?;
-                },
+                }
                 Type::Unit => {}
                 other => {
                     write!(out, "    let decode_row = |statement| Ok(")?;
                     write_return_value(out, 0, other.resolve(input))?;
                     writeln!(out, ");")?;
-                },
+                }
             }
 
             match &query.annotation.result_type {
@@ -365,14 +361,22 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 }
                 Type::Unit => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
-                    writeln!(out, "        Row => panic!(\"Query '{}' unexpectedly returned a row.\"),", query.annotation.name.resolve(input))?;
+                    writeln!(
+                        out,
+                        "        Row => panic!(\"Query '{}' unexpectedly returned a row.\"),",
+                        query.annotation.name.resolve(input)
+                    )?;
                     writeln!(out, "        Done => (),")?;
                     writeln!(out, "    }};")?;
                 }
                 _ => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
                     writeln!(out, "        Row => decode_row(statement)?,")?;
-                    writeln!(out, "        Done => panic!(\"Query '{}' should return at least one row.\"),", query.annotation.name.resolve(input))?;
+                    writeln!(
+                        out,
+                        "        Done => panic!(\"Query '{}' should return at least one row.\"),",
+                        query.annotation.name.resolve(input)
+                    )?;
                     writeln!(out, "    }};")?;
                 }
             }
