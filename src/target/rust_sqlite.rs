@@ -16,7 +16,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
-use sqlite::Statement;
+use sqlite::{State::{Row, Done}, Statement};
 
 pub type Result<T> = sqlite::Result<T>;
 
@@ -334,17 +334,48 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "    statement.bind({}, {})?;", i, variable_name)?;
             }
 
-            write!(out, "    let decode_row = |statement| ")?;
             match &query.annotation.result_type {
-                Type::Option(_, inner) => write_return_value(out, 0, inner.resolve(input))?,
-                Type::Iterator(_, inner) => write_return_value(out, 0, inner.resolve(input))?,
-                // TODO: This creates an unused variable, can we do better?
-                Type::Unit => write!(out, "()")?,
-                other => write_return_value(out, 0, other.resolve(input))?,
+                Type::Option(_, inner) => {
+                    write!(out, "    let decode_row = |statement| ")?;
+                    write_return_value(out, 0, inner.resolve(input))?
+                },
+                Type::Iterator(_, inner) => {
+                    write!(out, "    let decode_row = |statement| ")?;
+                    write_return_value(out, 0, inner.resolve(input))?
+                },
+                Type::Unit => {}
+                other => {
+                    write!(out, "    let decode_row = |statement| ")?;
+                    write_return_value(out, 0, other.resolve(input))?
+                },
             }
             writeln!(out, ";")?;
 
-            writeln!(out, "    Ok(())")?;
+            match &query.annotation.result_type {
+                Type::Option(..) => {
+                    writeln!(out, "    let result = match statement.next()? {{")?;
+                    writeln!(out, "        Row => Some(decode_row(statement)?),")?;
+                    writeln!(out, "        Done => None,")?;
+                    writeln!(out, "    }};")?;
+                }
+                Type::Iterator(..) => {
+                    writeln!(out, "    todo!(\"Implement iterators.\");")?;
+                }
+                Type::Unit => {
+                    writeln!(out, "    let result = match statement.next()? {{")?;
+                    writeln!(out, "        Row => panic!(\"Query '{}' unexpectedly returned a row.\"),", query.annotation.name.resolve(input))?;
+                    writeln!(out, "        Done => (),")?;
+                    writeln!(out, "    }};")?;
+                }
+                _ => {
+                    writeln!(out, "    let result = match statement.next()? {{")?;
+                    writeln!(out, "        Row => decode_row(statement)?,")?;
+                    writeln!(out, "        Done => panic!(\"Query '{}' should return at least one row.\"),", query.annotation.name.resolve(input))?;
+                    writeln!(out, "    }};")?;
+                }
+            }
+
+            writeln!(out, "    Ok(result)")?;
             writeln!(out, "}}")?;
         }
     }

@@ -6,7 +6,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
-use sqlite::Statement;
+use sqlite::{State::{Row, Done}, Statement};
 
 pub type Result<T> = sqlite::Result<T>;
 
@@ -68,8 +68,12 @@ create table if not exists users
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    let decode_row = |statement| ();
-    Ok(())
+;
+    let result = match statement.next()? {
+        Row => panic!("Query 'setup_schema' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
 }
 
 /// Insert a new user and return its id.
@@ -92,7 +96,11 @@ returning
     statement.bind(1, name)?;
     statement.bind(2, email)?;
     let decode_row = |statement| statement.read::<i64>(0)?;
-    Ok(())
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'insert_user' should return at least one row."),
+    };
+    Ok(result)
 }
 
 pub struct User1 {
@@ -128,7 +136,11 @@ returning
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
     };
-    Ok(())
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'insert_user_alt_return' should return at least one row."),
+    };
+    Ok(result)
 }
 
 pub struct InsertUser<'a> {
@@ -156,7 +168,11 @@ returning
     statement.bind(1, name)?;
     statement.bind(2, email)?;
     let decode_row = |statement| statement.read::<i64>(0)?;
-    Ok(())
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'insert_user_alt_arg' should return at least one row."),
+    };
+    Ok(result)
 }
 
 pub struct User2 {
@@ -190,7 +206,11 @@ where
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
     };
-    Ok(())
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'select_user_by_id' should return at least one row."),
+    };
+    Ok(result)
 }
 
 pub struct User3 {
@@ -223,7 +243,8 @@ order by
         name: statement.read::<String>(1)?,
         email: statement.read::<String>(2)?,
     };
-    Ok(())
+    todo!("Implement iterators.");
+    Ok(result)
 }
 
 /// Select the length of the longest email address.
@@ -242,7 +263,11 @@ from
     };
     statement.reset()?;
     let decode_row = |statement| statement.read::<i64>(0)?;
-    Ok(())
+    let result = match statement.next()? {
+        Row => Some(decode_row(statement)?),
+        Done => None,
+    };
+    Ok(result)
 }
 
 // A useless main function, included only to make the example compile with
