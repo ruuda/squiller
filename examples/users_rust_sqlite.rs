@@ -63,11 +63,12 @@ create table if not exists users
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
+    let decode_row = |statement| ();
     Ok(())
 }
 
@@ -83,13 +84,14 @@ returning
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
+    let decode_row = |statement| statement.read::<i64>(0)?;
     Ok(())
 }
 
@@ -114,13 +116,18 @@ returning
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
+    let decode_row = |statement| User1 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    };
     Ok(())
 }
 
@@ -141,13 +148,14 @@ returning
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
+    let decode_row = |statement| statement.read::<i64>(0)?;
     Ok(())
 }
 
@@ -171,12 +179,17 @@ where
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
     statement.bind(1, id)?;
+    let decode_row = |statement| User2 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    };
     Ok(())
 }
 
@@ -200,11 +213,16 @@ order by
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
+    let decode_row = |statement| User3 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    };
     Ok(())
 }
 
@@ -218,11 +236,12 @@ from
     "#;
 
     let sql_hash = 0;
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
+    let decode_row = |statement| statement.read::<i64>(0)?;
     Ok(())
 }
 

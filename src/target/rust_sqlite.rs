@@ -68,7 +68,7 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
 const GET_STATEMENT: &'static str = r#"
-    let statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql_hash) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -205,6 +205,54 @@ fn write_struct_definitions(
     })
 }
 
+/// Generate code that calls `.read` on the statement, and constructs a return value.
+fn write_return_value(
+    out: &mut dyn io::Write,
+    index: usize,
+    type_: Type<&str>,
+) -> io::Result<()> {
+    match type_ {
+        Type::Unit => panic!("Should not generate code for unit return value."),
+        Type::Simple(..) => panic!("Should not occur here."),
+        Type::Iterator(..) => panic!("Iterator cannot be used inside return type."),
+        Type::Primitive(..) | Type::Option(..) => {
+            // TODO: For Option, we have to confirm that the inner type is a
+            // primitive type. For now, we don't do that, so we might generate
+            // bogus code. But that's a UserBehindKeyboardError for now.
+            write!(out, "statement.read::<")?;
+            write_type(out, Ownership::Owned, &type_)?;
+            write!(out, ">({})?", index)?;
+        }
+        Type::Tuple(_, fields) => {
+            write!(out, "(")?;
+            let mut is_first = true;
+            for (i, field_type) in (index..).zip(fields) {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                write_return_value(out, i, field_type)?;
+                is_first = false;
+            }
+            write!(out, ")")?;
+        }
+        Type::Struct(name, fields) => {
+            writeln!(out, "{} {{", name)?;
+            // TODO: Once we unify types across multiple queries, the index of
+            // the fields may not be the order in which they occur.
+            for (i, field) in (index..).zip(fields) {
+                write!(out, "        {}: ", field.ident)?;
+                // TODO: Rust can infer the types here, we don't really need to
+                // include them.
+                write_return_value(out, i, field.type_)?;
+                writeln!(out, ",")?;
+            }
+            write!(out, "    }}")?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Generate Rust code that uses the `sqlite` crate.
 pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
     writeln!(
@@ -275,6 +323,10 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             // The literal starts with a newline that we don't want here.
             out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
 
+            // Next we bind all query parameters.
+            // TODO: If the input is a struct, we need to generate field lookups
+            // here. What is a principled way of doing that? It feels ad-hoc to
+            // match every time here.
             writeln!(out, "    statement.reset()?;")?;
             for (i, param) in (1..).zip(query.iter_parameters()) {
                 // Cut off the leading ':' from the parameter name.
@@ -282,7 +334,15 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "    statement.bind({}, {})?;", i, variable_name)?;
             }
 
-            // Next we bind all query parameters.
+            write!(out, "    let decode_row = |statement| ")?;
+            match &query.annotation.result_type {
+                Type::Option(_, inner) => write_return_value(out, 0, inner.resolve(input))?,
+                Type::Iterator(_, inner) => write_return_value(out, 0, inner.resolve(input))?,
+                // TODO: This creates an unused variable, can we do better?
+                Type::Unit => write!(out, "()")?,
+                other => write_return_value(out, 0, other.resolve(input))?,
+            }
+            writeln!(out, ";")?;
 
             writeln!(out, "    Ok(())")?;
             writeln!(out, "}}")?;
