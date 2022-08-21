@@ -6,8 +6,8 @@
 // A copy of the License has been included in the root of the repository.
 
 use crate::ast::{Annotation, Fragment, PrimitiveType, Type, TypedIdent};
-use std::io;
 use std::convert::Infallible;
+use std::io;
 
 use crate::NamedDocument;
 
@@ -96,11 +96,7 @@ enum Ownership {
     Owned,
 }
 
-fn write_type(
-    out: &mut dyn io::Write,
-    owned: Ownership,
-    type_: &Type<&str>,
-) -> io::Result<()> {
+fn write_type(out: &mut dyn io::Write, owned: Ownership, type_: &Type<&str>) -> io::Result<()> {
     use Ownership::{Borrow, BorrowNamed, Owned};
     match type_ {
         Type::Unit => write!(out, "()"),
@@ -156,20 +152,21 @@ fn write_struct_definition(
     // over the type type, then add a pass that translates the language-agnostic
     // types into Rust types, and then have some helper methods on those for this
     // kind of stuff.
-    let has_lifetime_types = fields
-        .iter()
-        .any(|field| {
-            let mut has_lifetime = false;
-            field.type_.traverse(&mut |type_| {
+    let has_lifetime_types = fields.iter().any(|field| {
+        let mut has_lifetime = false;
+        field
+            .type_
+            .traverse(&mut |type_| {
                 match type_ {
                     Type::Primitive(_, PrimitiveType::Str) => has_lifetime = true,
                     Type::Primitive(_, PrimitiveType::Bytes) => has_lifetime = true,
                     _ => {}
                 }
                 Ok::<(), Infallible>(())
-            }).unwrap();
-            has_lifetime
-        });
+            })
+            .unwrap();
+        has_lifetime
+    });
 
     // TODO: Would be nice to generate docs for cross-referencing.
     write!(out, "\npub struct {}", name)?;
@@ -195,15 +192,15 @@ fn write_struct_definitions(
 ) -> io::Result<()> {
     for param in &annotation.parameters {
         param.type_.traverse(&mut |type_| match type_ {
-            Type::Struct(name, fields) =>
-                write_struct_definition(out, Ownership::BorrowNamed, name, &fields),
+            Type::Struct(name, fields) => {
+                write_struct_definition(out, Ownership::BorrowNamed, name, &fields)
+            }
             _ => Ok(()),
         })?;
     }
 
     annotation.result_type.traverse(&mut |type_| match type_ {
-        Type::Struct(name, fields) =>
-            write_struct_definition(out, Ownership::Owned, name, fields),
+        Type::Struct(name, fields) => write_struct_definition(out, Ownership::Owned, name, fields),
         _ => Ok(()),
     })
 }

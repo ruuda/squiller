@@ -67,18 +67,25 @@ impl<TSpan> Type<TSpan> {
     ///
     /// Performs a depth-first traversal. Calls the predicate on the outer type
     /// before calling it on the inner type.
-    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E> where F: FnMut(&Type<TSpan>) -> Result<(), E> {
+    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Type<TSpan>) -> Result<(), E>,
+    {
         f(self)?;
 
         match self {
             Type::Iterator(_, inner) => inner.traverse(f)?,
             Type::Option(_, inner) => inner.traverse(f)?,
-            Type::Tuple(_, fields) => for field_type in fields {
-                field_type.traverse(f)?;
-            },
-            Type::Struct(_, fields) => for field in fields {
-                field.type_.traverse(f)?;
-            },
+            Type::Tuple(_, fields) => {
+                for field_type in fields {
+                    field_type.traverse(f)?;
+                }
+            }
+            Type::Struct(_, fields) => {
+                for field in fields {
+                    field.type_.traverse(f)?;
+                }
+            }
             _ => {}
         }
 
@@ -206,7 +213,10 @@ impl<TSpan> Annotation<TSpan> {
     /// Call the function on every type, first parameters, then the result type.
     ///
     /// See also [`Type::traverse`].
-    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E> where F: FnMut(&Type<TSpan>) -> Result<(), E> {
+    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Type<TSpan>) -> Result<(), E>,
+    {
         for param in &self.parameters {
             f(&param.type_)?;
         }
@@ -330,11 +340,9 @@ impl Document<Span> {
 impl<TSpan> Document<TSpan> {
     /// Extract all queries from the document.
     pub fn iter_queries<'a>(&self) -> impl Iterator<Item = &Query<TSpan>> {
-        self.sections
-            .iter()
-            .filter_map(|section| match section {
-                Section::Verbatim(..) => None,
-                Section::Query(q) => Some(q),
-            })
+        self.sections.iter().filter_map(|section| match section {
+            Section::Verbatim(..) => None,
+            Section::Query(q) => Some(q),
+        })
     }
 }
