@@ -304,6 +304,21 @@ impl Query<Span> {
     }
 }
 
+impl<TSpan> Query<TSpan> {
+    /// Extract all parameters from the query body (both typed and untyped).
+    pub fn iter_parameters<'a>(&self) -> impl Iterator<Item = TSpan> + '_
+    where
+        TSpan: Copy,
+    {
+        self.fragments.iter().filter_map(|fragment| match fragment {
+            Fragment::Verbatim(..) => None,
+            Fragment::TypedIdent(..) => None,
+            Fragment::Param(span) => Some(*span),
+            Fragment::TypedParam(_full_span, ti) => Some(ti.ident),
+        })
+    }
+}
+
 /// A section of a document.
 ///
 /// Section consists either of a single annotated query, which we parse further

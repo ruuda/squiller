@@ -67,6 +67,7 @@ create table if not exists users
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
     Ok(())
 }
 
@@ -86,6 +87,9 @@ returning
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
+    statement.bind(1, name)?;
+    statement.bind(2, email)?;
     Ok(())
 }
 
@@ -114,6 +118,9 @@ returning
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
+    statement.bind(1, name)?;
+    statement.bind(2, email)?;
     Ok(())
 }
 
@@ -138,6 +145,9 @@ returning
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
+    statement.bind(1, name)?;
+    statement.bind(2, email)?;
     Ok(())
 }
 
@@ -165,6 +175,8 @@ where
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
+    statement.bind(1, id)?;
     Ok(())
 }
 
@@ -192,6 +204,7 @@ order by
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
     Ok(())
 }
 
@@ -209,6 +222,7 @@ from
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
+    statement.reset()?;
     Ok(())
 }
 

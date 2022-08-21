@@ -275,6 +275,15 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             // The literal starts with a newline that we don't want here.
             out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
 
+            writeln!(out, "    statement.reset()?;")?;
+            for (i, param) in (1..).zip(query.iter_parameters()) {
+                // Cut off the leading ':' from the parameter name.
+                let variable_name = param.trim_start(1).resolve(input);
+                writeln!(out, "    statement.bind({}, {})?;", i, variable_name)?;
+            }
+
+            // Next we bind all query parameters.
+
             writeln!(out, "    Ok(())")?;
             writeln!(out, "}}")?;
         }
