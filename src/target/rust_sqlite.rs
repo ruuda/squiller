@@ -22,12 +22,12 @@ pub type Result<T> = sqlite::Result<T>;
 
 pub struct Connection<'a> {
     connection: &'a sqlite::Connection,
-    statements: HashMap<u64, Statement<'a>>,
+    statements: HashMap<*const u8, Statement<'a>>,
 }
 
 pub struct Transaction<'tx, 'a> {
     connection: &'a sqlite::Connection,
-    statements: &'tx mut HashMap<u64, Statement<'a>>,
+    statements: &'tx mut HashMap<*const u8, Statement<'a>>,
 }
 
 impl<'a> Connection<'a> {
@@ -68,7 +68,7 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
 const GET_STATEMENT: &'static str = r#"
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -326,9 +326,10 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             }
             writeln!(out, "\n    \"#;")?;
 
-            // TODO: Generate a unique cache key per query.
-            writeln!(out, "\n    let sql_hash = 0;")?;
             // The literal starts with a newline that we don't want here.
+            // TODO: For now we use the address of the literal as the cache key.
+            // But we should instead use a precomputed hash of the query, so that
+            // LLVM can constant-fold the hash function.
             out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
 
             // Next we bind all query parameters.

@@ -12,12 +12,12 @@ pub type Result<T> = sqlite::Result<T>;
 
 pub struct Connection<'a> {
     connection: &'a sqlite::Connection,
-    statements: HashMap<u64, Statement<'a>>,
+    statements: HashMap<*const u8, Statement<'a>>,
 }
 
 pub struct Transaction<'tx, 'a> {
     connection: &'a sqlite::Connection,
-    statements: &'tx mut HashMap<u64, Statement<'a>>,
+    statements: &'tx mut HashMap<*const u8, Statement<'a>>,
 }
 
 impl<'a> Connection<'a> {
@@ -61,9 +61,7 @@ create table if not exists users
   , email string not null
   );
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -85,9 +83,7 @@ values
 returning
   id;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -121,9 +117,7 @@ returning
   name,
   email;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -157,9 +151,7 @@ values
 returning
   id;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -197,9 +189,7 @@ from
 where
   id = :id;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -235,9 +225,7 @@ from
 order by
   id asc;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -260,9 +248,7 @@ select
 from
   users;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
@@ -291,9 +277,7 @@ order by
 limit
   1;
     "#;
-
-    let sql_hash = 0;
-    let mut statement = match tx.statements.entry(sql_hash) {
+    let mut statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
