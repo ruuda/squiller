@@ -477,7 +477,10 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::Parser;
-    use crate::ast::{Annotation, Fragment, Query, ResultType, Section, Type, TypedIdent};
+    use crate::ast::{
+        Annotation, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section, SimpleType,
+        Type, TypedIdent,
+    };
     use crate::error::Error;
     use crate::lexer::document::Lexer;
     use crate::Span;
@@ -513,7 +516,10 @@ mod test {
                             type_: Type::Simple("&str"),
                         },
                     ],
-                    result_type: ResultType::Iterator(Type::Simple("i64")),
+                    result_type: ResultType::Iterator(ComplexType::Simple(SimpleType::Primitive {
+                        inner: "i64",
+                        type_: PrimitiveType::I64,
+                    })),
                 },
                 fragments: vec![Fragment::Verbatim("SELECT * FROM kv;")],
             });

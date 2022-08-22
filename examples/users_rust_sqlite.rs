@@ -6,7 +6,10 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
-use sqlite::{State::{Row, Done}, Statement};
+use sqlite::{
+    State::{Done, Row},
+    Statement,
+};
 
 pub type Result<T> = sqlite::Result<T>;
 
@@ -124,11 +127,13 @@ returning
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
-    let decode_row = |statement| Ok(User1 {
-        id: statement.read::<i64>(0)?,
-        name: statement.read::<String>(1)?,
-        email: statement.read::<String>(2)?,
-    });
+    let decode_row = |statement| {
+        Ok(User1 {
+            id: statement.read::<i64>(0)?,
+            name: statement.read::<String>(1)?,
+            email: statement.read::<String>(2)?,
+        })
+    };
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'insert_user_alt_return' should return exactly one row."),
@@ -195,11 +200,13 @@ where
     };
     statement.reset()?;
     statement.bind(1, id)?;
-    let decode_row = |statement| Ok(User2 {
-        id: statement.read::<i64>(0)?,
-        name: statement.read::<String>(1)?,
-        email: statement.read::<String>(2)?,
-    });
+    let decode_row = |statement| {
+        Ok(User2 {
+            id: statement.read::<i64>(0)?,
+            name: statement.read::<String>(1)?,
+            email: statement.read::<String>(2)?,
+        })
+    };
     let result = match statement.next()? {
         Row => decode_row(statement)?,
         Done => panic!("Query 'select_user_by_id' should return exactly one row."),
@@ -230,11 +237,13 @@ order by
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    let decode_row = |statement| Ok(User3 {
-        id: statement.read::<i64>(0)?,
-        name: statement.read::<String>(1)?,
-        email: statement.read::<String>(2)?,
-    });
+    let decode_row = |statement| {
+        Ok(User3 {
+            id: statement.read::<i64>(0)?,
+            name: statement.read::<String>(1)?,
+            email: statement.read::<String>(2)?,
+        })
+    };
     let result = todo!("Implement iterators.");
     Ok(result)
 }

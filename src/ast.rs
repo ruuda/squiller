@@ -19,6 +19,91 @@ pub enum PrimitiveType {
     Bytes,
 }
 
+/// A simple type is a type that is not composite. It's primitive or a nullable primitive.
+///
+/// Simple types can be used everywhere, as opposed to complex types, which can
+/// only be used in limited places.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum SimpleType<TSpan> {
+    Primitive {
+        inner: TSpan,
+        type_: PrimitiveType,
+    },
+    Option {
+        outer: TSpan,
+        inner: TSpan,
+        type_: PrimitiveType,
+    },
+}
+
+impl SimpleType<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> SimpleType<&'a str> {
+        match self {
+            SimpleType::Primitive { inner, type_ } => SimpleType::Primitive {
+                inner: inner.resolve(input),
+                type_: *type_,
+            },
+            SimpleType::Option {
+                inner,
+                outer,
+                type_,
+            } => SimpleType::Option {
+                outer: outer.resolve(input),
+                inner: inner.resolve(input),
+                type_: *type_,
+            },
+        }
+    }
+}
+
+/// An identifier and a type, e.g. `name: &str`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TypedIdent2<TSpan> {
+    pub ident: TSpan,
+    pub type_: SimpleType<TSpan>,
+}
+
+impl TypedIdent2<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> TypedIdent2<&'a str> {
+        TypedIdent2 {
+            ident: self.ident.resolve(input),
+            type_: self.type_.resolve(input),
+        }
+    }
+}
+
+/// A complex type is either a simple type, or an aggregate of multiple simple types.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ComplexType<TSpan> {
+    Simple(SimpleType<TSpan>),
+
+    /// A tuple of zero or more types.
+    ///
+    /// Field 0 contains the span of the full tuple.
+    Tuple(TSpan, Vec<SimpleType<TSpan>>),
+
+    /// A struct with zero or more fields.
+    ///
+    /// Field 0 contains the span of the name of the struct.
+    Struct(TSpan, Vec<TypedIdent2<TSpan>>),
+}
+
+impl ComplexType<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> ComplexType<&'a str> {
+        match self {
+            ComplexType::Simple(inner) => ComplexType::Simple(inner.resolve(input)),
+            ComplexType::Tuple(outer, fields) => {
+                let fields = fields.iter().map(|t| t.resolve(input)).collect();
+                ComplexType::Tuple(outer.resolve(input), fields)
+            }
+            ComplexType::Struct(name, fields) => {
+                let fields = fields.iter().map(|t| t.resolve(input)).collect();
+                ComplexType::Struct(name.resolve(input), fields)
+            }
+        }
+    }
+}
+
 /// Types of parameters and results.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Type<TSpan> {
@@ -207,15 +292,15 @@ pub enum ResultType<TSpan> {
     /// The query returns zero rows, the function returns unit.
     Unit,
     /// The query returns zero or one row, the function returns `Option<T>`.
-    Option(Type<TSpan>),
+    Option(ComplexType<TSpan>),
     /// The query returns exactly one row, the function returns `T`.
-    Single(Type<TSpan>),
+    Single(ComplexType<TSpan>),
     /// The query returns zero or more rows, the function returns `Iterator<Item=T>`.
-    Iterator(Type<TSpan>),
+    Iterator(ComplexType<TSpan>),
 }
 
 impl<TSpan> ResultType<TSpan> {
-    pub fn get(&self) -> Option<&Type<TSpan>> {
+    pub fn get(&self) -> Option<&ComplexType<TSpan>> {
         match self {
             ResultType::Unit => None,
             ResultType::Option(t) => Some(t),
@@ -224,27 +309,12 @@ impl<TSpan> ResultType<TSpan> {
         }
     }
 
-    pub fn get_mut(&mut self) -> Option<&mut Type<TSpan>> {
+    pub fn get_mut(&mut self) -> Option<&mut ComplexType<TSpan>> {
         match self {
             ResultType::Unit => None,
             ResultType::Option(t) => Some(t),
             ResultType::Single(t) => Some(t),
             ResultType::Iterator(t) => Some(t),
-        }
-    }
-
-    /// Call the function on the type.
-    ///
-    /// See also [`Type::traverse`].
-    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
-    where
-        F: FnMut(&Type<TSpan>) -> Result<(), E>,
-    {
-        match self {
-            ResultType::Unit => Ok(()),
-            ResultType::Option(t) => f(t),
-            ResultType::Single(t) => f(t),
-            ResultType::Iterator(t) => f(t),
         }
     }
 }
@@ -279,7 +349,7 @@ impl<TSpan> Annotation<TSpan> {
         for param in &self.parameters {
             f(&param.type_)?;
         }
-        self.result_type.traverse(f)
+        Ok(())
     }
 }
 

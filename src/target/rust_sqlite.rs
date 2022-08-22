@@ -5,7 +5,9 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{Annotation, Fragment, PrimitiveType, ResultType, Type, TypedIdent};
+use crate::ast::{
+    Annotation, ComplexType, Fragment, PrimitiveType, ResultType, SimpleType, Type, TypedIdent,
+};
 use std::convert::Infallible;
 use std::io;
 
@@ -141,6 +143,64 @@ fn write_type(out: &mut dyn io::Write, owned: Ownership, type_: &Type<&str>) -> 
     }
 }
 
+fn write_primitive_type(
+    out: &mut dyn io::Write,
+    owned: Ownership,
+    type_: PrimitiveType,
+) -> io::Result<()> {
+    use Ownership::{Borrow, BorrowNamed, Owned};
+    let name = match (type_, owned) {
+        (PrimitiveType::Str, Borrow) => "&str",
+        (PrimitiveType::Str, BorrowNamed) => "&'a str",
+        (PrimitiveType::Str, Owned) => "String",
+        (PrimitiveType::Bytes, Borrow) => "&[u8]",
+        (PrimitiveType::Bytes, BorrowNamed) => "&'a [u8]",
+        (PrimitiveType::Bytes, Owned) => "Vec<u8>",
+        (PrimitiveType::I32, _) => "i32",
+        (PrimitiveType::I64, _) => "i64",
+    };
+    out.write_all(name.as_bytes())
+}
+
+fn write_simple_type(
+    out: &mut dyn io::Write,
+    owned: Ownership,
+    type_: &SimpleType<&str>,
+) -> io::Result<()> {
+    match type_ {
+        SimpleType::Primitive { type_: t, .. } => write_primitive_type(out, owned, *t)?,
+        SimpleType::Option { type_: t, .. } => {
+            write!(out, "option<")?;
+            write_primitive_type(out, owned, *t)?;
+            write!(out, ">")?;
+        }
+    }
+    Ok(())
+}
+
+fn write_complex_type(
+    out: &mut dyn io::Write,
+    owned: Ownership,
+    type_: &ComplexType<&str>,
+) -> io::Result<()> {
+    match type_ {
+        ComplexType::Simple(t) => write_simple_type(out, owned, t),
+        ComplexType::Struct(name, _fields) => write!(out, "{}", name),
+        ComplexType::Tuple(_full_span, fields) => {
+            write!(out, "(")?;
+            let mut is_first = true;
+            for field_type in fields {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                write_simple_type(out, owned, field_type)?;
+                is_first = false;
+            }
+            write!(out, ")")
+        }
+    }
+}
+
 /// Generate Rust code for a struct type.
 fn write_struct_definition(
     out: &mut dyn io::Write,
@@ -199,48 +259,38 @@ fn write_struct_definitions(
         })?;
     }
 
-    annotation.result_type.traverse(&mut |type_| match type_ {
-        Type::Struct(name, fields) => write_struct_definition(out, Ownership::Owned, name, fields),
+    match annotation.result_type.get() {
+        // TODO: Reference the actual fields once I move to TypedIdent2.
+        Some(ComplexType::Struct(name, _fields)) => {
+            write_struct_definition(out, Ownership::Owned, name, &[])
+        }
         _ => Ok(()),
-    })
+    }
 }
 
 /// Generate code that calls `.read` on the statement, and constructs a return value.
-fn write_return_value(out: &mut dyn io::Write, index: usize, type_: Type<&str>) -> io::Result<()> {
+fn write_return_value(
+    out: &mut dyn io::Write,
+    index: usize,
+    type_: ComplexType<&str>,
+) -> io::Result<()> {
     match type_ {
-        Type::Unit => panic!("Should not generate code for unit return value."),
-        Type::Simple(..) => panic!("Should not occur here."),
-        Type::Iterator(..) => panic!("Iterator cannot be used inside return type."),
-        Type::Primitive(..) | Type::Option(..) => {
-            // TODO: For Option, we have to confirm that the inner type is a
-            // primitive type. For now, we don't do that, so we might generate
-            // bogus code. But that's a UserBehindKeyboardError for now.
-            write!(out, "statement.read::<")?;
-            write_type(out, Ownership::Owned, &type_)?;
-            write!(out, ">({})?", index)?;
+        ComplexType::Simple(..) => {
+            write!(out, "statement.read({})?", index)?;
         }
-        Type::Tuple(_, fields) => {
-            write!(out, "(")?;
-            let mut is_first = true;
-            for (i, field_type) in (index..).zip(fields) {
-                if !is_first {
-                    write!(out, ", ")?;
-                }
-                write_return_value(out, i, field_type)?;
-                is_first = false;
+        ComplexType::Tuple(_, fields) => {
+            writeln!(out, "(")?;
+            for (i, _field_type) in (index..).zip(fields) {
+                writeln!(out, "        statement.read({})?,", i)?;
             }
             write!(out, ")")?;
         }
-        Type::Struct(name, fields) => {
+        ComplexType::Struct(name, fields) => {
             writeln!(out, "{} {{", name)?;
             // TODO: Once we unify types across multiple queries, the index of
             // the fields may not be the order in which they occur.
             for (i, field) in (index..).zip(fields) {
-                write!(out, "        {}: ", field.ident)?;
-                // TODO: Rust can infer the types here, we don't really need to
-                // include them.
-                write_return_value(out, i, field.type_)?;
-                writeln!(out, ",")?;
+                writeln!(out, "        {}: statement.read({})?,", field.ident, i)?;
             }
             write!(out, "    }}")?;
         }
@@ -296,15 +346,15 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 ResultType::Unit => write!(out, "()")?,
                 ResultType::Option(t) => {
                     write!(out, "Option<")?;
-                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                    write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                     write!(out, ">")?;
                 }
                 ResultType::Single(t) => {
-                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                    write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                 }
                 ResultType::Iterator(t) => {
                     write!(out, "impl Iterator<Item = ")?;
-                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                    write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                     write!(out, ">")?;
                 }
             }

@@ -47,7 +47,7 @@ returning
 --
 -- We make a choice here to always expect one row, with "->1". If a user with
 -- the given id does not exist, the function will panic. Alternatively, we could
--- write "->?", and then the return type would be wrapped in Option in the
+-- write "->?", and then the return type would be wrapped in option in the
 -- generated code, allowing us to handle the error.
 -- @query select_user_by_id(id: i64) ->1 User2
 select
@@ -71,8 +71,8 @@ order by
   id asc;
 
 -- Select the length of the longest email address.
--- Note, `max` returns null when the table is empty, hence the `Option`.
--- @query select_longest_email_length() ->1 Option<i64>
+-- Note, `max` returns null when the table is empty, hence the `option`.
+-- @query select_longest_email_length() ->1 option<i64>
 select
   max(length(email))
 from

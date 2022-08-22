@@ -7,8 +7,67 @@
 
 use std::io;
 
-use crate::ast::{Fragment, ResultType, Section, Type};
+use crate::ast::{ComplexType, Fragment, ResultType, Section, SimpleType, Type};
 use crate::{NamedDocument, Span};
+
+fn print_simple_type(
+    out: &mut dyn io::Write,
+    input: &str,
+    type_: &SimpleType<Span>,
+) -> io::Result<()> {
+    let yellow = "\x1b[33m";
+    let reset = "\x1b[0m";
+    match type_ {
+        SimpleType::Primitive { inner, .. } => {
+            write!(out, "{}{}{}", yellow, inner.resolve(input), reset)
+        }
+        SimpleType::Option { inner, .. } => {
+            write!(
+                out,
+                "{}option{}<{}{}{}>",
+                yellow,
+                reset,
+                yellow,
+                inner.resolve(input),
+                reset
+            )
+        }
+    }
+}
+
+fn print_complex_type(
+    out: &mut dyn io::Write,
+    input: &str,
+    type_: &ComplexType<Span>,
+) -> io::Result<()> {
+    let yellow = "\x1b[33m";
+    let reset = "\x1b[0m";
+    match type_ {
+        ComplexType::Simple(t) => print_simple_type(out, input, t)?,
+        ComplexType::Tuple(_span, fields) => {
+            write!(out, "(")?;
+            let mut is_first = true;
+            for field_type in fields {
+                if !is_first {
+                    write!(out, ", ")?;
+                }
+                print_simple_type(out, input, field_type)?;
+                is_first = false;
+            }
+            write!(out, ")")?;
+        }
+        ComplexType::Struct(name_span, fields) => {
+            writeln!(out, "{}{}{} {{", yellow, name_span.resolve(input), reset)?;
+            for field in fields {
+                write!(out, "--   {}: ", field.ident.resolve(input))?;
+                print_simple_type(out, input, &field.type_)?;
+                writeln!(out, ",")?;
+            }
+            write!(out, "-- }}")?;
+        }
+    }
+    Ok(())
+}
 
 fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::Result<()> {
     let yellow = "\x1b[33m";
@@ -104,17 +163,17 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         ResultType::Unit => {}
                         ResultType::Option(t) => {
                             write!(out, "-- ->? ")?;
-                            print_type(out, input, &t)?;
+                            print_complex_type(out, input, &t)?;
                             writeln!(out)?;
                         }
                         ResultType::Single(t) => {
                             write!(out, "-- ->1 ")?;
-                            print_type(out, input, &t)?;
+                            print_complex_type(out, input, &t)?;
                             writeln!(out)?;
                         }
                         ResultType::Iterator(t) => {
                             write!(out, "-- ->* ")?;
-                            print_type(out, input, &t)?;
+                            print_complex_type(out, input, &t)?;
                             writeln!(out)?;
                         }
                     }

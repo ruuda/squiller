@@ -17,7 +17,7 @@ use std::collections::hash_map::{Entry, HashMap};
 use std::collections::hash_set::HashSet;
 
 use crate::ast::{
-    Annotation, Document, Fragment, PrimitiveType, Query, ResultType, Section, Type, TypedIdent,
+    Annotation, ComplexType, Document, Fragment, PrimitiveType, Query, Section, Type, TypedIdent,
 };
 use crate::error::{TResult, TypeError};
 use crate::Span;
@@ -79,16 +79,8 @@ fn resolve_annotation(input: &str, ann: Annotation<Span>) -> TResult<Annotation<
         });
     }
 
-    let result_type = match ann.result_type {
-        ResultType::Unit => ResultType::Unit,
-        ResultType::Option(t) => ResultType::Option(resolve_type(input, t)?),
-        ResultType::Single(t) => ResultType::Single(resolve_type(input, t)?),
-        ResultType::Iterator(t) => ResultType::Iterator(resolve_type(input, t)?),
-    };
-
     let result = Annotation {
         parameters: parameters,
-        result_type: result_type,
         ..ann
     };
 
@@ -409,7 +401,7 @@ impl<'a> QueryChecker<'a> {
         // empty struct.
         if self.output_fields_vec.len() == 0 {
             match annotation.result_type.get() {
-                Some(Type::Struct(name_span, _fields)) => {
+                Some(ComplexType::Struct(name_span, _fields)) => {
                     let error = TypeError::with_hint(
                         *name_span,
                         "The annotation specifies a struct as result type, \
@@ -425,8 +417,8 @@ impl<'a> QueryChecker<'a> {
 
         // Conversely, if there are outputs, but no struct, then we have nowhere
         // to put them.
-        let fields = match annotation.result_type.get_mut().map(|t| t.inner_mut()) {
-            Some(Type::Struct(_name_span, fields)) => fields,
+        let _fields = match annotation.result_type.get_mut() {
+            Some(ComplexType::Struct(_name_span, fields)) => fields,
             _not_struct => {
                 // Does not go out of bounds, if it was empty we returned already.
                 let ti = &self.output_fields_vec[0];
@@ -440,8 +432,9 @@ impl<'a> QueryChecker<'a> {
             }
         };
 
-        for ti in self.output_fields_vec.drain(..) {
-            fields.push(ti);
+        for _ti in self.output_fields_vec.drain(..) {
+            // TODO: Actually push once I move to TypedIdent2.
+            //fields.push(ti);
         }
 
         Ok(())
@@ -469,7 +462,10 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
 #[cfg(test)]
 mod test {
     use super::QueryChecker;
-    use crate::ast::{PrimitiveType, Query, ResultType, Section, Type, TypedIdent};
+    use crate::ast::{
+        ComplexType, PrimitiveType, Query, ResultType, Section, SimpleType, Type, TypedIdent,
+        TypedIdent2,
+    };
     use crate::error::Result;
     use crate::Span;
 
@@ -546,15 +542,21 @@ mod test {
 
         let query = check_and_resolve_query(input).unwrap();
         match query.annotation.result_type.resolve(&input) {
-            ResultType::Single(Type::Struct("User", fields)) => {
+            ResultType::Single(ComplexType::Struct("User", fields)) => {
                 let expected = [
-                    TypedIdent {
+                    TypedIdent2 {
                         ident: "id",
-                        type_: Type::Primitive("i64", PrimitiveType::I64),
+                        type_: SimpleType::Primitive {
+                            inner: "i64",
+                            type_: PrimitiveType::I64,
+                        },
                     },
-                    TypedIdent {
+                    TypedIdent2 {
                         ident: "name",
-                        type_: Type::Primitive("str", PrimitiveType::Str),
+                        type_: SimpleType::Primitive {
+                            inner: "str",
+                            type_: PrimitiveType::Str,
+                        },
                     },
                 ];
                 assert_eq!(&fields, &expected);
@@ -569,7 +571,7 @@ mod test {
           -- @query iterate_parents() ->* Node
           select
             id        /* :i64 */,
-            parent_id /* :Option<i64> */
+            parent_id /* :option<i64> */
           from
             nodes
           ;";
@@ -577,18 +579,22 @@ mod test {
         let query = check_and_resolve_query(input).unwrap();
         match query.annotation.result_type.resolve(&input) {
             ResultType::Iterator(inner) => match inner {
-                Type::Struct("Node", fields) => {
+                ComplexType::Struct("Node", fields) => {
                     let expected = [
-                        TypedIdent {
+                        TypedIdent2 {
                             ident: "id",
-                            type_: Type::Primitive("i64", PrimitiveType::I64),
+                            type_: SimpleType::Primitive {
+                                inner: "i64",
+                                type_: PrimitiveType::I64,
+                            },
                         },
-                        TypedIdent {
+                        TypedIdent2 {
                             ident: "parent_id",
-                            type_: Type::Option(
-                                "Option<i64>",
-                                Box::new(Type::Primitive("i64", PrimitiveType::I64)),
-                            ),
+                            type_: SimpleType::Option {
+                                outer: "option<i64>",
+                                inner: "i64",
+                                type_: PrimitiveType::I64,
+                            },
                         },
                     ];
                     assert_eq!(&fields, &expected);

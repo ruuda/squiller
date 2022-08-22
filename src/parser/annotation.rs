@@ -1,3 +1,4 @@
+use crate::ast::PrimitiveType;
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation::Token;
 use crate::Span;
@@ -6,6 +7,8 @@ type Annotation = crate::ast::Annotation<Span>;
 type ResultType = crate::ast::ResultType<Span>;
 type Type = crate::ast::Type<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
+type SimpleType = crate::ast::SimpleType<Span>;
+type ComplexType = crate::ast::ComplexType<Span>;
 
 /// Annotation parser.
 ///
@@ -115,6 +118,139 @@ impl<'a> Parser<'a> {
 
         let result = TypedIdent { ident, type_ };
         Ok(result)
+    }
+
+    /// Parse a primitive type.
+    pub fn parse_primitive_type(&mut self) -> PResult<(Span, PrimitiveType)> {
+        // We list some alternative spellings of types that people might
+        // reasonably expect to work, so we can point them in the right
+        // direction in the error message.
+        let alt_str = ["str", "string"];
+        let alt_int = [
+            "int",
+            "i8",
+            "i16",
+            "i32",
+            "i64",
+            "uint",
+            "u8",
+            "u16",
+            "u32",
+            "u64",
+            "int4",
+            "int8",
+            "integer",
+            "bigint",
+            "biginteger",
+        ];
+        match self.peek_with_span() {
+            Some((Token::Ident, span)) => {
+                let result = match span.resolve(self.input) {
+                    "str" => PrimitiveType::Str,
+                    "i32" => PrimitiveType::I32,
+                    "i64" => PrimitiveType::I64,
+                    "bytes" => PrimitiveType::Bytes,
+                    unknown if alt_str.contains(&&unknown.to_ascii_lowercase()[..]) => {
+                        return self.error("Unknown type, did you mean 'str'?");
+                    }
+                    unknown if alt_int.contains(&&unknown.to_ascii_lowercase()[..]) => {
+                        return self.error("Unknown type, did you mean 'i32' or 'i64'?");
+                    }
+                    _ => {
+                        return self.error("Unknown type, expected a primitive type here.");
+                    }
+                };
+                self.consume();
+                Ok((span, result))
+            }
+            Some(_not_ident) => return self.error("Expected a primitive type here."),
+            None => return self.error("Unexpected end of input, expected a primitive type here."),
+        }
+    }
+
+    /// Parse a simple type (primitive or option).
+    pub fn parse_simple_type(&mut self) -> PResult<SimpleType> {
+        // We list some alternative spellings of types that people might
+        // reasonably expect to work, so we can point them in the right
+        // direction in the error message.
+        let alt_opt = ["option", "optional", "maybe", "null", "nullable"];
+        let span = match self.peek_with_span() {
+            Some((Token::Ident, span)) => span,
+            Some(_not_ident) => return self.error("Expected a simple type here."),
+            None => return self.error("Unexpected end of input, expected a simple type here."),
+        };
+        match span.resolve(self.input) {
+            "option" => {
+                self.consume();
+                self.expect_consume(Token::Lt, "Expected a '<' after 'option'.")?;
+                let (inner, primitive) = self.parse_primitive_type()?;
+                self.expect_consume(Token::Gt, "Expected a '>' here to close the 'option<'.")?;
+                let result = SimpleType::Option {
+                    outer: Span {
+                        start: span.start,
+                        end: self.previous_span().end,
+                    },
+                    inner: inner,
+                    type_: primitive,
+                };
+                Ok(result)
+            }
+            name => {
+                let (inner, primitive) = match self.parse_primitive_type() {
+                    Ok(t) => t,
+                    // If we failed to parse a primitive type, but it looks like
+                    // the user might have meant to write an option, use a tailored
+                    // error message to point the user in the right direction.
+                    Err(..) if alt_opt.contains(&&name.to_ascii_lowercase()[..]) => {
+                        return self.error("Unknown type, did you mean 'Option'?");
+                    }
+                    Err(err) => return Err(err),
+                };
+                let result = SimpleType::Primitive {
+                    inner: inner,
+                    type_: primitive,
+                };
+                Ok(result)
+            }
+        }
+    }
+
+    /// Parse a complex type.
+    ///
+    /// Complex types can be either a regular simple type, or a struct or tuple.
+    pub fn parse_complex_type(&mut self) -> PResult<ComplexType> {
+        match self.peek_with_span() {
+            Some((Token::LParen, span)) => {
+                let _inner = self.parse_tuple()?;
+                let final_span = self.previous_span();
+                let full_span = Span {
+                    start: span.start,
+                    end: final_span.end,
+                };
+                // TODO: Put `inner` here.
+                Ok(ComplexType::Tuple(full_span, Vec::new()))
+            }
+            Some((Token::Ident, span)) => {
+                // If it's an identifier, then it can be a user-defined type (a
+                // struct), or a builtin type. Struct names start with an uppercase
+                // letter, and no builtin types do, so that's how we distinguish.
+                let is_struct = span
+                    .resolve(self.input)
+                    .chars()
+                    .next()
+                    .expect("Parser does not produce empty spans.")
+                    .is_ascii_uppercase();
+                if is_struct {
+                    self.consume();
+                    Ok(ComplexType::Struct(span, Vec::new()))
+                } else {
+                    let simple = self.parse_simple_type()?;
+                    Ok(ComplexType::Simple(simple))
+                }
+            }
+            Some(_) => self.error("Expected a type here."),
+            None => self.error("Unexpected end of input, expected a type here."),
+        }
     }
 
     /// Parse a simple type, tuple, or generic type (iterator or option).
@@ -271,17 +407,17 @@ impl<'a> Parser<'a> {
             None => ResultType::Unit,
             Some(Token::ArrowOpt) => {
                 self.consume();
-                let type_ = self.parse_type()?;
+                let type_ = self.parse_complex_type()?;
                 ResultType::Option(type_)
             }
             Some(Token::ArrowOne) => {
                 self.consume();
-                let type_ = self.parse_type()?;
+                let type_ = self.parse_complex_type()?;
                 ResultType::Single(type_)
             }
             Some(Token::ArrowStar) => {
                 self.consume();
-                let type_ = self.parse_type()?;
+                let type_ = self.parse_complex_type()?;
                 ResultType::Iterator(type_)
             }
             Some(Token::Arrow) => {
@@ -311,7 +447,9 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::Parser;
-    use crate::ast::{Annotation, ResultType, Type, TypedIdent};
+    use crate::ast::{
+        Annotation, ComplexType, PrimitiveType, ResultType, SimpleType, Type, TypedIdent,
+    };
     use crate::lexer::annotation::Lexer;
     use crate::Span;
 
@@ -493,7 +631,10 @@ mod test {
             let expected = Annotation {
                 name: "get_next_id",
                 parameters: vec![],
-                result_type: ResultType::Single(Type::Simple("i64")),
+                result_type: ResultType::Single(ComplexType::Simple(SimpleType::Primitive {
+                    inner: "i64",
+                    type_: PrimitiveType::I64,
+                })),
             };
             assert_eq!(result, expected);
         });
