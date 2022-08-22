@@ -16,7 +16,9 @@
 use std::collections::hash_map::{Entry, HashMap};
 use std::collections::hash_set::HashSet;
 
-use crate::ast::{Annotation, Document, Fragment, PrimitiveType, Query, Section, Type, TypedIdent};
+use crate::ast::{
+    Annotation, Document, Fragment, PrimitiveType, Query, ResultType, Section, Type, TypedIdent,
+};
 use crate::error::{TResult, TypeError};
 use crate::Span;
 
@@ -77,7 +79,12 @@ fn resolve_annotation(input: &str, ann: Annotation<Span>) -> TResult<Annotation<
         });
     }
 
-    let result_type = resolve_type(input, ann.result_type)?;
+    let result_type = match ann.result_type {
+        ResultType::Unit => ResultType::Unit,
+        ResultType::Option(t) => ResultType::Option(resolve_type(input, t)?),
+        ResultType::Single(t) => ResultType::Single(resolve_type(input, t)?),
+        ResultType::Iterator(t) => ResultType::Iterator(resolve_type(input, t)?),
+    };
 
     let result = Annotation {
         parameters: parameters,
@@ -401,8 +408,8 @@ impl<'a> QueryChecker<'a> {
         // is a struct result type, that's an error, because we would make an
         // empty struct.
         if self.output_fields_vec.len() == 0 {
-            match &annotation.result_type {
-                Type::Struct(name_span, _fields) => {
+            match annotation.result_type.get() {
+                Some(Type::Struct(name_span, _fields)) => {
                     let error = TypeError::with_hint(
                         *name_span,
                         "The annotation specifies a struct as result type, \
@@ -418,8 +425,8 @@ impl<'a> QueryChecker<'a> {
 
         // Conversely, if there are outputs, but no struct, then we have nowhere
         // to put them.
-        let fields = match annotation.result_type.inner_mut() {
-            Type::Struct(_name_span, fields) => fields,
+        let fields = match annotation.result_type.get_mut().map(|t| t.inner_mut()) {
+            Some(Type::Struct(_name_span, fields)) => fields,
             _not_struct => {
                 // Does not go out of bounds, if it was empty we returned already.
                 let ti = &self.output_fields_vec[0];
@@ -462,7 +469,7 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
 #[cfg(test)]
 mod test {
     use super::QueryChecker;
-    use crate::ast::{PrimitiveType, Query, Section, Type, TypedIdent};
+    use crate::ast::{PrimitiveType, Query, ResultType, Section, Type, TypedIdent};
     use crate::error::Result;
     use crate::Span;
 
@@ -539,7 +546,7 @@ mod test {
 
         let query = check_and_resolve_query(input).unwrap();
         match query.annotation.result_type.resolve(&input) {
-            Type::Struct("User", fields) => {
+            ResultType::Single(Type::Struct("User", fields)) => {
                 let expected = [
                     TypedIdent {
                         ident: "id",
@@ -558,10 +565,8 @@ mod test {
 
     #[test]
     fn fill_output_struct_populates_inner_types() {
-        // TODO: The Iterator here should go away, it should be generated from
-        // the arrow.
         let input = "\
-          -- @query iterate_parents() ->* Iterator<Node>
+          -- @query iterate_parents() ->* Node
           select
             id        /* :i64 */,
             parent_id /* :Option<i64> */
@@ -571,7 +576,7 @@ mod test {
 
         let query = check_and_resolve_query(input).unwrap();
         match query.annotation.result_type.resolve(&input) {
-            Type::Iterator(_, inner) => match *inner {
+            ResultType::Iterator(inner) => match inner {
                 Type::Struct("Node", fields) => {
                     let expected = [
                         TypedIdent {

@@ -3,6 +3,7 @@ use crate::lexer::annotation::Token;
 use crate::Span;
 
 type Annotation = crate::ast::Annotation<Span>;
+type ResultType = crate::ast::ResultType<Span>;
 type Type = crate::ast::Type<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
 
@@ -265,23 +266,23 @@ impl<'a> Parser<'a> {
         // 3. The list of query parameters, including parens.
         let parameters = self.parse_parameter_list()?;
 
-        // 4. Optionally an arrow followed by the return type.
+        // 4. Optionally an arrow followed by the result type.
         let result_type = match self.peek() {
-            None => Type::Unit,
+            None => ResultType::Unit,
             Some(Token::ArrowOpt) => {
-                // TODO: Record the cardinality.
                 self.consume();
-                self.parse_type()?
+                let type_ = self.parse_type()?;
+                ResultType::Option(type_)
             }
             Some(Token::ArrowOne) => {
-                // TODO: Record the cardinality.
                 self.consume();
-                self.parse_type()?
+                let type_ = self.parse_type()?;
+                ResultType::Single(type_)
             }
             Some(Token::ArrowStar) => {
-                // TODO: Record the cardinality.
                 self.consume();
-                self.parse_type()?
+                let type_ = self.parse_type()?;
+                ResultType::Iterator(type_)
             }
             Some(Token::Arrow) => {
                 return self.error(
@@ -293,7 +294,7 @@ impl<'a> Parser<'a> {
             Some(_unexpected) => {
                 return self.error(
                     "Expected either the end of the annotation and start of the query, \
-                    or '->' followed by a result type.",
+                    or '->' followed by a cardinality and result type.",
                 )
             }
         };
@@ -310,7 +311,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::Parser;
-    use crate::ast::{Annotation, Type, TypedIdent};
+    use crate::ast::{Annotation, ResultType, Type, TypedIdent};
     use crate::lexer::annotation::Lexer;
     use crate::Span;
 
@@ -434,7 +435,7 @@ mod test {
             let expected = Annotation {
                 name: "drop_table_users",
                 parameters: vec![],
-                result_type: Type::Unit,
+                result_type: ResultType::Unit,
             };
             assert_eq!(result, expected);
         });
@@ -453,7 +454,7 @@ mod test {
                         ident: "id",
                         type_: Type::Simple("i64"),
                     }],
-                    result_type: Type::Unit,
+                    result_type: ResultType::Unit,
                 };
                 assert_eq!(result, expected);
             });
@@ -480,7 +481,7 @@ mod test {
                             type_: Type::Simple("i64"),
                         },
                     ],
-                    result_type: Type::Unit,
+                    result_type: ResultType::Unit,
                 };
                 assert_eq!(result, expected);
             });
@@ -492,7 +493,7 @@ mod test {
             let expected = Annotation {
                 name: "get_next_id",
                 parameters: vec![],
-                result_type: Type::Simple("i64"),
+                result_type: ResultType::Single(Type::Simple("i64")),
             };
             assert_eq!(result, expected);
         });

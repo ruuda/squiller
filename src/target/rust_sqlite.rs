@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{Annotation, Fragment, PrimitiveType, Type, TypedIdent};
+use crate::ast::{Annotation, Fragment, PrimitiveType, ResultType, Type, TypedIdent};
 use std::convert::Infallible;
 use std::io;
 
@@ -293,8 +293,20 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             write!(out, ") -> Result<")?;
             match &ann.result_type {
-                Type::Unit => write!(out, "()")?,
-                not_unit => write_type(out, Ownership::Owned, &not_unit.resolve(input))?,
+                ResultType::Unit => write!(out, "()")?,
+                ResultType::Option(t) => {
+                    write!(out, "Option<")?;
+                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                    write!(out, ">")?;
+                }
+                ResultType::Single(t) => {
+                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                }
+                ResultType::Iterator(t) => {
+                    write!(out, "impl Iterator<Item = ")?;
+                    write_type(out, Ownership::Owned, &t.resolve(input))?;
+                    write!(out, ">")?;
+                }
             }
             writeln!(out, "> {{")?;
 
@@ -330,36 +342,14 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "    statement.bind({}, {})?;", i, variable_name)?;
             }
 
-            match &query.annotation.result_type {
-                Type::Option(_, inner) => {
-                    write!(out, "    let decode_row = |statement| Ok(")?;
-                    write_return_value(out, 0, inner.resolve(input))?;
-                    writeln!(out, ");")?;
-                }
-                Type::Iterator(_, inner) => {
-                    write!(out, "    let decode_row = |statement| Ok(")?;
-                    write_return_value(out, 0, inner.resolve(input))?;
-                    writeln!(out, ");")?;
-                }
-                Type::Unit => {}
-                other => {
-                    write!(out, "    let decode_row = |statement| Ok(")?;
-                    write_return_value(out, 0, other.resolve(input))?;
-                    writeln!(out, ");")?;
-                }
+            if let Some(type_) = query.annotation.result_type.get() {
+                write!(out, "    let decode_row = |statement| Ok(")?;
+                write_return_value(out, 0, type_.resolve(input))?;
+                writeln!(out, ");")?;
             }
 
             match &query.annotation.result_type {
-                Type::Option(..) => {
-                    writeln!(out, "    let result = match statement.next()? {{")?;
-                    writeln!(out, "        Row => Some(decode_row(statement)?),")?;
-                    writeln!(out, "        Done => None,")?;
-                    writeln!(out, "    }};")?;
-                }
-                Type::Iterator(..) => {
-                    writeln!(out, "    let result = todo!(\"Implement iterators.\");")?;
-                }
-                Type::Unit => {
+                ResultType::Unit => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
                     writeln!(
                         out,
@@ -369,15 +359,26 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     writeln!(out, "        Done => (),")?;
                     writeln!(out, "    }};")?;
                 }
-                _ => {
+                ResultType::Option(..) => {
+                    writeln!(out, "    let result = match statement.next()? {{")?;
+                    writeln!(out, "        Row => Some(decode_row(statement)?),")?;
+                    writeln!(out, "        Done => None,")?;
+                    writeln!(out, "    }};")?;
+                }
+                ResultType::Single(..) => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
                     writeln!(out, "        Row => decode_row(statement)?,")?;
                     writeln!(
                         out,
-                        "        Done => panic!(\"Query '{}' should return at least one row.\"),",
+                        "        Done => panic!(\"Query '{}' should return exactly one row.\"),",
                         query.annotation.name.resolve(input)
                     )?;
                     writeln!(out, "    }};")?;
+                    // TODO: Should we perform an additional next() to confirm
+                    // that no rows are returned? Maybe only in debug mode?
+                }
+                ResultType::Iterator(..) => {
+                    writeln!(out, "    let result = todo!(\"Implement iterators.\");")?;
                 }
             }
 

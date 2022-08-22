@@ -6,10 +6,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
 use sqlite;
-use sqlite::{
-    State::{Done, Row},
-    Statement,
-};
+use sqlite::{State::{Row, Done}, Statement};
 
 pub type Result<T> = sqlite::Result<T>;
 
@@ -100,7 +97,7 @@ returning
     let decode_row = |statement| Ok(statement.read::<i64>(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
-        Done => panic!("Query 'insert_user' should return at least one row."),
+        Done => panic!("Query 'insert_user' should return exactly one row."),
     };
     Ok(result)
 }
@@ -133,16 +130,14 @@ returning
     statement.reset()?;
     statement.bind(1, name)?;
     statement.bind(2, email)?;
-    let decode_row = |statement| {
-        Ok(User1 {
-            id: statement.read::<i64>(0)?,
-            name: statement.read::<String>(1)?,
-            email: statement.read::<String>(2)?,
-        })
-    };
+    let decode_row = |statement| Ok(User1 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    });
     let result = match statement.next()? {
         Row => decode_row(statement)?,
-        Done => panic!("Query 'insert_user_alt_return' should return at least one row."),
+        Done => panic!("Query 'insert_user_alt_return' should return exactly one row."),
     };
     Ok(result)
 }
@@ -174,7 +169,7 @@ returning
     let decode_row = |statement| Ok(statement.read::<i64>(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
-        Done => panic!("Query 'insert_user_alt_arg' should return at least one row."),
+        Done => panic!("Query 'insert_user_alt_arg' should return exactly one row."),
     };
     Ok(result)
 }
@@ -186,6 +181,11 @@ pub struct User2 {
 }
 
 /// Select a particular user by id.
+///
+/// We make a choice here to always expect one row, with "->1". If a user with
+/// the given id does not exist, the function will panic. Alternatively, we could
+/// write "->?", and then the return type would be wrapped in Option in the
+/// generated code, allowing us to handle the error.
 pub fn select_user_by_id(tx: &mut Transaction, id: i64) -> Result<User2> {
     let sql = r#"
 select
@@ -205,16 +205,14 @@ where
     };
     statement.reset()?;
     statement.bind(1, id)?;
-    let decode_row = |statement| {
-        Ok(User2 {
-            id: statement.read::<i64>(0)?,
-            name: statement.read::<String>(1)?,
-            email: statement.read::<String>(2)?,
-        })
-    };
+    let decode_row = |statement| Ok(User2 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    });
     let result = match statement.next()? {
         Row => decode_row(statement)?,
-        Done => panic!("Query 'select_user_by_id' should return at least one row."),
+        Done => panic!("Query 'select_user_by_id' should return exactly one row."),
     };
     Ok(result)
 }
@@ -244,24 +242,54 @@ order by
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    let decode_row = |statement| {
-        Ok(User3 {
-            id: statement.read::<i64>(0)?,
-            name: statement.read::<String>(1)?,
-            email: statement.read::<String>(2)?,
-        })
-    };
+    let decode_row = |statement| Ok(User3 {
+        id: statement.read::<i64>(0)?,
+        name: statement.read::<String>(1)?,
+        email: statement.read::<String>(2)?,
+    });
     let result = todo!("Implement iterators.");
     Ok(result)
 }
 
 /// Select the length of the longest email address.
+/// Note, `max` returns null when the table is empty, hence the `Option`.
 pub fn select_longest_email_length(tx: &mut Transaction) -> Result<Option<i64>> {
     let sql = r#"
 select
   max(length(email))
 from
   users;
+    "#;
+
+    let sql_hash = 0;
+    let mut statement = match tx.statements.entry(sql_hash) {
+        Occupied(entry) => entry.get_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    let decode_row = |statement| Ok(statement.read::<Option<i64>>(0)?);
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'select_longest_email_length' should return exactly one row."),
+    };
+    Ok(result)
+}
+
+/// Select the length of the longest email address.
+/// This query returns the same result as [`select_longest_email_length`], and
+/// will have the same type in the generated code, but it works differently under
+/// the hood: it returns zero or one rows with a non-null column, as opposed to
+/// returning exactly one row with a nullable column.
+pub fn select_longest_email_length_alt(tx: &mut Transaction) -> Result<Option<i64>> {
+    let sql = r#"
+select
+  length(email)
+from
+  users
+order by
+  length(email) desc
+limit
+  1;
     "#;
 
     let sql_hash = 0;

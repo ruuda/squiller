@@ -201,12 +201,71 @@ impl TypedIdent<Span> {
     }
 }
 
+/// The cardinality of the query, and the result type.
+#[derive(Debug, Eq, PartialEq)]
+pub enum ResultType<TSpan> {
+    /// The query returns zero rows, the function returns unit.
+    Unit,
+    /// The query returns zero or one row, the function returns `Option<T>`.
+    Option(Type<TSpan>),
+    /// The query returns exactly one row, the function returns `T`.
+    Single(Type<TSpan>),
+    /// The query returns zero or more rows, the function returns `Iterator<Item=T>`.
+    Iterator(Type<TSpan>),
+}
+
+impl<TSpan> ResultType<TSpan> {
+    pub fn get(&self) -> Option<&Type<TSpan>> {
+        match self {
+            ResultType::Unit => None,
+            ResultType::Option(t) => Some(t),
+            ResultType::Single(t) => Some(t),
+            ResultType::Iterator(t) => Some(t),
+        }
+    }
+
+    pub fn get_mut(&mut self) -> Option<&mut Type<TSpan>> {
+        match self {
+            ResultType::Unit => None,
+            ResultType::Option(t) => Some(t),
+            ResultType::Single(t) => Some(t),
+            ResultType::Iterator(t) => Some(t),
+        }
+    }
+
+    /// Call the function on the type.
+    ///
+    /// See also [`Type::traverse`].
+    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
+    where
+        F: FnMut(&Type<TSpan>) -> Result<(), E>,
+    {
+        match self {
+            ResultType::Unit => Ok(()),
+            ResultType::Option(t) => f(t),
+            ResultType::Single(t) => f(t),
+            ResultType::Iterator(t) => f(t),
+        }
+    }
+}
+
+impl ResultType<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> ResultType<&'a str> {
+        match self {
+            ResultType::Unit => ResultType::Unit,
+            ResultType::Option(t) => ResultType::Option(t.resolve(input)),
+            ResultType::Single(t) => ResultType::Single(t.resolve(input)),
+            ResultType::Iterator(t) => ResultType::Iterator(t.resolve(input)),
+        }
+    }
+}
+
 /// An annotation comment that describes the query that follows it.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Annotation<TSpan> {
     pub name: TSpan,
     pub parameters: Vec<TypedIdent<TSpan>>,
-    pub result_type: Type<TSpan>,
+    pub result_type: ResultType<TSpan>,
 }
 
 impl<TSpan> Annotation<TSpan> {
@@ -220,7 +279,7 @@ impl<TSpan> Annotation<TSpan> {
         for param in &self.parameters {
             f(&param.type_)?;
         }
-        f(&self.result_type)
+        self.result_type.traverse(f)
     }
 }
 

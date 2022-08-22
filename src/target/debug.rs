@@ -7,7 +7,7 @@
 
 use std::io;
 
-use crate::ast::{Fragment, Section, Type};
+use crate::ast::{Fragment, ResultType, Section, Type};
 use crate::{NamedDocument, Span};
 
 fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::Result<()> {
@@ -100,11 +100,21 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         writeln!(out)?;
                     }
 
-                    match annotation.result_type {
-                        Type::Unit => {}
-                        _ => {
-                            write!(out, "-- -> ")?;
-                            print_type(out, input, &annotation.result_type)?;
+                    match &annotation.result_type {
+                        ResultType::Unit => {}
+                        ResultType::Option(t) => {
+                            write!(out, "-- ->? ")?;
+                            print_type(out, input, &t)?;
+                            writeln!(out)?;
+                        }
+                        ResultType::Single(t) => {
+                            write!(out, "-- ->1 ")?;
+                            print_type(out, input, &t)?;
+                            writeln!(out)?;
+                        }
+                        ResultType::Iterator(t) => {
+                            write!(out, "-- ->* ")?;
+                            print_type(out, input, &t)?;
                             writeln!(out)?;
                         }
                     }

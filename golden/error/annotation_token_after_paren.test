@@ -6,4 +6,4 @@ SELECT 1;
   |
 1 | -- @query q() invalid_token
   |               ^~~~~~~~~~~~~
-Error: Expected either the end of the annotation and start of the query, or '->' followed by a result type.
+Error: Expected either the end of the annotation and start of the query, or '->' followed by a cardinality and result type.
