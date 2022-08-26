@@ -478,8 +478,8 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{
-        Annotation, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section, SimpleType,
-        Type, TypedIdent,
+        Annotation, ArgType, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section,
+        SimpleType, TypedIdent,
     };
     use crate::error::Error;
     use crate::lexer::document::Lexer;
@@ -493,10 +493,11 @@ mod test {
 
     #[test]
     fn parse_section_handles_newline_in_annotation() {
+        // TODO: In the past we allowed a trailing comma, restore that possibility.
         let input = "
         -- @query multiline_signature(
-        --   key: &str,
-        --   value: &str,
+        --   key: str,
+        --   value: str
         -- ) ->* i64
         SELECT * FROM kv;
         ";
@@ -506,16 +507,22 @@ mod test {
                 docs: vec![],
                 annotation: Annotation {
                     name: "multiline_signature",
-                    parameters: vec![
+                    arguments: ArgType::Args(vec![
                         TypedIdent {
                             ident: "key",
-                            type_: Type::Simple("&str"),
+                            type_: SimpleType::Primitive {
+                                inner: "str",
+                                type_: PrimitiveType::Str,
+                            },
                         },
                         TypedIdent {
                             ident: "value",
-                            type_: Type::Simple("&str"),
+                            type_: SimpleType::Primitive {
+                                inner: "str",
+                                type_: PrimitiveType::Str,
+                            },
                         },
-                    ],
+                    ]),
                     result_type: ResultType::Iterator(ComplexType::Simple(SimpleType::Primitive {
                         inner: "i64",
                         type_: PrimitiveType::I64,
@@ -576,7 +583,10 @@ mod test {
                     "name /* : str */",
                     TypedIdent {
                         ident: "name",
-                        type_: Type::Simple("str"),
+                        type_: SimpleType::Primitive {
+                            inner: "str",
+                            type_: PrimitiveType::Str,
+                        },
                     },
                 ),
                 Fragment::Verbatim(" FROM t;"),
@@ -605,7 +615,7 @@ mod test {
                 docs: vec![],
                 annotation: Annotation {
                     name: "q",
-                    parameters: vec![],
+                    arguments: ArgType::Args(vec![]),
                     result_type: ResultType::Unit,
                 },
                 fragments: vec![
@@ -614,7 +624,10 @@ mod test {
                         ":c /* :str */",
                         TypedIdent {
                             ident: ":c",
-                            type_: Type::Simple("str"),
+                            type_: SimpleType::Primitive {
+                                inner: "str",
+                                type_: PrimitiveType::Str,
+                            },
                         },
                     ),
                     Fragment::Verbatim(";"),

@@ -432,7 +432,7 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{
-        Annotation, ComplexType, PrimitiveType, ResultType, SimpleType, Type, TypedIdent,
+        Annotation, ArgType, ComplexType, PrimitiveType, ResultType, SimpleType, TypedIdent,
     };
     use crate::lexer::annotation::Lexer;
     use crate::Span;
@@ -450,81 +450,108 @@ mod test {
     }
 
     #[test]
-    fn test_parse_type_simple() {
+    fn test_parse_simple_type_primitive() {
         let input = "i64";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Simple("i64");
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Primitive {
+                inner: "i64",
+                type_: PrimitiveType::I64,
+            };
             assert_eq!(result, expected);
         });
 
-        let input = "&str";
+        let input = "str";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Simple("&str");
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Primitive {
+                inner: "str",
+                type_: PrimitiveType::Str,
+            };
             assert_eq!(result, expected);
         });
 
-        let input = "User";
+        let input = "bytes";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Simple("User");
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Primitive {
+                inner: "bytes",
+                type_: PrimitiveType::Bytes,
+            };
             assert_eq!(result, expected);
         });
     }
 
     #[test]
-    fn test_parse_type_generic() {
-        let input = "Option<i64>";
+    fn test_parse_simple_type_option() {
+        let input = "option<i64>";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Option("Option<i64>", Box::new(Type::Simple("i64")));
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Option {
+                inner: "i64",
+                outer: "option<i64>",
+                type_: PrimitiveType::I64,
+            };
             assert_eq!(result, expected);
         });
 
-        let input = "Iterator<i64>";
-        with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Iterator("Iterator<i64>", Box::new(Type::Simple("i64")));
-            assert_eq!(result, expected);
-        });
-
-        // The generics we support, only support a single type argument.
+        // The "generics" we support, only support a single type argument.
         // A comma is a syntax error.
-        let input = "Iterator<i64, i64>";
-        with_parser(input, |p| assert!(p.parse_type().is_err()));
+        let input = "option<i64, i64>";
+        with_parser(input, |p| assert!(p.parse_simple_type().is_err()));
     }
 
     #[test]
-    fn test_parse_type_tuple() {
+    fn test_parse_complex_type_tuple() {
         let input = "()";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple("()", Vec::new());
+            let result = p.parse_complex_type().unwrap().resolve(input);
+            let expected = ComplexType::Tuple("()", Vec::new());
             assert_eq!(result, expected);
         });
 
-        let input = "(f64)";
+        let input = "(i64)";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple("(f64)", vec![Type::Simple("f64")]);
+            let result = p.parse_complex_type().unwrap().resolve(input);
+            let expected = ComplexType::Tuple(
+                "(i64)",
+                vec![SimpleType::Primitive {
+                    inner: "i64",
+                    type_: PrimitiveType::I64,
+                }],
+            );
             assert_eq!(result, expected);
         });
 
         // Test for trailing comma too.
-        let input = "(f64,)";
+        let input = "(i64,)";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple("(f64,)", vec![Type::Simple("f64")]);
+            let result = p.parse_complex_type().unwrap().resolve(input);
+            let expected = ComplexType::Tuple(
+                "(i64,)",
+                vec![SimpleType::Primitive {
+                    inner: "i64",
+                    type_: PrimitiveType::I64,
+                }],
+            );
             assert_eq!(result, expected);
         });
 
-        let input = "(f64, String)";
+        let input = "(i64, str)";
         with_parser(input, |p| {
-            let result = p.parse_type().unwrap().resolve(input);
-            let expected = Type::Tuple(
-                "(f64, String)",
-                vec![Type::Simple("f64"), Type::Simple("String")],
+            let result = p.parse_complex_type().unwrap().resolve(input);
+            let expected = ComplexType::Tuple(
+                "(i64, str)",
+                vec![
+                    SimpleType::Primitive {
+                        inner: "i64",
+                        type_: PrimitiveType::I64,
+                    },
+                    SimpleType::Primitive {
+                        inner: "str",
+                        type_: PrimitiveType::Str,
+                    },
+                ],
             );
             assert_eq!(result, expected);
         });
@@ -532,7 +559,7 @@ mod test {
         // Also confirm that the following are parse errors.
         let invalid_inputs: &[&'static str] = &["(,)", "(f32, <)", "(", "(f32", "(f32,"];
         for input in invalid_inputs {
-            with_parser(input, |p| assert!(p.parse_type().is_err()));
+            with_parser(input, |p| assert!(p.parse_complex_type().is_err()));
         }
     }
 
@@ -543,7 +570,10 @@ mod test {
             let result = p.parse_typed_ident().unwrap().resolve(input);
             let expected = TypedIdent {
                 ident: "id",
-                type_: Type::Simple("i64"),
+                type_: SimpleType::Primitive {
+                    inner: "i64",
+                    type_: PrimitiveType::I64,
+                },
             };
             assert_eq!(result, expected);
         });
@@ -556,26 +586,31 @@ mod test {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
                 name: "drop_table_users",
-                parameters: vec![],
+                arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Unit,
             };
             assert_eq!(result, expected);
         });
 
-        // Test both with and without trailing comma.
+        // Test with wonky whitespace. In the past we tested trailing comma as
+        // well, but now it is no longer allowed in the grammar to keep the
+        // parser simpler.
         let inputs: &[&'static str] = &[
             "@query delete_user_by_id(id: i64)",
-            "@query delete_user_by_id(id: i64,)",
+            "@query delete_user_by_id( id : i64 )",
         ];
         for input in inputs {
             with_parser(input, |p| {
                 let result = p.parse_annotation().unwrap().resolve(input);
                 let expected = Annotation {
                     name: "delete_user_by_id",
-                    parameters: vec![TypedIdent {
+                    arguments: ArgType::Args(vec![TypedIdent {
                         ident: "id",
-                        type_: Type::Simple("i64"),
-                    }],
+                        type_: SimpleType::Primitive {
+                            inner: "i64",
+                            type_: PrimitiveType::I64,
+                        },
+                    }]),
                     result_type: ResultType::Unit,
                 };
                 assert_eq!(result, expected);
@@ -586,23 +621,29 @@ mod test {
         // whitespace a bit here.
         let inputs: &[&'static str] = &[
             "@query get_widgets_in_range (low : i64 , high : i64)",
-            "@query get_widgets_in_range(low:i64,high:i64,)",
+            "@query get_widgets_in_range(low:i64,high:i64)",
         ];
         for input in inputs {
             with_parser(input, |p| {
                 let result = p.parse_annotation().unwrap().resolve(input);
                 let expected = Annotation {
                     name: "get_widgets_in_range",
-                    parameters: vec![
+                    arguments: ArgType::Args(vec![
                         TypedIdent {
                             ident: "low",
-                            type_: Type::Simple("i64"),
+                            type_: SimpleType::Primitive {
+                                inner: "i64",
+                                type_: PrimitiveType::I64,
+                            },
                         },
                         TypedIdent {
                             ident: "high",
-                            type_: Type::Simple("i64"),
+                            type_: SimpleType::Primitive {
+                                inner: "i64",
+                                type_: PrimitiveType::I64,
+                            },
                         },
-                    ],
+                    ]),
                     result_type: ResultType::Unit,
                 };
                 assert_eq!(result, expected);
@@ -614,7 +655,7 @@ mod test {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
                 name: "get_next_id",
-                parameters: vec![],
+                arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Single(ComplexType::Simple(SimpleType::Primitive {
                     inner: "i64",
                     type_: PrimitiveType::I64,

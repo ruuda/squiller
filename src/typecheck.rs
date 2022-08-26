@@ -402,7 +402,7 @@ mod test {
         };
 
         let query = check_and_resolve_query(input).unwrap();
-        assert_eq!(query.arguments.resolve(&input), expected);
+        assert_eq!(query.annotation.arguments.resolve(&input), expected);
     }
 
     #[test]
@@ -422,14 +422,14 @@ mod test {
         match query.annotation.result_type.resolve(&input) {
             ResultType::Single(ComplexType::Struct("User", fields)) => {
                 let expected = [
-                    TypedIdent2 {
+                    TypedIdent {
                         ident: "id",
                         type_: SimpleType::Primitive {
                             inner: "i64",
                             type_: PrimitiveType::I64,
                         },
                     },
-                    TypedIdent2 {
+                    TypedIdent {
                         ident: "name",
                         type_: SimpleType::Primitive {
                             inner: "str",
@@ -449,7 +449,7 @@ mod test {
           -- @query iterate_parents() ->* Node
           select
             id        /* :i64 */,
-            parent_id /* :Option<i64> */
+            parent_id /* :option<i64> */
           from
             nodes
           ;";
@@ -459,14 +459,14 @@ mod test {
             ResultType::Iterator(inner) => match inner {
                 ComplexType::Struct("Node", fields) => {
                     let expected = [
-                        TypedIdent2 {
+                        TypedIdent {
                             ident: "id",
                             type_: SimpleType::Primitive {
                                 inner: "i64",
                                 type_: PrimitiveType::I64,
                             },
                         },
-                        TypedIdent2 {
+                        TypedIdent {
                             ident: "parent_id",
                             type_: SimpleType::Option {
                                 outer: "option<i64>",
