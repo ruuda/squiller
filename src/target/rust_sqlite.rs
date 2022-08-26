@@ -6,9 +6,8 @@
 // A copy of the License has been included in the root of the repository.
 
 use crate::ast::{
-    Annotation, ComplexType, Fragment, PrimitiveType, ResultType, SimpleType, Type, TypedIdent,
+    Annotation, ArgType, ComplexType, Fragment, PrimitiveType, ResultType, SimpleType, TypedIdent,
 };
-use std::convert::Infallible;
 use std::io;
 
 use crate::NamedDocument;
@@ -98,51 +97,6 @@ enum Ownership {
     Owned,
 }
 
-fn write_type(out: &mut dyn io::Write, owned: Ownership, type_: &Type<&str>) -> io::Result<()> {
-    use Ownership::{Borrow, BorrowNamed, Owned};
-    match type_ {
-        Type::Unit => write!(out, "()"),
-        Type::Simple(..) => panic!("Should not occur any more at output time."),
-        Type::Primitive(_, prim) => {
-            let name = match (prim, owned) {
-                (PrimitiveType::Str, Borrow) => "&str",
-                (PrimitiveType::Str, BorrowNamed) => "&'a str",
-                (PrimitiveType::Str, Owned) => "String",
-                (PrimitiveType::Bytes, Borrow) => "&[u8]",
-                (PrimitiveType::Bytes, BorrowNamed) => "&'a [u8]",
-                (PrimitiveType::Bytes, Owned) => "Vec<u8>",
-                (PrimitiveType::I32, _) => "i32",
-                (PrimitiveType::I64, _) => "i64",
-            };
-            out.write_all(name.as_bytes())
-        }
-        Type::Iterator(_full_span, inner) => {
-            // TODO: What to do with generated iterator types?
-            write!(out, "impl Iterator<Item = ")?;
-            write_type(out, owned, inner)?;
-            write!(out, ">")
-        }
-        Type::Option(_full_span, inner) => {
-            write!(out, "Option<")?;
-            write_type(out, owned, inner)?;
-            write!(out, ">")
-        }
-        Type::Tuple(_full_span, fields) => {
-            write!(out, "(")?;
-            let mut is_first = true;
-            for field_type in fields {
-                if !is_first {
-                    write!(out, ", ")?;
-                }
-                write_type(out, owned, field_type)?;
-                is_first = false;
-            }
-            write!(out, ")")
-        }
-        Type::Struct(name, _fields) => write!(out, "{}", name),
-    }
-}
-
 fn write_primitive_type(
     out: &mut dyn io::Write,
     owned: Ownership,
@@ -212,20 +166,10 @@ fn write_struct_definition(
     // over the type type, then add a pass that translates the language-agnostic
     // types into Rust types, and then have some helper methods on those for this
     // kind of stuff.
-    let has_lifetime_types = fields.iter().any(|field| {
-        let mut has_lifetime = false;
-        field
-            .type_
-            .traverse(&mut |type_| {
-                match type_ {
-                    Type::Primitive(_, PrimitiveType::Str) => has_lifetime = true,
-                    Type::Primitive(_, PrimitiveType::Bytes) => has_lifetime = true,
-                    _ => {}
-                }
-                Ok::<(), Infallible>(())
-            })
-            .unwrap();
-        has_lifetime
+    let has_lifetime_types = fields.iter().any(|field| match field.type_.inner_type() {
+        PrimitiveType::Str => true,
+        PrimitiveType::Bytes => true,
+        _ => false,
     });
 
     // TODO: Would be nice to generate docs for cross-referencing.
@@ -239,7 +183,7 @@ fn write_struct_definition(
 
     for field in fields {
         write!(out, "    pub {}: ", field.ident)?;
-        write_type(out, owned, &field.type_)?;
+        write_simple_type(out, owned, &field.type_)?;
         writeln!(out, ",")?;
     }
     writeln!(out, "}}")
@@ -250,19 +194,18 @@ fn write_struct_definitions(
     out: &mut dyn io::Write,
     annotation: Annotation<&str>,
 ) -> io::Result<()> {
-    for param in &annotation.parameters {
-        param.type_.traverse(&mut |type_| match type_ {
-            Type::Struct(name, fields) => {
-                write_struct_definition(out, Ownership::BorrowNamed, name, &fields)
-            }
-            _ => Ok(()),
-        })?;
+    match &annotation.arguments {
+        ArgType::Struct {
+            type_name, fields, ..
+        } => {
+            write_struct_definition(out, Ownership::BorrowNamed, type_name, &fields)?;
+        }
+        ArgType::Args(..) => {}
     }
 
     match annotation.result_type.get() {
-        // TODO: Reference the actual fields once I move to TypedIdent2.
-        Some(ComplexType::Struct(name, _fields)) => {
-            write_struct_definition(out, Ownership::Owned, name, &[])
+        Some(ComplexType::Struct(name, fields)) => {
+            write_struct_definition(out, Ownership::Owned, name, fields)
         }
         _ => Ok(()),
     }
@@ -336,9 +279,25 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 ann.name.resolve(input)
             )?;
 
-            for arg in &ann.parameters {
-                write!(out, ", {}: ", arg.ident.resolve(input),)?;
-                write_type(out, Ownership::Borrow, &arg.type_.resolve(input))?;
+            match &ann.arguments {
+                ArgType::Args(args) => {
+                    for arg in args {
+                        write!(out, ", {}: ", arg.ident.resolve(input),)?;
+                        write_simple_type(out, Ownership::Borrow, &arg.type_.resolve(input))?;
+                    }
+                }
+                ArgType::Struct {
+                    var_name,
+                    type_name,
+                    ..
+                } => {
+                    write!(
+                        out,
+                        ", {}: {}",
+                        var_name.resolve(input),
+                        type_name.resolve(input)
+                    )?;
+                }
             }
 
             write!(out, ") -> Result<")?;

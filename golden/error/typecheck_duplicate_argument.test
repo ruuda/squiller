@@ -6,7 +6,7 @@ SELECT 1;
   |
 1 | -- @query q(dup: i32, dup: i32)
   |                       ^~~
-Error: Redefinition of query parameter.
+Error: Redefinition of argument.
 
  --> stdin:1:12
   |

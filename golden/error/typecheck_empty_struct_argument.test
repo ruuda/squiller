@@ -8,6 +8,6 @@ INSERT INTO users (name, email) VALUES ('Eldon', 'eldon@tyrell.com');
   |
 3 | -- @query insert_user(user: User)
   |                             ^~~~
-Error: Annotation contains a struct parameter, but the query body contains no query parameters.
+Error: Annotation contains a struct argument, but the query body contains no typed query parameters.
 
 Hint: Add query parameters with type annotations to the query, to turn them into fields of the struct.

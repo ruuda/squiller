@@ -36,6 +36,39 @@ pub enum SimpleType<TSpan> {
     },
 }
 
+impl<TSpan> SimpleType<TSpan> {
+    pub fn span(&self) -> TSpan
+    where
+        TSpan: Copy,
+    {
+        match &self {
+            SimpleType::Primitive { inner, .. } => *inner,
+            SimpleType::Option { outer, .. } => *outer,
+        }
+    }
+
+    pub fn inner_type(&self) -> PrimitiveType {
+        match self {
+            SimpleType::Primitive { type_, .. } => *type_,
+            SimpleType::Option { type_, .. } => *type_,
+        }
+    }
+
+    /// Test equivalence of the types, regardless of the spans or formatting.
+    pub fn is_equal_to(&self, other: &SimpleType<TSpan>) -> bool {
+        match (self, other) {
+            (
+                SimpleType::Primitive { type_: lhs, .. },
+                SimpleType::Primitive { type_: rhs, .. },
+            ) => lhs == rhs,
+            (SimpleType::Option { type_: lhs, .. }, SimpleType::Option { type_: rhs, .. }) => {
+                lhs == rhs
+            }
+            _ => false,
+        }
+    }
+}
+
 impl SimpleType<Span> {
     pub fn resolve<'a>(&self, input: &'a str) -> SimpleType<&'a str> {
         match self {
@@ -58,14 +91,14 @@ impl SimpleType<Span> {
 
 /// An identifier and a type, e.g. `name: &str`.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypedIdent2<TSpan> {
+pub struct TypedIdent<TSpan> {
     pub ident: TSpan,
     pub type_: SimpleType<TSpan>,
 }
 
-impl TypedIdent2<Span> {
-    pub fn resolve<'a>(&self, input: &'a str) -> TypedIdent2<&'a str> {
-        TypedIdent2 {
+impl TypedIdent<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> TypedIdent<&'a str> {
+        TypedIdent {
             ident: self.ident.resolve(input),
             type_: self.type_.resolve(input),
         }
@@ -85,7 +118,7 @@ pub enum ComplexType<TSpan> {
     /// A struct with zero or more fields.
     ///
     /// Field 0 contains the span of the name of the struct.
-    Struct(TSpan, Vec<TypedIdent2<TSpan>>),
+    Struct(TSpan, Vec<TypedIdent<TSpan>>),
 }
 
 impl ComplexType<Span> {
@@ -100,188 +133,6 @@ impl ComplexType<Span> {
                 let fields = fields.iter().map(|t| t.resolve(input)).collect();
                 ComplexType::Struct(name.resolve(input), fields)
             }
-        }
-    }
-}
-
-/// Types of parameters and results.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Type<TSpan> {
-    /// The unit type, for queries that do not return anything.
-    ///
-    /// The unit type cannot be listed explicitly in annotations.
-    Unit,
-
-    /// A simple type that for our purposes cannot be broken down further.
-    ///
-    /// Used early in the compilation process, before resolving types. The
-    /// parser outputs simple types and does not resolve them to structs or
-    /// primitive types.
-    Simple(TSpan),
-
-    /// A primitive type.
-    ///
-    /// Primitive types are not produced by the parser, they are generated from
-    /// simple types by the type resolution phase.
-    Primitive(TSpan, PrimitiveType),
-
-    /// An iterator, for queries that may return multiple rows.
-    ///
-    /// Field 0 contains the span of the full type.
-    Iterator(TSpan, Box<Type<TSpan>>),
-
-    /// An option, for queries that return zero or one rows, or nullable parameters.
-    ///
-    /// Field 0 contains the span of the full type.
-    Option(TSpan, Box<Type<TSpan>>),
-
-    /// A tuple of zero or more types.
-    ///
-    /// Field 0 contains the span of the full type.
-    Tuple(TSpan, Vec<Type<TSpan>>),
-
-    /// A named struct with typed fields.
-    ///
-    /// Structs fields cannot be listed explicitly in annotations; the
-    /// annotation lists the name, and the fields are determined from the query.
-    Struct(TSpan, Vec<TypedIdent<TSpan>>),
-}
-
-impl<TSpan> Type<TSpan> {
-    /// Call the function on every type, including nested types.
-    ///
-    /// Performs a depth-first traversal. Calls the predicate on the outer type
-    /// before calling it on the inner type.
-    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
-    where
-        F: FnMut(&Type<TSpan>) -> Result<(), E>,
-    {
-        f(self)?;
-
-        match self {
-            Type::Iterator(_, inner) => inner.traverse(f)?,
-            Type::Option(_, inner) => inner.traverse(f)?,
-            Type::Tuple(_, fields) => {
-                for field_type in fields {
-                    field_type.traverse(f)?;
-                }
-            }
-            Type::Struct(_, fields) => {
-                for field in fields {
-                    field.type_.traverse(f)?;
-                }
-            }
-            _ => {}
-        }
-
-        Ok(())
-    }
-}
-
-impl Type<Span> {
-    pub fn resolve<'a>(&self, input: &'a str) -> Type<&'a str> {
-        match self {
-            Type::Unit => Type::Unit,
-            Type::Simple(span) => Type::Simple(span.resolve(input)),
-            Type::Primitive(span, t) => Type::Primitive(span.resolve(input), *t),
-            Type::Iterator(s, t) => Type::Iterator(s.resolve(input), Box::new(t.resolve(input))),
-            Type::Option(s, t) => Type::Option(s.resolve(input), Box::new(t.resolve(input))),
-            Type::Tuple(s, ts) => Type::Tuple(
-                s.resolve(input),
-                ts.iter().map(|t| t.resolve(input)).collect(),
-            ),
-            Type::Struct(name, fields) => Type::Struct(
-                name.resolve(input),
-                fields.iter().map(|f| f.resolve(input)).collect(),
-            ),
-        }
-    }
-
-    /// For types that can occur literally in the source, return their span.
-    pub fn span(&self) -> Span {
-        match self {
-            Type::Unit => panic!("Unit does not have a span."),
-            Type::Simple(s) => *s,
-            Type::Primitive(s, _) => *s,
-            Type::Iterator(s, _) => *s,
-            Type::Option(s, _) => *s,
-            Type::Tuple(s, _) => *s,
-            Type::Struct(s, _) => *s,
-        }
-    }
-
-    /// For nested types, return the innermost type.
-    ///
-    /// For non-nested type, return itself. For structs and tuples, which can
-    /// contain multiple inner types, also returns the type itself without
-    /// descending further.
-    pub fn inner(&self) -> &Type<Span> {
-        match self {
-            Type::Unit => self,
-            Type::Simple(..) => self,
-            Type::Primitive(..) => self,
-            Type::Iterator(_, inner) => inner.inner(),
-            Type::Option(_, inner) => inner.inner(),
-            Type::Tuple(..) => self,
-            Type::Struct(..) => self,
-        }
-    }
-
-    /// Same as [`inner`], but mutable.
-    pub fn inner_mut(&mut self) -> &mut Type<Span> {
-        match self {
-            Type::Unit => self,
-            Type::Simple(..) => self,
-            Type::Primitive(..) => self,
-            Type::Iterator(_, inner) => inner.inner_mut(),
-            Type::Option(_, inner) => inner.inner_mut(),
-            Type::Tuple(..) => self,
-            Type::Struct(..) => self,
-        }
-    }
-}
-
-impl<'a> Type<&'a str> {
-    /// Test equivalence of the types, regardless of the spans or formatting.
-    pub fn is_equal_to(&self, other: &Type<&'a str>) -> bool {
-        match (self, other) {
-            (Type::Unit, Type::Unit) => true,
-            (Type::Simple(s1), Type::Simple(s2)) => s1 == s2,
-            (Type::Primitive(_, t1), Type::Primitive(_, t2)) => t1 == t2,
-            (Type::Iterator(_, t1), Type::Iterator(_, t2)) => t1.is_equal_to(t2),
-            (Type::Option(_, t1), Type::Option(_, t2)) => t1.is_equal_to(t2),
-            (Type::Tuple(_, fields1), Type::Tuple(_, fields2)) => {
-                fields1.len() == fields2.len()
-                    && fields1
-                        .iter()
-                        .zip(fields2)
-                        .all(|(t1, t2)| t1.is_equal_to(t2))
-            }
-            (Type::Struct(name1, fields1), Type::Struct(name2, fields2)) => {
-                name1 == name2
-                    && fields1.len() == fields2.len()
-                    && fields1
-                        .iter()
-                        .zip(fields2)
-                        .all(|(f1, f2)| f1.ident == f2.ident && f1.type_.is_equal_to(&f2.type_))
-            }
-            _ => false,
-        }
-    }
-}
-
-/// An identifier and a type, e.g. `name: &str`.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TypedIdent<TSpan> {
-    pub ident: TSpan,
-    pub type_: Type<TSpan>,
-}
-
-impl TypedIdent<Span> {
-    pub fn resolve<'a>(&self, input: &'a str) -> TypedIdent<&'a str> {
-        TypedIdent {
-            ident: self.ident.resolve(input),
-            type_: self.type_.resolve(input),
         }
     }
 }
@@ -330,34 +181,58 @@ impl ResultType<Span> {
     }
 }
 
+/// Inputs to the query, either named as separate arguments, or a single struct.
+#[derive(Debug, Eq, PartialEq)]
+pub enum ArgType<TSpan> {
+    /// One or more named arguments, e.g. `(name: str, age: i32)`.
+    ///
+    /// Each one corresponds to a query parameter, `:name` and `:age` in the
+    /// example.
+    Args(Vec<TypedIdent<TSpan>>),
+
+    /// A named struct and its fields, e.g. `(user: User)`.
+    ///
+    /// The fields are not populated by the parser, as there is no syntax to
+    /// specify them in-line, the fields are inferred from the query body.
+    ///
+    /// Each field on the struct corresponds to a query parameter.
+    Struct {
+        var_name: TSpan,
+        type_name: TSpan,
+        fields: Vec<TypedIdent<TSpan>>,
+    },
+}
+
+impl ArgType<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> ArgType<&'a str> {
+        match self {
+            ArgType::Args(args) => ArgType::Args(args.iter().map(|ti| ti.resolve(input)).collect()),
+            ArgType::Struct {
+                var_name,
+                type_name,
+                fields,
+            } => ArgType::Struct {
+                var_name: var_name.resolve(input),
+                type_name: type_name.resolve(input),
+                fields: fields.iter().map(|ti| ti.resolve(input)).collect(),
+            },
+        }
+    }
+}
+
 /// An annotation comment that describes the query that follows it.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Annotation<TSpan> {
     pub name: TSpan,
-    pub parameters: Vec<TypedIdent<TSpan>>,
+    pub arguments: ArgType<TSpan>,
     pub result_type: ResultType<TSpan>,
-}
-
-impl<TSpan> Annotation<TSpan> {
-    /// Call the function on every type, first parameters, then the result type.
-    ///
-    /// See also [`Type::traverse`].
-    pub fn traverse<F, E>(&self, f: &mut F) -> Result<(), E>
-    where
-        F: FnMut(&Type<TSpan>) -> Result<(), E>,
-    {
-        for param in &self.parameters {
-            f(&param.type_)?;
-        }
-        Ok(())
-    }
 }
 
 impl Annotation<Span> {
     pub fn resolve<'a>(&self, input: &'a str) -> Annotation<&'a str> {
         Annotation {
             name: self.name.resolve(input),
-            parameters: self.parameters.iter().map(|p| p.resolve(input)).collect(),
+            arguments: self.arguments.resolve(input),
             result_type: self.result_type.resolve(input),
         }
     }

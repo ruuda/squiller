@@ -4,8 +4,8 @@ use crate::lexer::annotation::Token;
 use crate::Span;
 
 type Annotation = crate::ast::Annotation<Span>;
+type ArgType = crate::ast::ArgType<Span>;
 type ResultType = crate::ast::ResultType<Span>;
-type Type = crate::ast::Type<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
 type SimpleType = crate::ast::SimpleType<Span>;
 type ComplexType = crate::ast::ComplexType<Span>;
@@ -111,10 +111,10 @@ impl<'a> Parser<'a> {
         let ident = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
         self.expect_consume(
             Token::Colon,
-            "Expected a ':' here before the start of the type signature.",
+            "Expected a ':' here before the start of the type.",
         )?;
 
-        let type_ = self.parse_type()?;
+        let type_ = self.parse_simple_type()?;
 
         let result = TypedIdent { ident, type_ };
         Ok(result)
@@ -221,14 +221,13 @@ impl<'a> Parser<'a> {
     pub fn parse_complex_type(&mut self) -> PResult<ComplexType> {
         match self.peek_with_span() {
             Some((Token::LParen, span)) => {
-                let _inner = self.parse_tuple()?;
+                let inner = self.parse_tuple()?;
                 let final_span = self.previous_span();
                 let full_span = Span {
                     start: span.start,
                     end: final_span.end,
                 };
-                // TODO: Put `inner` here.
-                Ok(ComplexType::Tuple(full_span, Vec::new()))
+                Ok(ComplexType::Tuple(full_span, inner))
             }
             Some((Token::Ident, span)) => {
                 // If it's an identifier, then it can be a user-defined type (a
@@ -253,63 +252,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a simple type, tuple, or generic type (iterator or option).
-    ///
-    /// The unit type cannot be parsed, it is marked by absense, and struct
-    /// types have no explicit syntax in annotations either, they get
-    /// contsructed at a higher level.
-    pub fn parse_type(&mut self) -> PResult<Type> {
-        match self.peek_with_span() {
-            Some((Token::LParen, span)) => {
-                let inner = self.parse_tuple()?;
-                let final_span = self.previous_span();
-                let full_span = Span {
-                    start: span.start,
-                    end: final_span.end,
-                };
-                Ok(Type::Tuple(full_span, inner))
-            }
-            Some((Token::Ident, span)) => match span.resolve(self.input) {
-                "Iterator" => {
-                    self.consume();
-                    let inner = self.parse_inner_generic_type()?;
-                    let final_span = self.previous_span();
-                    let full_span = Span {
-                        start: span.start,
-                        end: final_span.end,
-                    };
-                    Ok(Type::Iterator(full_span, Box::new(inner)))
-                }
-                "Option" => {
-                    self.consume();
-                    let inner = self.parse_inner_generic_type()?;
-                    let final_span = self.previous_span();
-                    let full_span = Span {
-                        start: span.start,
-                        end: final_span.end,
-                    };
-                    Ok(Type::Option(full_span, Box::new(inner)))
-                }
-                _ => {
-                    let span = self.consume();
-                    Ok(Type::Simple(span))
-                }
-            },
-            Some(_) => self.error("Expected a type here."),
-            None => self.error("Unexpected end of input, expected a type here."),
-        }
-    }
-
-    /// Parse a type surrounded by angle brackets.
-    fn parse_inner_generic_type(&mut self) -> PResult<Type> {
-        self.expect_consume(Token::Lt, "Expected a '<' here, after a generic type.")?;
-        let result = self.parse_type()?;
-        self.expect_consume(Token::Gt, "Expected a '>' here to close a generic type.")?;
-        Ok(result)
-    }
-
     /// Parse a tuple, the cursor should be on the opening paren.
-    fn parse_tuple(&mut self) -> PResult<Vec<Type>> {
+    fn parse_tuple(&mut self) -> PResult<Vec<SimpleType>> {
         self.expect_consume(Token::LParen, "Expected a '(' here to start a tuple.")?;
         let mut elements = Vec::new();
         loop {
@@ -318,7 +262,7 @@ impl<'a> Parser<'a> {
                 return Ok(elements);
             }
 
-            elements.push(self.parse_type()?);
+            elements.push(self.parse_simple_type()?);
 
             match self.peek() {
                 // Don't consume, the next iterator of the loop will do that.
@@ -341,47 +285,87 @@ impl<'a> Parser<'a> {
     }
 
     /// Parse an argument list, the cursor should be on the opening paren.
-    fn parse_parameter_list(&mut self) -> PResult<Vec<TypedIdent>> {
+    fn parse_arguments(&mut self) -> PResult<ArgType> {
         self.expect_consume(
             Token::LParen,
-            "Expected a '(' here to start the parameter list.",
+            "Expected a '(' here to start the query arguments.",
         )?;
-        let start_span = self.tokens[self.cursor - 1].1;
 
-        let mut elements = Vec::new();
+        let start_span = self.tokens[self.cursor - 1].1;
+        let mut arguments = Vec::new();
+
+        match self.peek() {
+            Some(Token::RParen) => {
+                self.consume();
+                return Ok(ArgType::Args(arguments));
+            }
+            Some(Token::Ident) => {
+                let ident = self.consume();
+                self.expect_consume(
+                    Token::Colon,
+                    "Expected a ':' here before the start of the type.",
+                )?;
+                let type_name = self.expect_consume(Token::Ident, "Expected a type here.")?;
+
+                // TODO: Deduplicate this between parse_complex_type.
+                let is_struct = type_name
+                    .resolve(self.input)
+                    .chars()
+                    .next()
+                    .expect("Parser does not produce empty spans.")
+                    .is_ascii_uppercase();
+
+                if is_struct {
+                    // TODO: This makes the trailing comma disallowed, which is
+                    // a bit inconsistent if we do allow it after a single non-
+                    // struct arg.
+                    self.expect_consume(
+                        Token::RParen,
+                        "Expected a ')' here, queries that take a struct \
+                        can only take a single argument.",
+                    )?;
+                    let result = ArgType::Struct {
+                        var_name: ident,
+                        type_name: type_name,
+                        fields: Vec::new(),
+                    };
+                    return Ok(result);
+                } else {
+                    // Unconsume the identifier that we already consumed, we
+                    // will parse a simple type instead.
+                    self.cursor -= 1;
+                    let arg = TypedIdent {
+                        ident: ident,
+                        type_: self.parse_simple_type()?,
+                    };
+                    arguments.push(arg);
+                }
+            }
+            Some(_unexpected) => {
+                return self.error(
+                    "Unexpected token in query arguments, expected ')' or an identifier here.",
+                )
+            }
+            None => {
+                return self.error_with_note(
+                    "Unexpected end of input, expected ')' to close the query arguments.",
+                    start_span,
+                    "Unmatched '(' opened here.",
+                )
+            }
+        }
+
         loop {
             if let Some(Token::RParen) = self.peek() {
                 self.consume();
-                return Ok(elements);
+                return Ok(ArgType::Args(arguments));
             }
 
-            elements.push(self.parse_typed_ident()?);
+            // For now, the parser is simpler if we don't allow a trailing comma.
+            // Only allow it here, before the start of the next argument.
+            self.expect_consume(Token::Comma, "Expected a ',' here.")?;
 
-            match self.peek() {
-                // Don't consume, the next iterator of the loop will do that.
-                Some(Token::RParen) => continue,
-
-                // After a comma, we can either start again with a new element,
-                // or the rparen can still follow, so the trailing comma is
-                // optional.
-                Some(Token::Comma) => {
-                    self.consume();
-                }
-
-                Some(_unexpected) => {
-                    return self.error(
-                        "Unexpected token inside a parameter list, expected ',' or ')' here.",
-                    )
-                }
-
-                None => {
-                    return self.error_with_note(
-                        "Unexpected end of input, expected ')' to close a parameter list.",
-                        start_span,
-                        "Unmatched '(' opened here.",
-                    )
-                }
-            }
+            arguments.push(self.parse_typed_ident()?);
         }
     }
 
@@ -399,8 +383,8 @@ impl<'a> Parser<'a> {
         // 2. The name of the query..
         let name = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
 
-        // 3. The list of query parameters, including parens.
-        let parameters = self.parse_parameter_list()?;
+        // 3. The query arguments, including parens.
+        let arguments = self.parse_arguments()?;
 
         // 4. Optionally an arrow followed by the result type.
         let result_type = match self.peek() {
@@ -437,7 +421,7 @@ impl<'a> Parser<'a> {
 
         let result = Annotation {
             name,
-            parameters,
+            arguments,
             result_type,
         };
         Ok(result)

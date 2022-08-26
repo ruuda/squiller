@@ -291,7 +291,7 @@ impl<'a> Parser<'a> {
         }
 
         let mut parser = parse_ann::Parser::new(self.input, lexer.tokens());
-        let mut type_ = parser.parse_type()?;
+        let mut type_ = parser.parse_simple_type()?;
 
         // Consume the CommentInner token that we are parsing the annotation from.
         let annotation_token_index = self.cursor;

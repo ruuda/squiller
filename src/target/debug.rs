@@ -7,7 +7,7 @@
 
 use std::io;
 
-use crate::ast::{ComplexType, Fragment, ResultType, Section, SimpleType, Type};
+use crate::ast::{ArgType, ComplexType, Fragment, ResultType, Section, SimpleType};
 use crate::{NamedDocument, Span};
 
 fn print_simple_type(
@@ -69,58 +69,6 @@ fn print_complex_type(
     Ok(())
 }
 
-fn print_type(out: &mut dyn io::Write, input: &str, type_: &Type<Span>) -> io::Result<()> {
-    let yellow = "\x1b[33m";
-    let reset = "\x1b[0m";
-
-    write!(out, "{}", yellow)?;
-
-    match type_ {
-        Type::Unit => {
-            panic!("Unit should never be printed.");
-        }
-        Type::Simple(..) => {
-            panic!("Simple types should have been resolved by now.");
-        }
-        Type::Primitive(span, _) => {
-            write!(out, "{}{}{}", yellow, span.resolve(input), reset)?;
-        }
-        Type::Iterator(_span, inner) => {
-            write!(out, "{}Iterator{}<", yellow, reset)?;
-            print_type(out, input, inner)?;
-            write!(out, ">")?;
-        }
-        Type::Option(_span, inner) => {
-            write!(out, "{}Option{}<", yellow, reset)?;
-            print_type(out, input, inner)?;
-            write!(out, ">")?;
-        }
-        Type::Tuple(_span, fields) => {
-            write!(out, "(")?;
-            let mut is_first = true;
-            for field_type in fields {
-                if !is_first {
-                    write!(out, ", ")?;
-                }
-                print_type(out, input, field_type)?;
-                is_first = false;
-            }
-            write!(out, ")")?;
-        }
-        Type::Struct(name_span, fields) => {
-            writeln!(out, "{}{}{} {{", yellow, name_span.resolve(input), reset)?;
-            for field in fields {
-                write!(out, "--   {}: ", field.ident.resolve(input))?;
-                print_type(out, input, &field.type_)?;
-                writeln!(out, ",")?;
-            }
-            write!(out, "-- }}")?;
-        }
-    }
-
-    Ok(())
-}
-
 /// Pretty-print the parsed file, for debugging purposes.
 pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
     let red = "\x1b[31m";
@@ -153,10 +101,32 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         annotation.name.resolve(input)
                     )?;
 
-                    for param in &annotation.parameters {
-                        write!(out, "-- {}: ", param.ident.resolve(input))?;
-                        print_type(out, input, &param.type_)?;
-                        writeln!(out)?;
+                    match &annotation.arguments {
+                        ArgType::Args(args) => {
+                            for param in args {
+                                write!(out, "-- {}: ", param.ident.resolve(input))?;
+                                print_simple_type(out, input, &param.type_)?;
+                                writeln!(out)?;
+                            }
+                        }
+                        ArgType::Struct {
+                            var_name,
+                            type_name,
+                            fields,
+                        } => {
+                            writeln!(
+                                out,
+                                "-- {}: {} {{",
+                                var_name.resolve(input),
+                                type_name.resolve(input),
+                            )?;
+                            for field in fields {
+                                write!(out, "--   {}: ", field.ident.resolve(input))?;
+                                print_simple_type(out, input, &field.type_)?;
+                                writeln!(out)?;
+                            }
+                            writeln!(out, "-- }}")?;
+                        }
                     }
 
                     match &annotation.result_type {
@@ -194,7 +164,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                                     end: raw.end,
                                 };
                                 write!(out, "{}", mid.resolve(input))?;
-                                print_type(out, input, &parsed.type_)?;
+                                print_simple_type(out, input, &parsed.type_)?;
                                 write!(out, "{}", end.resolve(input))?;
                             }
                             Fragment::Param(s) => {
@@ -211,7 +181,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                                     end: raw.end,
                                 };
                                 write!(out, "{}", mid.resolve(input))?;
-                                print_type(out, input, &parsed.type_)?;
+                                print_simple_type(out, input, &parsed.type_)?;
                                 write!(out, "{}", end.resolve(input))?;
                             }
                         }

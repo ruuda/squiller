@@ -17,103 +17,10 @@ use std::collections::hash_map::{Entry, HashMap};
 use std::collections::hash_set::HashSet;
 
 use crate::ast::{
-    Annotation, ComplexType, Document, Fragment, PrimitiveType, Query, Section, Type, TypedIdent,
+    Annotation, ArgType, ComplexType, Document, Fragment, Query, Section, TypedIdent,
 };
 use crate::error::{TResult, TypeError};
 use crate::Span;
-
-fn resolve_type(input: &str, type_: Type<Span>) -> TResult<Type<Span>> {
-    match type_ {
-        Type::Unit => Ok(type_),
-        Type::Primitive(..) => unreachable!("We don't have primitive types yet at this stage."),
-        Type::Iterator(s, inner) => Ok(Type::Iterator(s, Box::new(resolve_type(input, *inner)?))),
-        Type::Option(s, inner) => Ok(Type::Option(s, Box::new(resolve_type(input, *inner)?))),
-        Type::Tuple(s, ts) => {
-            let resolved: Vec<_> = ts
-                .into_iter()
-                .map(|t| resolve_type(input, t))
-                .collect::<TResult<Vec<_>>>()?;
-            Ok(Type::Tuple(s, resolved))
-        }
-        Type::Struct(..) => unreachable!("We don't have struct types yet at this stage."),
-        Type::Simple(span) => {
-            match span.resolve(input) {
-                "str" => Ok(Type::Primitive(span, PrimitiveType::Str)),
-                "i32" => Ok(Type::Primitive(span, PrimitiveType::I32)),
-                "i64" => Ok(Type::Primitive(span, PrimitiveType::I64)),
-                "bytes" => Ok(Type::Primitive(span, PrimitiveType::Bytes)),
-                other
-                    if other
-                        .bytes()
-                        .next()
-                        .map(|ch| ch.is_ascii_uppercase())
-                        .unwrap_or(false) =>
-                {
-                    // If it starts with an uppercase letter, then we assume
-                    // it's a struct.
-                    Ok(Type::Struct(span, Vec::new()))
-                }
-                _other => {
-                    // If it doesn't start with an uppercase letter though and
-                    // we also didn't resolve it to a primitive type already,
-                    // then we don't know what to do and report an error.
-                    let err = TypeError::with_hint(
-                        span,
-                        "Unknown type.",
-                        "User-defined types should start with an uppercase letter.",
-                    );
-                    Err(err)
-                }
-            }
-        }
-    }
-}
-
-fn resolve_annotation(input: &str, ann: Annotation<Span>) -> TResult<Annotation<Span>> {
-    let mut parameters = Vec::with_capacity(ann.parameters.len());
-
-    for param in ann.parameters {
-        parameters.push(TypedIdent {
-            type_: resolve_type(input, param.type_)?,
-            ..param
-        });
-    }
-
-    let result = Annotation {
-        parameters: parameters,
-        ..ann
-    };
-
-    Ok(result)
-}
-
-fn resolve_fragments(input: &str, fragments: Vec<Fragment<Span>>) -> TResult<Vec<Fragment<Span>>> {
-    let mut result = Vec::with_capacity(fragments.len());
-
-    for fragment in fragments {
-        let new_fragment = match fragment {
-            Fragment::Verbatim(_) => fragment,
-            Fragment::TypedIdent(span, ti) => Fragment::TypedIdent(
-                span,
-                TypedIdent {
-                    type_: resolve_type(input, ti.type_)?,
-                    ident: ti.ident,
-                },
-            ),
-            Fragment::Param(_) => fragment,
-            Fragment::TypedParam(span, ti) => Fragment::TypedParam(
-                span,
-                TypedIdent {
-                    type_: resolve_type(input, ti.type_)?,
-                    ident: ti.ident,
-                },
-            ),
-        };
-        result.push(new_fragment);
-    }
-
-    Ok(result)
-}
 
 /// Holds the state across various stages of checking a query.
 struct QueryChecker<'a> {
@@ -158,19 +65,18 @@ impl<'a> QueryChecker<'a> {
 
     /// Check the query for consistency and resolve its types.
     ///
-    /// Resolving means converting `Type::Simple` into either `Type::Primitive` or
-    /// `Type::Struct`. Furthermore, we ensure that every query parameter that
-    /// occurs in the query is known (either because the query argument is a struct,
-    /// or because the parameter was listed explicitly).
+    /// We ensure that every query parameter that occurs in the query is known
+    /// (either because the query argument is a struct, or because the parameter
+    /// was listed explicitly). We also fill the fields of structs.
     pub fn check_and_resolve<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
-        let mut annotation = resolve_annotation(input, query.annotation)?;
-        let fragments = resolve_fragments(input, query.fragments)?;
+        let mut annotation = query.annotation;
+        let fragments = query.fragments;
 
         let mut checker = Self::new(input);
         checker.populate_query_args(&annotation)?;
         checker.populate_inputs_outputs(&fragments)?;
 
-        checker.fill_input_struct(input, &mut annotation)?;
+        checker.fill_input_struct(&mut annotation)?;
         checker.fill_output_struct(&mut annotation)?;
 
         let query = Query {
@@ -186,14 +92,19 @@ impl<'a> QueryChecker<'a> {
     fn populate_query_args(&mut self, annotation: &Annotation<Span>) -> TResult<()> {
         // Populate the query args map with the args those provided in the
         // annotation, and at the same time ensure there are no duplicates.
-        for arg in &annotation.parameters {
+        let args = match &annotation.arguments {
+            ArgType::Struct { .. } => return Ok(()),
+            ArgType::Args(args) => args,
+        };
+
+        for arg in args {
             let name = arg.ident.resolve(self.input);
             match self.query_args.entry(name) {
                 Entry::Vacant(vacancy) => vacancy.insert(arg.clone()),
                 Entry::Occupied(previous) => {
                     let error = TypeError::with_note(
                         arg.ident,
-                        "Redefinition of query parameter.",
+                        "Redefinition of argument.",
                         previous.get().ident,
                         "First defined here.",
                     );
@@ -201,6 +112,7 @@ impl<'a> QueryChecker<'a> {
                 }
             };
         }
+
         Ok(())
     }
 
@@ -305,87 +217,53 @@ impl<'a> QueryChecker<'a> {
         Ok(())
     }
 
-    /// If there is a struct type among the inputs, fill its fields.
+    /// If the input is a struct type, fill its fields.
     ///
     /// This moves the fields out of `self.input_fields_vec`, which becomes
     /// empty.
-    fn fill_input_struct(
-        &mut self,
-        input: &'a str,
-        annotation: &mut Annotation<Span>,
-    ) -> TResult<()> {
-        let mut first_struct = None;
-
-        // Before we can put the fields in, make sure that parameter to put them
-        // in is unique -- there can only be one struct per query.
-        for param in annotation.parameters.iter() {
-            match (param.type_.inner(), first_struct) {
-                (Type::Struct(name_span, _), None) => {
-                    first_struct = Some(name_span);
-                    // A type struct that we fill is not unused.
-                    self.query_args_used.insert(name_span.resolve(input));
-                }
-                (Type::Struct(name_span, _), Some(prev)) => {
-                    let mut error = TypeError::with_note(
-                        *name_span,
-                        "Encountered a second struct parameter.",
-                        *prev,
-                        "First struct parameter defined here.",
-                    );
-                    error.hint =
-                        Some("There can be at most one struct parameter per query.".into());
-                    return Err(error);
-                }
-                _ => {}
-            }
-        }
-
+    fn fill_input_struct(&mut self, annotation: &mut Annotation<Span>) -> TResult<()> {
         // Before we put the fields in, check if we have any. If not, but there
-        // is a struct param, that's an error, because we would make an empty
+        // is a struct argument, that's an error, because we would make an empty
         // struct.
         if self.input_fields_vec.len() == 0 {
-            match first_struct {
-                None => return Ok(()),
-                Some(name_span) => {
+            match &annotation.arguments {
+                ArgType::Struct { type_name, .. } => {
                     let error = TypeError::with_hint(
-                        *name_span,
-                        "Annotation contains a struct parameter, \
-                        but the query body contains no query parameters.",
+                        *type_name,
+                        "Annotation contains a struct argument, \
+                        but the query body contains no typed query parameters.",
                         "Add query parameters with type annotations to the query, \
                         to turn them into fields of the struct.",
                     );
                     return Err(error);
                 }
+                ArgType::Args(..) => return Ok(()),
             }
         }
 
         // Conversely, if there are parameters, but no struct, then we have
         // nowhere to put them.
-        if first_struct.is_none() {
-            // Does not go out of bounds, if it was empty we returned already.
-            let ti = &self.input_fields_vec[0];
-            let error = TypeError::with_hint(
-                ti.ident,
-                "Cannot create a field, query has no struct parameter.",
-                "Annotated query parameters in the query body \
+        let fields = match &mut annotation.arguments {
+            ArgType::Args(..) => {
+                // Does not go out of bounds, if it was empty we returned already.
+                let ti = &self.input_fields_vec[0];
+                let error = TypeError::with_hint(
+                    ti.ident,
+                    "Cannot create a field, query has no struct parameter.",
+                    "Annotated query parameters in the query body \
                 become fields of a struct, but this query has no struct \
                 parameter in its signature.",
-            );
-            return Err(error);
-        }
-
-        // Now that we know the struct is unique, and it won't be empty, we can
-        // do a second pass and put the params in.
-        for param in annotation.parameters.iter_mut() {
-            if let Type::Struct(_, ref mut fields) = param.type_.inner_mut() {
-                // Originally, all the typed idents for the parameter include
-                // the colon, but we don't want those in the field names, so
-                // remove them.
-                for mut ti in self.input_fields_vec.drain(..) {
-                    ti.ident = ti.ident.trim_start(1);
-                    fields.push(ti);
-                }
+                );
+                return Err(error);
             }
+            ArgType::Struct { fields, .. } => fields,
+        };
+
+        // Originally, all the typed idents for the parameter include the colon,
+        // but we don't want those in the field names, so remove them.
+        for mut ti in self.input_fields_vec.drain(..) {
+            ti.ident = ti.ident.trim_start(1);
+            fields.push(ti);
         }
 
         Ok(())
@@ -417,7 +295,7 @@ impl<'a> QueryChecker<'a> {
 
         // Conversely, if there are outputs, but no struct, then we have nowhere
         // to put them.
-        let _fields = match annotation.result_type.get_mut() {
+        let fields = match annotation.result_type.get_mut() {
             Some(ComplexType::Struct(_name_span, fields)) => fields,
             _not_struct => {
                 // Does not go out of bounds, if it was empty we returned already.
@@ -432,9 +310,8 @@ impl<'a> QueryChecker<'a> {
             }
         };
 
-        for _ti in self.output_fields_vec.drain(..) {
-            // TODO: Actually push once I move to TypedIdent2.
-            //fields.push(ti);
+        for ti in self.output_fields_vec.drain(..) {
+            fields.push(ti);
         }
 
         Ok(())
@@ -463,8 +340,7 @@ pub fn check_document(input: &str, doc: Document<Span>) -> TResult<Document<Span
 mod test {
     use super::QueryChecker;
     use crate::ast::{
-        ComplexType, PrimitiveType, Query, ResultType, Section, SimpleType, Type, TypedIdent,
-        TypedIdent2,
+        ArgType, ComplexType, PrimitiveType, Query, ResultType, Section, SimpleType, TypedIdent,
     };
     use crate::error::Result;
     use crate::Span;
@@ -504,27 +380,29 @@ mod test {
             and name = :name /* :str */
           ;";
 
-        let mut query = check_and_resolve_query(input).unwrap();
-
-        assert_eq!(query.annotation.parameters.len(), 1);
-        let param = query.annotation.parameters.pop().unwrap();
-
-        match param.type_.resolve(&input) {
-            Type::Struct("User", fields) => {
-                let expected = [
-                    TypedIdent {
-                        ident: "id",
-                        type_: Type::Primitive("i64", PrimitiveType::I64),
+        let expected = ArgType::Struct {
+            var_name: "user",
+            type_name: "User",
+            fields: vec![
+                TypedIdent {
+                    ident: "id",
+                    type_: SimpleType::Primitive {
+                        inner: "i64",
+                        type_: PrimitiveType::I64,
                     },
-                    TypedIdent {
-                        ident: "name",
-                        type_: Type::Primitive("str", PrimitiveType::Str),
+                },
+                TypedIdent {
+                    ident: "name",
+                    type_: SimpleType::Primitive {
+                        inner: "str",
+                        type_: PrimitiveType::Str,
                     },
-                ];
-                assert_eq!(&fields, &expected);
-            }
-            _ => panic!("Incorrect type for this parameter."),
-        }
+                },
+            ],
+        };
+
+        let query = check_and_resolve_query(input).unwrap();
+        assert_eq!(query.arguments.resolve(&input), expected);
     }
 
     #[test]
@@ -571,7 +449,7 @@ mod test {
           -- @query iterate_parents() ->* Node
           select
             id        /* :i64 */,
-            parent_id /* :option<i64> */
+            parent_id /* :Option<i64> */
           from
             nodes
           ;";
