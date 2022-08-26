@@ -124,7 +124,7 @@ fn write_simple_type(
     match type_ {
         SimpleType::Primitive { type_: t, .. } => write_primitive_type(out, owned, *t)?,
         SimpleType::Option { type_: t, .. } => {
-            write!(out, "option<")?;
+            write!(out, "Option<")?;
             write_primitive_type(out, owned, *t)?;
             write!(out, ">")?;
         }
@@ -353,7 +353,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             }
 
             if let Some(type_) = query.annotation.result_type.get() {
-                write!(out, "    let decode_row = |statement| Ok(")?;
+                write!(out, "    let decode_row = |statement: &Statement| Ok(")?;
                 write_return_value(out, 0, type_.resolve(input))?;
                 writeln!(out, ");")?;
             }
