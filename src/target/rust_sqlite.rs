@@ -290,11 +290,15 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "///{}", doc_line.resolve(input))?;
             }
 
-            write!(
-                out,
-                "pub fn {}(tx: &mut Transaction",
-                ann.name.resolve(input)
-            )?;
+            write!(out, "pub fn {}", ann.name.resolve(input))?;
+            match &ann.result_type {
+                ResultType::Iterator(..) => {
+                    write!(out, "<'t, 'a>(tx: &'t mut Transaction<'t, 'a>")?;
+                }
+                _ => {
+                    write!(out, "(tx: &mut Transaction")?;
+                }
+            }
 
             match &ann.arguments {
                 ArgType::Args(args) => {
@@ -329,11 +333,9 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                 }
                 ResultType::Iterator(t) => {
-                    // TODO: We can actually give the type here, it's not that
-                    // bad, but the lifetimes are a bit unwieldy.
-                    write!(out, "impl Iterator<Item=Result<")?;
+                    write!(out, "Iter<'t, 'a, ")?;
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
-                    write!(out, ">>")?;
+                    write!(out, ">")?;
                 }
             }
             writeln!(out, "> {{")?;

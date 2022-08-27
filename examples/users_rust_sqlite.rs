@@ -231,7 +231,7 @@ pub struct User3 {
 }
 
 /// Iterate over all users ordered by id.
-pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item=Result<User3>>> {
+pub fn select_all_users<'t, 'a>(tx: &'t mut Transaction<'t, 'a>) -> Result<Iter<'t, 'a, User3>> {
     let sql = r#"
 select
   id,
