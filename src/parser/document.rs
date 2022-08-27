@@ -493,11 +493,10 @@ mod test {
 
     #[test]
     fn parse_section_handles_newline_in_annotation() {
-        // TODO: In the past we allowed a trailing comma, restore that possibility.
         let input = "
         -- @query multiline_signature(
         --   key: str,
-        --   value: str
+        --   value: str,
         -- ) ->* i64
         SELECT * FROM kv;
         ";

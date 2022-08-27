@@ -4,8 +4,8 @@
 select 1 from users where id = :id /* :i64 */;
 
 
- --> stdin:3:21
+ --> stdin:3:16
   |
 3 | -- @query f(u1: User1, u2: User2)
-  |                      ^
-Error: Expected a ')' here, queries that take a struct can only take a single argument.
+  |                 ^~~~~
+Error: Struct arguments can only be used in queries that take a single argument.

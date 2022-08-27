@@ -292,81 +292,101 @@ impl<'a> Parser<'a> {
         )?;
 
         let start_span = self.tokens[self.cursor - 1].1;
-        let mut arguments = Vec::new();
 
-        match self.peek() {
-            Some(Token::RParen) => {
-                self.consume();
-                return Ok(ArgType::Args(arguments));
-            }
-            Some(Token::Ident) => {
-                let ident = self.consume();
-                self.expect_consume(
-                    Token::Colon,
-                    "Expected a ':' here before the start of the type.",
-                )?;
-                let type_name = self.expect_consume(Token::Ident, "Expected a type here.")?;
-
-                // TODO: Deduplicate this between parse_complex_type.
-                let is_struct = type_name
-                    .resolve(self.input)
-                    .chars()
-                    .next()
-                    .expect("Parser does not produce empty spans.")
-                    .is_ascii_uppercase();
-
-                if is_struct {
-                    // TODO: This makes the trailing comma disallowed, which is
-                    // a bit inconsistent if we do allow it after a single non-
-                    // struct arg.
-                    self.expect_consume(
-                        Token::RParen,
-                        "Expected a ')' here, queries that take a struct \
-                        can only take a single argument.",
-                    )?;
-                    let result = ArgType::Struct {
-                        var_name: ident,
-                        type_name: type_name,
-                        fields: Vec::new(),
-                    };
-                    return Ok(result);
-                } else {
-                    // Unconsume the identifier that we already consumed, we
-                    // will parse a simple type instead.
-                    self.cursor -= 1;
-                    let arg = TypedIdent {
-                        ident: ident,
-                        type_: self.parse_simple_type()?,
-                    };
-                    arguments.push(arg);
-                }
-            }
-            Some(_unexpected) => {
-                return self.error(
-                    "Unexpected token in query arguments, expected ')' or an identifier here.",
-                )
-            }
-            None => {
-                return self.error_with_note(
-                    "Unexpected end of input, expected ')' to close the query arguments.",
-                    start_span,
-                    "Unmatched '(' opened here.",
-                )
-            }
-        }
-
+        // We first do a pass to collect all arguments as complex types, and
+        // then later we validate.
+        let mut arguments: Vec<(Span, ComplexType)> = Vec::new();
         loop {
             if let Some(Token::RParen) = self.peek() {
                 self.consume();
-                return Ok(ArgType::Args(arguments));
+                break;
             }
 
-            // For now, the parser is simpler if we don't allow a trailing comma.
-            // Only allow it here, before the start of the next argument.
-            self.expect_consume(Token::Comma, "Expected a ',' here.")?;
+            let ident = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
+            self.expect_consume(
+                Token::Colon,
+                "Expected a ':' here before the start of the type.",
+            )?;
+            let type_ = self.parse_complex_type()?;
 
-            arguments.push(self.parse_typed_ident()?);
+            arguments.push((ident, type_));
+
+            match self.peek() {
+                Some(Token::RParen) => {
+                    self.consume();
+                    break;
+                }
+                Some(Token::Comma) => {
+                    self.consume();
+                    continue;
+                }
+                Some(_unexpected) => {
+                    return self
+                        .error("Unexpected token in query arguments, expected ')' or ',' here.")
+                }
+                None => {
+                    return self.error_with_note(
+                        "Unexpected end of input, expected ')' to close the query arguments.",
+                        start_span,
+                        "Unmatched '(' opened here.",
+                    )
+                }
+            }
         }
+
+        let err_tuple = |span: Span| {
+            Err(ParseError {
+                span,
+                message: "Tuples can only be used in result types, not in arguments.",
+                note: None,
+            })
+        };
+
+        match arguments.len() {
+            0 => return Ok(ArgType::Args(Vec::new())),
+            1 => match arguments.pop().unwrap() {
+                (var_name, ComplexType::Struct(type_name, fields)) => {
+                    let result = ArgType::Struct {
+                        var_name,
+                        type_name,
+                        fields,
+                    };
+                    return Ok(result);
+                }
+                (_, ComplexType::Tuple(span, _fields)) => return err_tuple(span),
+                (var_name, ComplexType::Simple(t)) => {
+                    let ti = TypedIdent {
+                        ident: var_name,
+                        type_: t,
+                    };
+                    return Ok(ArgType::Args(vec![ti]));
+                }
+            },
+            _ => {}
+        }
+
+        let mut simple_args = Vec::with_capacity(arguments.len());
+        for (var_name, arg) in arguments.drain(..) {
+            match arg {
+                ComplexType::Struct(type_name, _fields) => {
+                    return Err(ParseError {
+                        span: type_name,
+                        message: "Struct arguments can only be used in queries that take a single argument.",
+                        note: None,
+                    });
+                }
+                ComplexType::Tuple(span, _fields) => return err_tuple(span),
+                ComplexType::Simple(t) => {
+                    let ti = TypedIdent {
+                        ident: var_name,
+                        type_: t,
+                    };
+                    simple_args.push(ti);
+                }
+            }
+        }
+
+        Ok(ArgType::Args(simple_args))
     }
 
     pub fn parse_annotation(&mut self) -> PResult<Annotation> {
@@ -592,11 +612,10 @@ mod test {
             assert_eq!(result, expected);
         });
 
-        // Test with wonky whitespace. In the past we tested trailing comma as
-        // well, but now it is no longer allowed in the grammar to keep the
-        // parser simpler.
+        // Test with wonky whitespace, and a trailing comma.
         let inputs: &[&'static str] = &[
             "@query delete_user_by_id(id: i64)",
+            "@query delete_user_by_id(id: i64,)",
             "@query delete_user_by_id( id : i64 )",
         ];
         for input in inputs {
