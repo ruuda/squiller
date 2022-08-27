@@ -87,7 +87,7 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
 const GET_STATEMENT: &'static str = r#"
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
 "#;

@@ -79,7 +79,7 @@ create table if not exists users
   );
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -101,7 +101,7 @@ returning
   id;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -135,7 +135,7 @@ returning
   email;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -169,7 +169,7 @@ returning
   id;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -207,7 +207,7 @@ where
   id = :id;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -243,7 +243,7 @@ order by
   id asc;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -266,7 +266,7 @@ from
   users;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -295,7 +295,7 @@ limit
   1;
     "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(mut e) => e.get_mut(),
+        Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
