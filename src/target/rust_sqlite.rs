@@ -294,7 +294,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             write!(out, "pub fn {}", ann.name.resolve(input))?;
             match &ann.result_type {
                 ResultType::Iterator(..) => {
-                    write!(out, "<'t, 'a>(tx: &'t mut Transaction<'t, 'a>")?;
+                    write!(out, "<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>")?;
                 }
                 _ => {
                     write!(out, "(tx: &mut Transaction")?;
@@ -334,7 +334,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                 }
                 ResultType::Iterator(t) => {
-                    write!(out, "Iter<'t, 'a, ")?;
+                    write!(out, "Iter<'i, 'a, ")?;
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                     write!(out, ">")?;
                 }
