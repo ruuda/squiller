@@ -20,6 +20,11 @@ pub struct Transaction<'tx, 'a> {
     statements: &'tx mut HashMap<*const u8, Statement<'a>>,
 }
 
+pub struct Iter<'i, 'a, T> {
+    statement: &'i mut Statement<'a>,
+    decode_row: fn(&Statement<'a>) -> Result<T>,
+}
+
 impl<'a> Connection<'a> {
     pub fn new(connection: &'a sqlite::Connection) -> Self {
         Self {
@@ -53,6 +58,18 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
     }
 }
 
+impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
+    type Item = Result<T>;
+
+    fn next(&mut self) -> Option<Result<T>> {
+        match self.statement.next() {
+            Ok(Row) => Some((self.decode_row)(self.statement)),
+            Ok(Done) => None,
+            Err(err) => Some(Err(err)),
+        }
+    }
+}
+
 pub fn setup_schema(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
 create table if not exists users
@@ -61,8 +78,8 @@ create table if not exists users
   , email string not null
   );
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -83,8 +100,8 @@ values
 returning
   id;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -117,8 +134,8 @@ returning
   name,
   email;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -151,13 +168,13 @@ values
 returning
   id;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    statement.bind(1, name)?;
-    statement.bind(2, email)?;
+    statement.bind(1, user.name)?;
+    statement.bind(2, user.email)?;
     let decode_row = |statement: &Statement| Ok(statement.read(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
@@ -189,8 +206,8 @@ from
 where
   id = :id;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -214,7 +231,7 @@ pub struct User3 {
 }
 
 /// Iterate over all users ordered by id.
-pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item = User3>> {
+pub fn select_all_users(tx: &mut Transaction) -> Result<impl Iterator<Item=Result<User3>>> {
     let sql = r#"
 select
   id,
@@ -225,8 +242,8 @@ from
 order by
   id asc;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -235,7 +252,7 @@ order by
         name: statement.read(1)?,
         email: statement.read(2)?,
     });
-    let result = todo!("Implement iterators.");
+    let result = Iter { statement, decode_row };
     Ok(result)
 }
 
@@ -248,8 +265,8 @@ select
 from
   users;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
@@ -277,8 +294,8 @@ order by
 limit
   1;
     "#;
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;

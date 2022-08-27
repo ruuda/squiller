@@ -31,6 +31,11 @@ pub struct Transaction<'tx, 'a> {
     statements: &'tx mut HashMap<*const u8, Statement<'a>>,
 }
 
+pub struct Iter<'i, 'a, T> {
+    statement: &'i mut Statement<'a>,
+    decode_row: fn(&Statement<'a>) -> Result<T>,
+}
+
 impl<'a> Connection<'a> {
     pub fn new(connection: &'a sqlite::Connection) -> Self {
         Self {
@@ -63,14 +68,26 @@ impl<'tx, 'a> Transaction<'tx, 'a> {
         self.connection.execute("ROLLBACK;")
     }
 }
+
+impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
+    type Item = Result<T>;
+
+    fn next(&mut self) -> Option<Result<T>> {
+        match self.statement.next() {
+            Ok(Row) => Some((self.decode_row)(self.statement)),
+            Ok(Done) => None,
+            Err(err) => Some(Err(err)),
+        }
+    }
+}
 "#;
 
 // It would be nice if we could make a method for this instead of repeating the
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
 const GET_STATEMENT: &'static str = r#"
-    let mut statement = match tx.statements.entry(sql.as_ptr()) {
-        Occupied(entry) => entry.get_mut(),
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(mut e) => e.get_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
 "#;
@@ -312,9 +329,11 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
                 }
                 ResultType::Iterator(t) => {
-                    write!(out, "impl Iterator<Item = ")?;
+                    // TODO: We can actually give the type here, it's not that
+                    // bad, but the lifetimes are a bit unwieldy.
+                    write!(out, "impl Iterator<Item=Result<")?;
                     write_complex_type(out, Ownership::Owned, &t.resolve(input))?;
-                    write!(out, ">")?;
+                    write!(out, ">>")?;
                 }
             }
             writeln!(out, "> {{")?;
@@ -342,14 +361,19 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
 
             // Next we bind all query parameters.
-            // TODO: If the input is a struct, we need to generate field lookups
-            // here. What is a principled way of doing that? It feels ad-hoc to
-            // match every time here.
+            let prefix = &match query.annotation.arguments {
+                ArgType::Struct { var_name, .. } => {
+                    let mut prefix = var_name.resolve(input).to_string();
+                    prefix.push('.');
+                    prefix
+                }
+                _ => String::new(),
+            };
             writeln!(out, "    statement.reset()?;")?;
             for (i, param) in (1..).zip(query.iter_parameters()) {
                 // Cut off the leading ':' from the parameter name.
                 let variable_name = param.trim_start(1).resolve(input);
-                writeln!(out, "    statement.bind({}, {})?;", i, variable_name)?;
+                writeln!(out, "    statement.bind({}, {}{})?;", i, prefix, variable_name)?;
             }
 
             if let Some(type_) = query.annotation.result_type.get() {
@@ -388,7 +412,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     // that no rows are returned? Maybe only in debug mode?
                 }
                 ResultType::Iterator(..) => {
-                    writeln!(out, "    let result = todo!(\"Implement iterators.\");")?;
+                    writeln!(out, "    let result = Iter {{ statement, decode_row }};")?;
                 }
             }
 
