@@ -190,7 +190,8 @@ fn write_struct_definition(
     });
 
     // TODO: Would be nice to generate docs for cross-referencing.
-    write!(out, "\npub struct {}", name)?;
+    writeln!(out, "\n#[derive(Debug)]")?;
+    write!(out, "pub struct {}", name)?;
 
     if has_lifetime_types && owned == Ownership::BorrowNamed {
         write!(out, "<'a>")?;

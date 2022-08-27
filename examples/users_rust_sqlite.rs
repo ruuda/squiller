@@ -115,6 +115,7 @@ returning
     Ok(result)
 }
 
+#[derive(Debug)]
 pub struct User1 {
     pub id: i64,
     pub name: String,
@@ -153,6 +154,7 @@ returning
     Ok(result)
 }
 
+#[derive(Debug)]
 pub struct InsertUser<'a> {
     pub name: &'a str,
     pub email: &'a str,
@@ -183,6 +185,7 @@ returning
     Ok(result)
 }
 
+#[derive(Debug)]
 pub struct User2 {
     pub id: i64,
     pub name: String,
@@ -224,6 +227,7 @@ where
     Ok(result)
 }
 
+#[derive(Debug)]
 pub struct User3 {
     pub id: i64,
     pub name: String,
