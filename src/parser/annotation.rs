@@ -206,9 +206,25 @@ impl<'a> Parser<'a> {
                     }
                     Err(err) => return Err(err),
                 };
-                let result = SimpleType::Primitive {
-                    inner: inner,
-                    type_: primitive,
+                // If a primitive type is followed by a question mark, that
+                // makes it an option type, if it's followed by anything else,
+                // it remains primitive.
+                let result = match self.peek_with_span() {
+                    Some((Token::Question, end_span)) => {
+                        self.consume();
+                        SimpleType::Option {
+                            outer: Span {
+                                start: inner.start,
+                                end: end_span.end,
+                            },
+                            inner: inner,
+                            type_: primitive,
+                        }
+                    }
+                    _ => SimpleType::Primitive {
+                        inner: inner,
+                        type_: primitive,
+                    },
                 };
                 Ok(result)
             }
@@ -510,6 +526,17 @@ mod test {
             let expected = SimpleType::Option {
                 inner: "i64",
                 outer: "option<i64>",
+                type_: PrimitiveType::I64,
+            };
+            assert_eq!(result, expected);
+        });
+
+        let input = "i64 ?";
+        with_parser(input, |p| {
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Option {
+                inner: "i64",
+                outer: "i64 ?",
                 type_: PrimitiveType::I64,
             };
             assert_eq!(result, expected);

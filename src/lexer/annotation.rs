@@ -15,12 +15,14 @@ pub enum Token {
     Ident,
     LParen,
     RParen,
+    // TODO: We don't need these any more after replacing option<T> with T?.
     Lt,
     Gt,
     Colon,
     Semicolon,
     Comma,
     Minus,
+    Question,
     /// A bare arrow is invalid in the grammar, but we have it here to be able
     /// to generate more helpful error messages.
     Arrow,
@@ -131,6 +133,10 @@ impl<'a> Lexer<'a> {
         }
         if input[0] == b';' {
             self.push(Token::Semicolon, 1);
+            return (self.start + 1, State::Base);
+        }
+        if input[0] == b'?' {
+            self.push(Token::Question, 1);
             return (self.start + 1, State::Base);
         }
         if input[0] == b',' {
