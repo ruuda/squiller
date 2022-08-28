@@ -531,6 +531,17 @@ mod test {
             assert_eq!(result, expected);
         });
 
+        let input = "i64?";
+        with_parser(input, |p| {
+            let result = p.parse_simple_type().unwrap().resolve(input);
+            let expected = SimpleType::Option {
+                inner: "i64",
+                outer: "i64?",
+                type_: PrimitiveType::I64,
+            };
+            assert_eq!(result, expected);
+        });
+
         let input = "i64 ?";
         with_parser(input, |p| {
             let result = p.parse_simple_type().unwrap().resolve(input);

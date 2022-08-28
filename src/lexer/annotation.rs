@@ -204,7 +204,7 @@ impl<'a> Lexer<'a> {
         // Anything else aside from whitespace can be part of an "identifier",
         // in particular &. This means that "&str" can be an identifier, which
         // makes dealing with types a bit easier.
-        let end_chars = b",;:-<>()";
+        let end_chars = b",;:?-<>()";
         self.lex_skip_then_while(
             0,
             |ch| !ch.is_ascii_whitespace() && !end_chars.contains(&ch),
@@ -360,5 +360,13 @@ mod test {
 
         assert_eq!(token, Token::Ident);
         assert_eq!(token_span, span);
+    }
+
+    #[test]
+    fn lex_question_mark_is_token() {
+        // This is a regression test for a bug in parsing ? as a token, when
+        // that was first added.
+        let input = "i64?";
+        test_tokens(input, &[(Token::Ident, "i64"), (Token::Question, "?")]);
     }
 }
