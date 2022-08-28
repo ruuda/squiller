@@ -11,8 +11,8 @@
 "->?"
 "->1"
 "->*"
-"Option<"
-"Iterator<"
+"option<"
+">"
 # Not magic, but put something in there that starts with a capital.
 "User"
 # Not magic, but put at least one query parameter in there.
