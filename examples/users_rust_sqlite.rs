@@ -261,7 +261,7 @@ order by
 }
 
 /// Select the length of the longest email address.
-/// Note, `max` returns null when the table is empty, hence the `option`.
+/// Note, `max` returns null when the table is empty, hence the `?` on the `i64`.
 pub fn select_longest_email_length(tx: &mut Transaction) -> Result<Option<i64>> {
     let sql = r#"
 select

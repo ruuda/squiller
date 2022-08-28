@@ -71,8 +71,8 @@ order by
   id asc;
 
 -- Select the length of the longest email address.
--- Note, `max` returns null when the table is empty, hence the `option`.
--- @query select_longest_email_length() ->1 option<i64>
+-- Note, `max` returns null when the table is empty, hence the `?` on the `i64`.
+-- @query select_longest_email_length() ->1 i64?
 select
   max(length(email))
 from

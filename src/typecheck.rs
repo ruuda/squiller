@@ -449,7 +449,7 @@ mod test {
           -- @query iterate_parents() ->* Node
           select
             id        /* :i64 */,
-            parent_id /* :option<i64> */
+            parent_id /* :i64? */
           from
             nodes
           ;";
@@ -469,7 +469,7 @@ mod test {
                         TypedIdent {
                             ident: "parent_id",
                             type_: SimpleType::Option {
-                                outer: "option<i64>",
+                                outer: "i64?",
                                 inner: "i64",
                                 type_: PrimitiveType::I64,
                             },

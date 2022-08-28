@@ -15,9 +15,6 @@ pub enum Token {
     Ident,
     LParen,
     RParen,
-    // TODO: We don't need these any more after replacing option<T> with T?.
-    Lt,
-    Gt,
     Colon,
     Semicolon,
     Comma,
@@ -119,14 +116,6 @@ impl<'a> Lexer<'a> {
             self.push(Token::RParen, 1);
             return (self.start + 1, State::Base);
         }
-        if input[0] == b'<' {
-            self.push(Token::Lt, 1);
-            return (self.start + 1, State::Base);
-        }
-        if input[0] == b'>' {
-            self.push(Token::Gt, 1);
-            return (self.start + 1, State::Base);
-        }
         if input[0] == b':' {
             self.push(Token::Colon, 1);
             return (self.start + 1, State::Base);
@@ -201,10 +190,8 @@ impl<'a> Lexer<'a> {
 
     fn lex_in_ident(&mut self) -> (usize, State) {
         // The following characters are or may start punctuation of their own.
-        // Anything else aside from whitespace can be part of an "identifier",
-        // in particular &. This means that "&str" can be an identifier, which
-        // makes dealing with types a bit easier.
-        let end_chars = b",;:?-<>()";
+        // Anything else aside from whitespace can be part of an "identifier".
+        let end_chars = b",;:?-()";
         self.lex_skip_then_while(
             0,
             |ch| !ch.is_ascii_whitespace() && !end_chars.contains(&ch),
@@ -262,17 +249,15 @@ mod test {
     #[test]
     fn test_lex_generic_return_type() {
         test_tokens(
-            "@query get_foo ( ) -> Option<User>;",
+            "@query get_foo ( ) -> User?;",
             &[
                 (Token::Annotation, "@query"),
                 (Token::Ident, "get_foo"),
                 (Token::LParen, "("),
                 (Token::RParen, ")"),
                 (Token::Arrow, "->"),
-                (Token::Ident, "Option"),
-                (Token::Lt, "<"),
                 (Token::Ident, "User"),
-                (Token::Gt, ">"),
+                (Token::Question, "?"),
                 (Token::Semicolon, ";"),
             ],
         );

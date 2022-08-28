@@ -170,65 +170,26 @@ impl<'a> Parser<'a> {
 
     /// Parse a simple type (primitive or option).
     pub fn parse_simple_type(&mut self) -> PResult<SimpleType> {
-        // We list some alternative spellings of types that people might
-        // reasonably expect to work, so we can point them in the right
-        // direction in the error message.
-        let alt_opt = ["option", "optional", "maybe", "null", "nullable"];
-        let span = match self.peek_with_span() {
-            Some((Token::Ident, span)) => span,
-            Some(_not_ident) => return self.error("Expected a simple type here."),
-            None => return self.error("Unexpected end of input, expected a simple type here."),
+        let (inner, primitive) = self.parse_primitive_type()?;
+
+        // If a primitive type is followed by a question mark, that
+        // makes it an option type, if it's followed by anything else,
+        // it remains primitive.
+        let result = match self.peek() {
+            Some(Token::Question) => SimpleType::Option {
+                outer: Span {
+                    start: inner.start,
+                    end: self.consume().end,
+                },
+                inner: inner,
+                type_: primitive,
+            },
+            _ => SimpleType::Primitive {
+                inner: inner,
+                type_: primitive,
+            },
         };
-        match span.resolve(self.input) {
-            "option" => {
-                self.consume();
-                self.expect_consume(Token::Lt, "Expected a '<' after 'option'.")?;
-                let (inner, primitive) = self.parse_primitive_type()?;
-                self.expect_consume(Token::Gt, "Expected a '>' here to close the 'option<'.")?;
-                let result = SimpleType::Option {
-                    outer: Span {
-                        start: span.start,
-                        end: self.previous_span().end,
-                    },
-                    inner: inner,
-                    type_: primitive,
-                };
-                Ok(result)
-            }
-            name => {
-                let (inner, primitive) = match self.parse_primitive_type() {
-                    Ok(t) => t,
-                    // If we failed to parse a primitive type, but it looks like
-                    // the user might have meant to write an option, use a tailored
-                    // error message to point the user in the right direction.
-                    Err(..) if alt_opt.contains(&&name.to_ascii_lowercase()[..]) => {
-                        return self.error("Unknown type, did you mean 'Option'?");
-                    }
-                    Err(err) => return Err(err),
-                };
-                // If a primitive type is followed by a question mark, that
-                // makes it an option type, if it's followed by anything else,
-                // it remains primitive.
-                let result = match self.peek_with_span() {
-                    Some((Token::Question, end_span)) => {
-                        self.consume();
-                        SimpleType::Option {
-                            outer: Span {
-                                start: inner.start,
-                                end: end_span.end,
-                            },
-                            inner: inner,
-                            type_: primitive,
-                        }
-                    }
-                    _ => SimpleType::Primitive {
-                        inner: inner,
-                        type_: primitive,
-                    },
-                };
-                Ok(result)
-            }
-        }
+        Ok(result)
     }
 
     /// Parse a complex type.
@@ -520,17 +481,6 @@ mod test {
 
     #[test]
     fn test_parse_simple_type_option() {
-        let input = "option<i64>";
-        with_parser(input, |p| {
-            let result = p.parse_simple_type().unwrap().resolve(input);
-            let expected = SimpleType::Option {
-                inner: "i64",
-                outer: "option<i64>",
-                type_: PrimitiveType::I64,
-            };
-            assert_eq!(result, expected);
-        });
-
         let input = "i64?";
         with_parser(input, |p| {
             let result = p.parse_simple_type().unwrap().resolve(input);
@@ -553,10 +503,9 @@ mod test {
             assert_eq!(result, expected);
         });
 
-        // The "generics" we support, only support a single type argument.
-        // A comma is a syntax error.
-        let input = "option<i64, i64>";
-        with_parser(input, |p| assert!(p.parse_simple_type().is_err()));
+        // Try a few syntax errors as well.
+        with_parser("(i64)?", |p| assert!(p.parse_simple_type().is_err()));
+        with_parser("(i64?)", |p| assert!(p.parse_simple_type().is_err()));
     }
 
     #[test]
