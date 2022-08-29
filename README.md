@@ -1,14 +1,14 @@
 # Querybinder
 
-Querybinder generates Rust code from annotated SQL queries.
+Querybinder generates boilerplate code from annotated SQL queries.
 
-Working with SQL in statically typed languages is often tedious. You need to
-explicitly bind values to parameters, and extract the resulting values for every
-column with the right type. Querybinder can generate this boilerplate code from
-a SQL file, based on a few minimal annotations.
+Working with SQL is often tedious, especially in statically typed settings. You
+need to explicitly bind values to parameters, and extract the resulting values
+for every column with the right type. Querybinder can generate this boilerplate
+code from a SQL file, based on annotations in comments.
 
-**Vaporware warning**: This is a work in progress. It does not actually generate
-any code yet right now.
+**Vaporware warning**: This is a work in progress. Basic code generation for
+`rust-sqlite` works, but the project is pre-alpha quality.
 
 ## Example
 
