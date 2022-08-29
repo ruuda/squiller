@@ -7,7 +7,8 @@ theme:
 nav:
   - Overview: index.md
   - User guide:
-    - Terminology: terminology.md
+    - Usage: usage.md
+    - Annotating queries: annotating-queries.md
     - Data types: datatypes.md
   - Development:
     - Building: building.md
