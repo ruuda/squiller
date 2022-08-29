@@ -1,0 +1,13 @@
+-- @query naughty_quotes() ->1 User
+select
+  "user.name"  /* :str */,
+  "user.email" /* :str */
+from
+  users;
+
+
+ --> stdin:3:17
+  |
+3 |   "user.name"  /* :str */,
+  |                  ^~~~~~
+Error: Invalid type annotation, expected an identifier or parameter before the annotation.
