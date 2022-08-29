@@ -22,7 +22,7 @@ from users
 where name = :name;
 ```
 
-When targeting Rust and the `sqlite` crate, would generate:
+When targeting Rust and the `sqlite` crate, Querybinder would generate:
 
 ```rust
 struct User {

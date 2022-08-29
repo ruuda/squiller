@@ -9,3 +9,66 @@ code from a SQL file, based on annotations in comments.
 
 _Vaporware warning: This is a work in progress. Basic code generation for
 rust-sqlite works, but the project is pre-alpha quality._
+
+## Example
+
+Given the following input:
+
+```sql
+-- Look up a user by username.
+-- @query get_user_by_name(name: str) ->? User
+select
+  id    /* :i64 */,
+  name  /* :str */,
+  email /* :str */
+from
+  users
+where
+  name = :name;
+```
+
+When targeting Rust and the `sqlite` crate, Querybinder would generate
+roughly*:
+
+```rust
+struct User {
+    id: i64,
+    name: String,
+    email: String,
+}
+
+/// Look up a user by username.
+pub fn get_user_by_name(
+    tx: &mut Transaction,
+    name: &str
+) -> Result<Option<User>> {
+    let mut statement = tx.prepare(
+        r#"
+        select
+          id,
+          name,
+          email
+        from
+          users
+        where
+          name = :name;
+        "#
+    )?;
+    statement.bind(1, name)?;
+    match statement.next()? {
+        State::Done => Ok(None),
+        State::Row => {
+            let result = User {
+                id: statement.read(0)?,
+                name: statement.read(1)?,
+                email: statement.read(2)?,
+            };
+            Ok(Some(result))
+        }
+    }
+}
+```
+
+\* In reality the generated code is a bit more verbose, on the one
+hand to make it easier to generate, and on the other hand to cache the prepared
+statement in a hash table, instead of preparing it every call.
