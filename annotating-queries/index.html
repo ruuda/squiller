@@ -1,0 +1,585 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    Kilsbergen MkDocs theme copyright 2019 Ruud van Asseldonk.
+    Licensed under the Apache 2.0 license.
+    See https://github.com/ruuda/kilsbergen.
+  -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Annotating queries — Querybinder</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
+  <style>
+  /* The Inter font family, see https://rsms.me/inter.
+     https://rsms.me/inter/#faq-cdn suggests that linking these files directly is fine.
+  */
+  @font-face {
+    font-family: Inter;
+    font-style:  normal;
+    font-weight: 400;
+    src: url("https://rsms.me/inter/font-files/Inter-Regular.woff2?v=3.11") format("woff2"),
+         url("https://rsms.me/inter/font-files/Inter-Regular.woff?v=3.11") format("woff");
+  }
+  @font-face {
+    font-family: Inter;
+    font-style:  italic;
+    font-weight: 400;
+    src: url("https://rsms.me/inter/font-files/Inter-Italic.woff2?v=3.11") format("woff2"),
+         url("https://rsms.me/inter/font-files/Inter-Italic.woff?v=3.11") format("woff");
+  }
+  @font-face {
+    font-family: Inter;
+    font-style:  normal;
+    font-weight: 500;
+    src: url("https://rsms.me/inter/font-files/Inter-Medium.woff2?v=3.11") format("woff2"),
+         url("https://rsms.me/inter/font-files/Inter-Medium.woff?v=3.11") format("woff");
+  }
+  @font-face {
+    font-family: Inter;
+    font-style:  normal;
+    font-weight: 600;
+    src: url("https://rsms.me/inter/font-files/Inter-SemiBold.woff2?v=3.11") format("woff2"),
+         url("https://rsms.me/inter/font-files/Inter-SemiBold.woff?v=3.11") format("woff");
+  }
+  @font-face {
+    font-family: Inter;
+    font-style:  normal;
+    font-weight: 700;
+    src: url("https://rsms.me/inter/font-files/Inter-Bold.woff2?v=3.11") format("woff2"),
+         url("https://rsms.me/inter/font-files/Inter-Bold.woff?v=3.11") format("woff");
+  }
+  /* Modular scale with exponent 1.7^(1/3). The 1.7 was chosen as the line hight
+     that goes well with Inter. Previously I used 1.59, but it was just too tight.
+     0.59em
+     0.70em
+     1.00em
+     1.19em
+     1.42em
+     1.70em
+     2.02em
+     2.42em
+  */
+  * { margin: 0; padding: 0; border-spacing: 0; }
+  html {
+    font-family: Inter, Roboto, sans-serif;
+    /*
+    Turn on character variant 8 for Inter, which puts serifs on the uppercase I.
+    Also turn on variant 1, which has a curved 1.
+    Disable contextual alternates for now. There is a bug, either in Inter or
+    in Chrome (https://crbug.com/1046095) that causes colons after a <strong> to
+    be raised above the baseline.
+    */
+    font-feature-settings: 'cv01' 1, 'cv08' 1, 'calt' 0;
+
+    font-size: 16px;
+    line-height: 1.7em;
+    background-color: #fff;
+    height: 100%;
+  }
+  body {
+    height: 100%;
+  }
+  #content {
+    display: grid;
+    grid-template-columns: auto 16rem 50rem auto;
+    color: #333;
+    min-height: 100%;
+  }
+  #main {
+    grid-area: 1 / 3 / 2 / 4;
+    padding: 2.2rem;
+    padding-left: 4rem;
+    padding-right: 4rem;
+    overflow: hidden;
+  }
+  #breadcrumbs {
+    margin-bottom: 3rem;
+    word-spacing: 0.3em;
+    color: #78a;
+  }
+  #breadcrumbs a {
+    word-spacing: 0;
+    color: #78a;
+  }
+  article {
+    margin-top: 1.3rem;
+  }
+  h1, h2, h3 {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #444;
+  }
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 2.1rem;
+    line-height: 2.42rem;
+    margin-top: -0.35rem;
+    margin-bottom: 1.75rem;
+  }
+  h2 {
+    font-size: 1.42rem;
+    margin-top: 3.5rem;
+    margin-bottom: 1.6rem;
+  }
+  code {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.84rem;
+    line-height: 1.5rem;
+  }
+  h3 > code {
+    /* Roboto Mono 500 is about as heavy as Inter semibold (600). */
+    font-weight: 500;
+  }
+  abbr {
+    text-transform: uppercase;
+    /* Downsize so caps are x-height, and compensate weight loss. */
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.05rem;
+    /* Prevent abbrs from changing the line height of lines in which they occur. */
+    line-height: 0;
+  }
+  sub, sup {
+    /* Don't disturb the line height of normal text. */
+    line-height: 0rem;
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  p > code,
+  a > code,
+  h3 > code,
+  li > code,
+  td > code,
+  dt > code,
+  dd > code {
+    background-color: #f0f0f0;
+    padding: 0.13rem;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    border-radius: 0.2rem;
+    line-height: 1rem;
+  }
+  h3 {
+    padding-top: 0.9rem;
+    padding-bottom: 0.8rem;
+  }
+  h3 > code {
+    margin-left: -0.1rem;
+  }
+  a {
+    color: #36d;
+    text-decoration: none;
+  }
+  p, ul, ol, dl, pre, table {
+    /* Same space as line height, leave exactly one line blank. */
+    margin-bottom: 1.7rem;
+  }
+  pre {
+    padding-top: 0.8rem;
+    padding-bottom: 0.9rem;
+    padding-left: 1.19rem;
+    padding-right: 0;
+    background-color: #f8f8f8;
+    border-radius: 0 0.2rem 0.2rem 0;
+    border-left: 0.3rem solid #d5d8e0;
+    overflow-x: auto;
+  }
+  pre > code {
+    margin-right: 1.41rem;
+    color: #555;
+  }
+  ul, ol {
+    list-style-type: none;
+    counter-reset: item;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  th, td {
+    padding-right: 2rem;
+  }
+  th {
+    text-align: left;
+  }
+  td > img {
+    display: block;
+    padding-top: 1em;
+    padding-bottom: 1em;
+  }
+  dl {
+    display: grid;
+    grid-template-columns: 1fr 4fr;
+    grid-column-gap: 2em;
+  }
+  dl dt {
+    text-align: right;
+  }
+  #main ul li:before {
+    color: #555;
+    content: '\2022';
+    display: inline-block;
+    font-weight: 700;
+    margin-left: -0.9rem;
+    width: 0.9rem;
+  }
+  #main ul li {
+    margin-left: 0.87rem;
+  }
+  #main ol li:before {
+    content: counter(item);
+    display: inline-block;
+    font-weight: 700;
+    width: 0.8rem;
+    margin-left: -1.6rem;
+    padding-right: 0.8rem;
+  }
+  #main ol li {
+    margin-left: 1.6rem;
+    counter-increment: item;
+  }
+  #nav-prev-next {
+    margin-top: 3.4rem;
+    padding-bottom: 3.3rem;
+  }
+  #nav-prev, #nav-next, #repo-link {
+    display: inline-block;
+  }
+  #nav-prev {
+    float: left;
+  }
+  #nav-next, #repo-link {
+    float: right;
+    text-align: right;
+  }
+  #nav-prev::before {
+    content: '\219e';
+    padding-right: 0.5em;
+  }
+  #nav-next::after {
+    content: '\21a0';
+    padding-left: 0.5em;
+  }
+  aside {
+    grid-area: 1 / 1 / 2 / 3;
+    border-right: 1px solid #eee;
+    background-color: #fafafa;
+    color: #78a;
+  }
+  aside nav {
+    margin-top: 9rem;
+    padding-bottom: 3.4rem;
+    width: 14rem;
+    float: right;
+    /* Put the active chapter border over the sidebar border. */
+    margin-right: -1px;
+  }
+  aside a {
+    color: inherit;
+  }
+  aside .toc-section {
+    font-weight: 700;
+  }
+  aside ul {
+    margin-bottom: 0;
+  }
+  aside li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  aside li ul {
+    padding-top: 0.6rem;
+    padding-bottom: 1.1rem;
+  }
+  aside li.toc-section {
+    margin-top: 1.7rem;
+  }
+  aside li.toc-section {
+    color: #36d;
+  }
+  aside li.current, aside li ul {
+    border-right: 0.3em solid #d5d8e0;
+    padding-left: 1em;
+    margin-left: -1em;
+  }
+  aside li.toc-chapter.current {
+    font-weight: 600;
+  }
+  aside li.toc-heading {
+    padding-left: 1em;
+    padding-right: 0.3em;
+  }
+
+  @media(max-width: 63rem)
+  {
+    #content {
+      /* Manual implementation of max-width: on narrower viewports,
+         auto-size the body. */
+      grid-template-columns: 0 16rem auto 0;
+    }
+  }
+
+  @media(max-width: 1150px)
+  {
+    html { font-size: 15px; }
+  }
+
+  /* Move the sidebar TOC below content at small widths. */
+  @media(max-width: 800px)
+  {
+    #content {
+      display: block;
+    }
+    aside {
+      border-top: 1px solid #eee;
+      border-right: 0px none;
+      padding-top: 1.7em;
+    }
+    aside nav {
+      margin-left: 4em;
+      margin-top: 1.7em;
+      margin-right: 0;
+      float: none;
+      width: auto;
+    }
+    #main {
+      padding-bottom: 1.7em;
+    }
+    /* Now that the TOC is full-width, adding the border on the right to
+       highlight the active page is not as clear anymore, it can be far away.
+       The current chapter is still in boldface, but that does not work for
+       section indexes. So point a guillemet at it as well. */
+    aside li.current, aside li ul {
+      border-right: 0px none;
+      position: relative;
+    }
+    aside li.current:before {
+      content: '\203a';
+      position: absolute;
+      left: 0;
+    }
+  }
+
+  /* Use less generous margins for very narrow viewports. */
+  @media(max-width: 650px)
+  {
+    #main {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+    aside nav {
+      margin-left: 2rem;
+      padding-bottom: 2rem;
+    }
+  }
+
+  @media(max-width: 450px)
+  {
+    #main {
+      padding-left: 1.7em;
+      padding-right: 1.7em;
+    }
+    aside nav {
+      margin-left: 1.7em;
+    }
+  }
+  </style>
+</head>
+<body>
+  <div id="content">
+    <div id="main">
+      <nav id="breadcrumbs">
+        <a href="..">Querybinder</a>
+         › <a href="../usage/">User guide</a> 
+         › <a href="./">Annotating queries</a> 
+        <a id="repo-link" href="https://github.com/ruuda/querybinder">GitHub</a>
+      </nav>
+      <article>
+        <h1 id="annotating-queries">Annotating queries</h1>
+<p>The inputs to Querybinder are plain <abbr>SQL</abbr> files, with annotations in
+comments. This means that you can run the exact same files through e.g. <code>sqlite</code>
+or <code>psql</code>, and confirm that the queries are valid. For every annotated query,
+Querybinder generates a corresponding function in the target language that
+executes that query. If needed, it also generates types for the inputs and
+outputs of the function.</p>
+<h2 id="annotations">Annotations</h2>
+<p>Querybinder ignores all content, until it encounters the marker <code>@query</code> in a
+comment. This marks the following query as an <em>annotated</em> query, that it will
+generate code for. Following the <code>@query</code> is the query <em>signature</em>, which
+specifies its name, arguments, argument types, and result type, similar to
+function signatures in other languages. Let’s look at an example:</p>
+<pre><code class="language-sql">-- Return how many users with the given name exist.
+-- @query count_users_with_name(name: str) -&gt;? int
+select
+  count(*)
+from
+  users
+where
+  name = :name;
+</code></pre>
+<p>In this example, the signature is</p>
+<pre><code>@query count_users_with_name(name: str) -&gt;? int
+</code></pre>
+<p>The name of the query is <code>count_users_with_name</code>, and this name will be used for
+the generated function. The query takes one argument, <code>name</code>, of type <code>str</code>.
+This will become an argument of the generated function, and that function will
+bind the provided value to the <code>:name</code> query parameter.</p>
+<p>After the name and arguments, is an arrow, and then the result type. The arrow
+includes a <em>cardinality</em>:</p>
+<ul>
+<li><code>-&gt;?</code> for a query that returns zero or one rows.</li>
+<li><code>-&gt;1</code> for a query that returns exactly one row.</li>
+<li><code>-&gt;*</code> for a query that returns zero or more rows.</li>
+</ul>
+<p>The exact types that these arrows map to depends on the target, but generally
+they translate as follows:</p>
+<ul>
+<li><code>-&gt;? T</code> maps to <code>Option&lt;T&gt;</code>.</li>
+<li><code>-&gt;1 T</code> maps to just <code>T</code>.</li>
+<li><code>-&gt;* T</code> maps to <code>Iterator&lt;T&gt;</code>.</li>
+</ul>
+<h2 id="query-parameters">Query parameters</h2>
+<p>Querybinder supports named query parameters with <code>:name</code> syntax. This is
+<a href="https://www.sqlite.org/c3ref/bind_blob.html">one of the syntaxes supported by SQLite</a>, and it allows for named
+parameters which is less error-prone than position-based parameters. For
+databases that use a different syntax, such as <a href="https://www.postgresql.org/docs/current/sql-prepare.html">PostgreSQL</a>,
+Querybinder substitutes the correct syntax in the <abbr>SQL</abbr> string
+literal in the generated code.</p>
+<h2 id="documentation-comments">Documentation comments</h2>
+<p>Querybinder preserves any comments immediately preceding the <code>@query</code> marker,
+up to the first blank line before that marker, as <em>documentation comments</em>.
+These are included in the output. For example, in Rust they are included as
+<code>///</code>-style documentation comments, in Python as docstrings.</p>
+<h2 id="tuple-result-types">Tuple result types</h2>
+<p>The result type can be a tuple. In this case, the number of columns that the
+query returns should match the arity of the tuple. Querybinder does not verify
+this. For example, for the following query it would generate code that fails at
+runtime, because it tries to access a non-existent third column:</p>
+<pre><code class="language-sql">-- @query incorrect_result_type() -&gt;1 (str, str, i32)
+select name, email from users;
+</code></pre>
+<h2 id="struct-result-types">Struct result types</h2>
+<p>Because a type such as <code>(str, str, i32)</code> is a bit meaningless, Querybinder also
+supports struct types. Struct types must start with an uppercase
+<abbr>ascii</abbr> letter. The fields of the struct, and their types, are
+extracted from the query body. This means that type annotations are needed in
+the body:</p>
+<pre><code class="language-sql">-- @query get_all_users() -&gt;* User
+select
+  name  /* :str */,
+  email /* :str */,
+  karma /* :i32 */
+from
+  users;
+</code></pre>
+<p>In this example the fields are <code>name: str</code>, <code>email: str</code>, and <code>karma: i32</code>.</p>
+<p>When using struct types, every column that the query selects, should have a type
+annotation, because Querybinder generates code that reads the columns by index.
+Querybinder does not verify that every column is annotated, because it does not
+do the advanced parsing of the query that would be necessary for this.</p>
+<p>Every comment between the <code>@query</code> marker and the terminating <code>;</code> that starts
+with a <code>:</code> is considered a type annotation, and turns into a struct field. The
+identifier that immediately precedes the annotation becomes the name of the
+field, so it can be used with <code>as</code> to control the name:</p>
+<pre><code class="language-sql">-- @query get_all_users() -&gt;* User
+select
+  users.name  /* :str */,
+  users.email /* :str */,
+  sum(karma_earned) as karma /* :i32 */
+from
+  users, karma_history
+where
+  users.id = karma_history.user_id
+group by
+  users.id, users.name, users.email;
+</code></pre>
+<p>As before, this example has fields <code>name: str</code>, <code>email: str</code>, and <code>karma: i32</code>.</p>
+<h2 id="struct-arguments">Struct arguments</h2>
+<p>Like in result types, structs can be used in arguments. (Unlike tuples, which
+can only be used in result types.) Struct types can only be used for
+queries that take a single argument. The name of that argument is preserved in
+the generated function. As with result types, the fields are extracted from the
+query body, so all query parameters need a type annotation:</p>
+<pre><code class="language-sql">-- @query insert_user(user: User) -&gt;1 i64
+insert into
+  users (name, email, karma)
+values
+  (:name /* :str */, :email /* :str */, :initial_karma /* :i32 */)
+returning
+  id;
+</code></pre>
+<h2 id="nullable-types">Nullable types</h2>
+<p>All primitive types can be made <em>optional</em> or <em>nullable</em> by appending a <code>?</code>.
+Primitive types are all types except for structs and tuples, so structs and
+tuples cannot be made nullable. This is because structs and tuples map to an
+entire row in <abbr>SQL</abbr>, not to individual columns. To specify
+optionality at the row level, use a <code>-&gt;?</code> result type arrow instead of <code>-&gt;1</code>.</p>
+<p>Note, this means that the following two queries would have the same signature
+in the generated code, even though they have different signatures in
+<abbr>SQL</abbr>:</p>
+<pre><code class="language-sql">-- @query select_longest_email_length_1() -&gt;1 i64?
+select
+  max(length(email))
+from
+  users;
+
+-- @query select_longest_email_length_2() -&gt;? i64
+select
+  length(email)
+from
+  users
+order by
+  length(email) desc
+limit
+  1;
+</code></pre>
+<p>Note also that annotating the first query with <code>-&gt;? i64</code> would result in a
+runtime error when the <code>users</code> table is empty (because null cannot be decoded
+into <code>i64</code>), and annotating the second query with <code>-&gt;1 i64?</code> would result in a
+runtime error when the <code>users</code> table is empty as well (because it expects at
+least one row).</p>
+      </article>
+      <nav id="nav-prev-next">
+        <a id="nav-prev" href="../usage/" title="Usage">Previous</a>
+        <a id="nav-next" href="../datatypes/" title="Data types">Next</a>
+        </nav>
+      </div>
+    <aside>
+      <nav>
+        <ul>
+        <li class="toc-section"><a href="..">Overview</a></li>
+          <li class="toc-section
+            "><a href="../usage/">User guide</a></li>
+          
+            <li class="toc-chapter
+              "><a href="../usage/">Usage</a></li>
+            
+            <li class="toc-chapter
+               current"><a href="./">Annotating queries</a></li>
+            <li><ul>
+                <li class="toc-heading"><a href="#annotations">Annotations</a></li>
+                <li class="toc-heading"><a href="#query-parameters">Query parameters</a></li>
+                <li class="toc-heading"><a href="#documentation-comments">Documentation comments</a></li>
+                <li class="toc-heading"><a href="#tuple-result-types">Tuple result types</a></li>
+                <li class="toc-heading"><a href="#struct-result-types">Struct result types</a></li>
+                <li class="toc-heading"><a href="#struct-arguments">Struct arguments</a></li>
+                <li class="toc-heading"><a href="#nullable-types">Nullable types</a></li>
+                </ul></li>
+               
+            <li class="toc-chapter
+              "><a href="../datatypes/">Data types</a></li>
+            <li class="toc-section
+            "><a href="../building/">Development</a></li>
+          
+            <li class="toc-chapter
+              "><a href="../building/">Building</a></li>
+            
+            <li class="toc-chapter
+              "><a href="../golden-tests/">Golden tests</a></li>
+            </ul>
+      </nav>
+    </aside>
+  </div>
+</body>
+</html>
