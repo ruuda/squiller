@@ -317,7 +317,11 @@ fn main() {
     let raw_connection = sqlite::open(":memory:").unwrap();
     let mut connection = Connection::new(&raw_connection);
 
-    let tx = connection.begin().unwrap();
+    let mut tx = connection.begin().unwrap();
+    for user in select_all_users(&mut tx).unwrap() {
+        println!("{}", user.expect("wut err").name);
+    };
+
     tx.rollback().unwrap();
 
     let tx = connection.begin().unwrap();

@@ -14,3 +14,12 @@ termcolor = "1.1.3"
 # For testing the generated code.
 # NB: 0.27 has some severe limitations: https://github.com/stainless-steel/sqlite/pull/44#issuecomment-1221576569
 sqlite = "=0.26.0"
+
+[profile.release]
+# Optimize for size.
+# Out of "s", "z", and "3", "s" produces the smallest binaries. Setting LTO to
+# fat (`true` instead of `"thin"`) reduces the binary size even further, but at
+# a severe compile time cost.
+opt-level = "s"
+lto = "thin"
+panic = "abort"
