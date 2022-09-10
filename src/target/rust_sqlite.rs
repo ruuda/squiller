@@ -129,7 +129,8 @@ fn write_primitive_type(
         (PrimitiveType::Bytes, Owned) => "Vec<u8>",
         (PrimitiveType::I32, _) => "i32",
         (PrimitiveType::I64, _) => "i64",
-        (PrimitiveType::F32, _) => "f32",
+        // TODO: Convert to f64 under the hood.
+        (PrimitiveType::F32, _) => panic!("f32 is not supported for rust-sqlite right now."),
         (PrimitiveType::F64, _) => "f64",
     };
     out.write_all(name.as_bytes())
