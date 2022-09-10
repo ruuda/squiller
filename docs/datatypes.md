@@ -14,6 +14,8 @@ _Vaporware warning: Not all of these are implemented._
 |-------------|---------------|--------------------------|
 | i32         | int           | integer                  |
 | i64         | bigint        | integer                  |
+| f32         | float4        | number                   | <!-- TODO: Confirm -->
+| f32         | float8        | number                   |
 | str         | text          | text                     |
 | bytes       | bytea         | blob                     |
 | bool        | bool          | integer                  |
@@ -30,6 +32,8 @@ _Vaporware warning: Not all of these are implemented._
 |-------------|------------------------|--------------------------------|--------------|
 | i32         | i32                    | int                            | Int32        |
 | i64         | i64                    | int                            | Int64        |
+| f32         | f32                    | float                          | Float        |
+| f64         | f64                    | float                          | Double       |
 | str         | &str or String         | str                            | Text         |
 | bytes       | &[u8] or Vec&lt;u8&gt; | bytes                          | ByteString   |
 | bool        | bool                   | bool                           | Bool         |

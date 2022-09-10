@@ -143,18 +143,29 @@ impl<'a> Parser<'a> {
             "bigint",
             "biginteger",
         ];
+        let alt_float = [
+            "float",
+            "float4",
+            "float8",
+            "double",
+        ];
         match self.peek_with_span() {
             Some((Token::Ident, span)) => {
                 let result = match span.resolve(self.input) {
                     "str" => PrimitiveType::Str,
                     "i32" => PrimitiveType::I32,
                     "i64" => PrimitiveType::I64,
+                    "f32" => PrimitiveType::F32,
+                    "f64" => PrimitiveType::F64,
                     "bytes" => PrimitiveType::Bytes,
                     unknown if alt_str.contains(&&unknown.to_ascii_lowercase()[..]) => {
                         return self.error("Unknown type, did you mean 'str'?");
                     }
                     unknown if alt_int.contains(&&unknown.to_ascii_lowercase()[..]) => {
                         return self.error("Unknown type, did you mean 'i32' or 'i64'?");
+                    }
+                    unknown if alt_float.contains(&&unknown.to_ascii_lowercase()[..]) => {
+                        return self.error("Unknown type, did you mean 'f32' or 'f64'?");
                     }
                     _ => {
                         return self.error("Unknown type, expected a primitive type here.");

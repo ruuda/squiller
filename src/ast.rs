@@ -13,10 +13,11 @@ use crate::Span;
 /// language on the other.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PrimitiveType {
-    // TODO: Add float types.
     Str,
     I32,
     I64,
+    F32,
+    F64,
     Bytes,
 }
 
