@@ -8,9 +8,10 @@
 use crate::ast::{
     Annotation, ArgType, ComplexType, Fragment, PrimitiveType, ResultType, SimpleType, TypedIdent,
 };
-use std::io;
-
 use crate::NamedDocument;
+
+use std::collections::hash_set::HashSet;
+use std::io;
 
 const PREAMBLE: &'static str = r#"
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -376,10 +377,21 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 _ => String::new(),
             };
             writeln!(out, "    statement.reset()?;")?;
-            for (i, param) in (1..).zip(query.iter_parameters()) {
+            let mut param_nr = 1;
+            let mut params_seen = HashSet::new();
+            for param in query.iter_parameters() {
                 // Cut off the leading ':' from the parameter name.
                 let variable_name = param.trim_start(1).resolve(input);
-                writeln!(out, "    statement.bind({}, {}{})?;", i, prefix, variable_name)?;
+
+                // SQLite numbers parameters by unique name, so if the same
+                // name occurs twice, we should only bind it once.
+                // TODO: Add a golden test for this, because we failed this in
+                // the past.
+                let first_seen = params_seen.insert(variable_name);
+                if first_seen {
+                    writeln!(out, "    statement.bind({}, {}{})?;", param_nr, prefix, variable_name)?;
+                    param_nr += 1;
+                };
             }
 
             if let Some(type_) = query.annotation.result_type.get() {
