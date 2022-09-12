@@ -70,6 +70,8 @@ pub fn get_user_by_name(
 }
 ```
 
-\* In reality the generated code is a bit more verbose, on the one
-hand to make it easier to generate, and on the other hand to cache the prepared
-statement in a hash table, instead of preparing it every call.
+\* In reality the generated code is a bit more verbose for several reasons.
+There are more intermediate variables to make the code easier to generate. There
+is an additional call to `next` to avoid leaving statements in progress. And
+finally, we cache the prepared statement in a hash table, instead of preparing
+it every call.

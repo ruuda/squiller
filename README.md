@@ -22,7 +22,7 @@ from users
 where name = :name;
 ```
 
-When targeting Rust and the `sqlite` crate, Querybinder would generate:
+When targeting Rust and the `sqlite` crate, Querybinder would generate roughly*:
 
 ```rust
 struct User {
@@ -54,6 +54,9 @@ pub fn get_user_by_name(tx: &mut Transaction, name: &str) -> Result<Option<User>
     }
 }
 ```
+
+\* The example generated code is simplified to fit here, the actually generated
+code consists of even more boilerplate.
 
 ## Limitations
 
