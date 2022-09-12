@@ -397,11 +397,12 @@
       </nav>
       <article>
         <h1 id="querybinder">Querybinder</h1>
-<p>Querybinder generates boilerplate code from annotated SQL queries.</p>
-<p>Working with SQL is often tedious, especially in statically typed settings. You
-need to explicitly bind values to parameters, and extract the resulting values
-for every column with the right type. Querybinder can generate this boilerplate
-code from a SQL file, based on annotations in comments.</p>
+<p>Querybinder generates boilerplate code from annotated <abbr>SQL</abbr> queries.</p>
+<p>Working with <abbr>SQL</abbr> is often tedious, especially in statically typed
+settings. You need to explicitly bind values to parameters, and extract the
+resulting values for every column with the right type. Querybinder can generate
+this boilerplate code from a <abbr>SQL</abbr> file, based on annotations in
+comments.</p>
 <p><em>Vaporware warning: This is a work in progress. Basic code generation for
 rust-sqlite works, but the project is pre-alpha quality.</em></p>
 <h2 id="example">Example</h2>
@@ -456,9 +457,11 @@ pub fn get_user_by_name(
     }
 }
 </code></pre>
-<p>* In reality the generated code is a bit more verbose, on the one
-hand to make it easier to generate, and on the other hand to cache the prepared
-statement in a hash table, instead of preparing it every call.</p>
+<p>* In reality the generated code is a bit more verbose for several reasons.
+There are more intermediate variables to make the code easier to generate. There
+is an additional call to <code>next</code> to avoid leaving statements in progress. And
+finally, we cache the prepared statement in a hash table, instead of preparing
+it every call.</p>
       </article>
       <nav id="nav-prev-next">
         <a id="nav-next" href="usage/" title="Usage">Next</a>
