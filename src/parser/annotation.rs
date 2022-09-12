@@ -143,12 +143,7 @@ impl<'a> Parser<'a> {
             "bigint",
             "biginteger",
         ];
-        let alt_float = [
-            "float",
-            "float4",
-            "float8",
-            "double",
-        ];
+        let alt_float = ["float", "float4", "float8", "double"];
         match self.peek_with_span() {
             Some((Token::Ident, span)) => {
                 let result = match span.resolve(self.input) {

@@ -389,7 +389,11 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 // the past.
                 let first_seen = params_seen.insert(variable_name);
                 if first_seen {
-                    writeln!(out, "    statement.bind({}, {}{})?;", param_nr, prefix, variable_name)?;
+                    writeln!(
+                        out,
+                        "    statement.bind({}, {}{})?;",
+                        param_nr, prefix, variable_name
+                    )?;
                     param_nr += 1;
                 };
             }
@@ -425,7 +429,9 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     // quite subtle, I would not call that readable code.
                     writeln!(out, "    if result.is_some() {{")?;
                     writeln!(out, "        if statement.next()? != Done {{")?;
-                    writeln!(out, "            panic!(\"Query '{}' should return at most one row.\");",
+                    writeln!(
+                        out,
+                        "            panic!(\"Query '{}' should return at most one row.\");",
                         query.annotation.name.resolve(input)
                     )?;
                     writeln!(out, "        }}")?;
@@ -442,7 +448,9 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     writeln!(out, "    }};")?;
                     // Call next() until Done, see also the note further above.
                     writeln!(out, "    if statement.next()? != Done {{")?;
-                    writeln!(out, "        panic!(\"Query '{}' should return exactly one row.\");",
+                    writeln!(
+                        out,
+                        "        panic!(\"Query '{}' should return exactly one row.\");",
                         query.annotation.name.resolve(input)
                     )?;
                     writeln!(out, "    }}")?;
