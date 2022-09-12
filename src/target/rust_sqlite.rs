@@ -416,6 +416,20 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     writeln!(out, "        Row => Some(decode_row(statement)?),")?;
                     writeln!(out, "        Done => None,")?;
                     writeln!(out, "    }};")?;
+                    // Call next() until Done, even though we know we should be
+                    // done at this point. Without it, we cannot commit, SQLite
+                    // complains: "SQL statements in progress".
+                    // Should we join the two conditions with &&? It saves two
+                    // lines of code and rightward drift, but having a
+                    // side-effect not be executed due to short circuiting && is
+                    // quite subtle, I would not call that readable code.
+                    writeln!(out, "    if result.is_some() {{")?;
+                    writeln!(out, "        if statement.next()? != Done {{")?;
+                    writeln!(out, "            panic!(\"Query '{}' should return at most one row.\");",
+                        query.annotation.name.resolve(input)
+                    )?;
+                    writeln!(out, "        }}")?;
+                    writeln!(out, "    }}")?;
                 }
                 ResultType::Single(..) => {
                     writeln!(out, "    let result = match statement.next()? {{")?;
@@ -426,8 +440,12 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         query.annotation.name.resolve(input)
                     )?;
                     writeln!(out, "    }};")?;
-                    // TODO: Should we perform an additional next() to confirm
-                    // that no rows are returned? Maybe only in debug mode?
+                    // Call next() until Done, see also the note further above.
+                    writeln!(out, "    if statement.next()? != Done {{")?;
+                    writeln!(out, "        panic!(\"Query '{}' should return exactly one row.\");",
+                        query.annotation.name.resolve(input)
+                    )?;
+                    writeln!(out, "    }}")?;
                 }
                 ResultType::Iterator(..) => {
                     writeln!(out, "    let result = Iter {{ statement, decode_row }};")?;
