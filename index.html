@@ -9,7 +9,7 @@
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Overview — Querybinder</title>
+  <title>Overview — Squiller</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
@@ -390,17 +390,17 @@
   <div id="content">
     <div id="main">
       <nav id="breadcrumbs">
-        <a href=".">Querybinder</a>
+        <a href=".">Squiller</a>
         
          › <a href=".">Overview</a> 
-        <a id="repo-link" href="https://github.com/ruuda/querybinder">GitHub</a>
+        <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
-        <h1 id="querybinder">Querybinder</h1>
-<p>Querybinder generates boilerplate code from annotated <abbr>SQL</abbr> queries.</p>
+        <h1 id="squiller">Squiller</h1>
+<p>Squiller generates boilerplate code from annotated <abbr>SQL</abbr> queries.</p>
 <p>Working with <abbr>SQL</abbr> is often tedious, especially in statically typed
 settings. You need to explicitly bind values to parameters, and extract the
-resulting values for every column with the right type. Querybinder can generate
+resulting values for every column with the right type. Squiller can generate
 this boilerplate code from a <abbr>SQL</abbr> file, based on annotations in
 comments.</p>
 <p><em>Vaporware warning: This is a work in progress. Basic code generation for
@@ -418,7 +418,7 @@ from
 where
   name = :name;
 </code></pre>
-<p>When targeting Rust and the <code>sqlite</code> crate, Querybinder would generate
+<p>When targeting Rust and the <code>sqlite</code> crate, Squiller would generate
 roughly*:</p>
 <pre><code class="language-rust">struct User {
     id: i64,

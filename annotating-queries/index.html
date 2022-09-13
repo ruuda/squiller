@@ -9,7 +9,7 @@
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Annotating queries — Querybinder</title>
+  <title>Annotating queries — Squiller</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
@@ -390,21 +390,21 @@
   <div id="content">
     <div id="main">
       <nav id="breadcrumbs">
-        <a href="..">Querybinder</a>
+        <a href="..">Squiller</a>
          › <a href="../usage/">User guide</a> 
          › <a href="./">Annotating queries</a> 
-        <a id="repo-link" href="https://github.com/ruuda/querybinder">GitHub</a>
+        <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
         <h1 id="annotating-queries">Annotating queries</h1>
-<p>The inputs to Querybinder are plain <abbr>SQL</abbr> files, with annotations in
+<p>The inputs to Squiller are plain <abbr>SQL</abbr> files, with annotations in
 comments. This means that you can run the exact same files through e.g. <code>sqlite</code>
 or <code>psql</code>, and confirm that the queries are valid. For every annotated query,
-Querybinder generates a corresponding function in the target language that
+Squiller generates a corresponding function in the target language that
 executes that query. If needed, it also generates types for the inputs and
 outputs of the function.</p>
 <h2 id="annotations">Annotations</h2>
-<p>Querybinder ignores all content, until it encounters the marker <code>@query</code> in a
+<p>Squiller ignores all content, until it encounters the marker <code>@query</code> in a
 comment. This marks the following query as an <em>annotated</em> query, that it will
 generate code for. Following the <code>@query</code> is the query <em>signature</em>, which
 specifies its name, arguments, argument types, and result type, similar to
@@ -440,27 +440,27 @@ they translate as follows:</p>
 <li><code>-&gt;* T</code> maps to <code>Iterator&lt;T&gt;</code>.</li>
 </ul>
 <h2 id="query-parameters">Query parameters</h2>
-<p>Querybinder supports named query parameters with <code>:name</code> syntax. This is
+<p>Squiller supports named query parameters with <code>:name</code> syntax. This is
 <a href="https://www.sqlite.org/c3ref/bind_blob.html">one of the syntaxes supported by SQLite</a>, and it allows for named
 parameters which is less error-prone than position-based parameters. For
 databases that use a different syntax, such as <a href="https://www.postgresql.org/docs/current/sql-prepare.html">PostgreSQL</a>,
-Querybinder substitutes the correct syntax in the <abbr>SQL</abbr> string
+Squiller substitutes the correct syntax in the <abbr>SQL</abbr> string
 literal in the generated code.</p>
 <h2 id="documentation-comments">Documentation comments</h2>
-<p>Querybinder preserves any comments immediately preceding the <code>@query</code> marker,
+<p>Squiller preserves any comments immediately preceding the <code>@query</code> marker,
 up to the first blank line before that marker, as <em>documentation comments</em>.
 These are included in the output. For example, in Rust they are included as
 <code>///</code>-style documentation comments, in Python as docstrings.</p>
 <h2 id="tuple-result-types">Tuple result types</h2>
 <p>The result type can be a tuple. In this case, the number of columns that the
-query returns should match the arity of the tuple. Querybinder does not verify
+query returns should match the arity of the tuple. Squiller does not verify
 this. For example, for the following query it would generate code that fails at
 runtime, because it tries to access a non-existent third column:</p>
 <pre><code class="language-sql">-- @query incorrect_result_type() -&gt;1 (str, str, i32)
 select name, email from users;
 </code></pre>
 <h2 id="struct-result-types">Struct result types</h2>
-<p>Because a type such as <code>(str, str, i32)</code> is a bit meaningless, Querybinder also
+<p>Because a type such as <code>(str, str, i32)</code> is a bit meaningless, Squiller also
 supports struct types. Struct types must start with an uppercase
 <abbr>ascii</abbr> letter. The fields of the struct, and their types, are
 extracted from the query body. This means that type annotations are needed in
@@ -475,8 +475,8 @@ from
 </code></pre>
 <p>In this example the fields are <code>name: str</code>, <code>email: str</code>, and <code>karma: i32</code>.</p>
 <p>When using struct types, every column that the query selects, should have a type
-annotation, because Querybinder generates code that reads the columns by index.
-Querybinder does not verify that every column is annotated, because it does not
+annotation, because Squiller generates code that reads the columns by index.
+Squiller does not verify that every column is annotated, because it does not
 do the advanced parsing of the query that would be necessary for this.</p>
 <p>Every comment between the <code>@query</code> marker and the terminating <code>;</code> that starts
 with a <code>:</code> is considered a type annotation, and turns into a struct field. The

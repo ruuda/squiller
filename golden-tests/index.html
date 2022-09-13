@@ -9,7 +9,7 @@
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Golden tests — Querybinder</title>
+  <title>Golden tests — Squiller</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
@@ -390,14 +390,14 @@
   <div id="content">
     <div id="main">
       <nav id="breadcrumbs">
-        <a href="..">Querybinder</a>
+        <a href="..">Squiller</a>
          › <a href="../building/">Development</a> 
          › <a href="./">Golden tests</a> 
-        <a id="repo-link" href="https://github.com/ruuda/querybinder">GitHub</a>
+        <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
         <h1 id="golden-tests">Golden tests</h1>
-<p>Querybinder has a suite of golden tests: inputs with known-good outputs. At the
+<p>Squiller has a suite of golden tests: inputs with known-good outputs. At the
 time of writing they are used to test error reporting for incorrect inputs, but 
 they should be extended to testing generated code. Golden tests are a good fit
 for testing the parser and error reporting, because textual input is easier to
@@ -405,8 +405,8 @@ construct than manually constructing an AST in a unit test.</p>
 <p>Golden tests are located in the <code>golden</code> directory, and can be executed with
 <code>golden/run.py</code>. See also <code>run.py --help</code> for usage.</p>
 <p>Test cases are files with a <code>.test</code> extension. The file consists of the test
-input, which is fed to <code>querybinder</code> on stdin, then two blank lines, and then
-the expected output. When the actual output does not match the expected output,
+input, which is fed to <code>sqiller</code> on stdin, then two blank lines, and then the
+expected output. When the actual output does not match the expected output,
 <code>run.py</code> prints a diff.</p>
       </article>
       <nav id="nav-prev-next">

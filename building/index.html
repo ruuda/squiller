@@ -9,7 +9,7 @@
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Building — Querybinder</title>
+  <title>Building — Squiller</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
@@ -390,16 +390,16 @@
   <div id="content">
     <div id="main">
       <nav id="breadcrumbs">
-        <a href="..">Querybinder</a>
+        <a href="..">Squiller</a>
          › <a href="./">Development</a> 
          › <a href="./">Building</a> 
-        <a id="repo-link" href="https://github.com/ruuda/querybinder">GitHub</a>
+        <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
         <h1 id="building">Building</h1>
-<p>Querybinder is written in Rust and builds with Cargo:</p>
+<p>Squiller is written in Rust and builds with Cargo:</p>
 <pre><code>cargo build --release
-target/release/querybinder
+target/release/squiller
 </code></pre>
 <h2 id="nix">Nix</h2>
 <p>The repository comes with a Nix-based development environment that puts pinned
@@ -415,10 +415,10 @@ development shell:</p>
 </code></pre>
 <p>The Nix flake can also be used to build the application. This is not recommended
 for development because you lose incremental compilation, but flakes can be a
-useful way of integrating Querybinder into the build pipeline of a different
+useful way of integrating Squiller into the build pipeline of a different
 project. To build the flake:</p>
 <pre><code>nix build
-result/bin/querybinder --help
+result/bin/squiller --help
 </code></pre>
 <h2 id="development">Development</h2>
 <p>Run the unit tests:</p>
