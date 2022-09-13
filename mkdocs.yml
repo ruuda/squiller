@@ -1,5 +1,5 @@
-site_name: Querybinder
-repo_url: https://github.com/ruuda/querybinder
+site_name: Squiller
+repo_url: https://github.com/ruuda/squiller
 strict: true
 theme:
   name: null

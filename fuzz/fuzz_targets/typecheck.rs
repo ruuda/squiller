@@ -6,5 +6,5 @@ use std::path::PathBuf;
 fuzz_target!(|input_bytes: &[u8]| {
     // Processing may result in an error, but it should not hang or panic.
     let fname: PathBuf = "fuzz".into();
-    let _ = querybinder::NamedDocument::process_input(&fname, input_bytes);
+    let _ = squiller::NamedDocument::process_input(&fname, input_bytes);
 });

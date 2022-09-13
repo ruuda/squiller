@@ -159,16 +159,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "querybinder"
-version = "0.0.0"
-dependencies = [
- "clap",
- "sqlite",
- "termcolor",
- "unicode-width",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -205,6 +195,16 @@ checksum = "04d2f028faeb14352df7934b4771806f60d61ce61be1928ec92396d7492e2e54"
 dependencies = [
  "libc",
  "sqlite3-src",
+]
+
+[[package]]
+name = "squiller"
+version = "0.0.0"
+dependencies = [
+ "clap",
+ "sqlite",
+ "termcolor",
+ "unicode-width",
 ]
 
 [[package]]

@@ -1,10 +1,10 @@
-# Querybinder
+# Squiller
 
-Querybinder generates boilerplate code from annotated <abbr>SQL</abbr> queries.
+Squiller generates boilerplate code from annotated <abbr>SQL</abbr> queries.
 
 Working with <abbr>SQL</abbr> is often tedious, especially in statically typed
 settings. You need to explicitly bind values to parameters, and extract the
-resulting values for every column with the right type. Querybinder can generate
+resulting values for every column with the right type. Squiller can generate
 this boilerplate code from a <abbr>SQL</abbr> file, based on annotations in
 comments.
 
@@ -28,7 +28,7 @@ where
   name = :name;
 ```
 
-When targeting Rust and the `sqlite` crate, Querybinder would generate
+When targeting Rust and the `sqlite` crate, Squiller would generate
 roughly*:
 
 ```rust

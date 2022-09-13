@@ -1,4 +1,4 @@
-// Querybinder -- Generate boilerplate from SQL for statically typed languages
+// Squiller -- Generate boilerplate from SQL for statically typed languages
 // Copyright 2022 Ruud van Asseldonk
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -9,8 +9,8 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-use querybinder::target::Target;
-use querybinder::NamedDocument;
+use squiller::target::Target;
+use squiller::NamedDocument;
 
 use clap::ValueEnum;
 

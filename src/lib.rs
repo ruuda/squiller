@@ -1,4 +1,4 @@
-// Querybinder -- Generate boilerplate from SQL for statically typed languages
+// Squiller -- Generate boilerplate from SQL for statically typed languages
 // Copyright 2022 Ruud van Asseldonk
 
 // Licensed under the Apache License, Version 2.0 (the "License");

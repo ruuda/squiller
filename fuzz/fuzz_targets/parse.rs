@@ -1,9 +1,9 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use querybinder::lexer::document::Lexer;
-use querybinder::parser::document::Parser;
-use querybinder::error::PResult;
+use squiller::lexer::document::Lexer;
+use squiller::parser::document::Parser;
+use squiller::error::PResult;
 
 fn handle_input(input: &str) -> PResult<()> {
     let lexer = Lexer::new(&input);

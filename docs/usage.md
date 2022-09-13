@@ -1,17 +1,17 @@
-# Querybinder
+# Squiller
 
 Generate boilerplate code from annotated SQL queries.
 
 ## Synopsis
 
-    querybinder --target <target> <file>...
-    querybinder --target help
-    querybinder --help
+    squiller --target <target> <file>...
+    squiller --target help
+    squiller --help
 
 ## Description
 
-Querybinder parses all of the given inputs files, generates code from them for
-the specified target, and writes that to stdout. `<file>...` can be one or more
+Squiller parses all of the given inputs files, generates code from them for the
+specified target, and writes that to stdout. `<file>...` can be one or more
 <abbr>UTF-8</abbr> text files that contain <abbr>SQL</abbr>, or `-` to read
 from stdin.
 

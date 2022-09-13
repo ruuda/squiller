@@ -1,11 +1,11 @@
 {
-  description = "Querybinder";
+  description = "Squiller";
 
   inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
 
   outputs = { self, nixpkgs }: 
     let
-      name = "querybinder";
+      name = "squiller";
       version = builtins.substring 0 8 self.lastModifiedDate;
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;

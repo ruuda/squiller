@@ -62,7 +62,7 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
     os.putenv("RUST_BACKTRACE", "1")
 
     result = subprocess.run(
-        ["target/debug/querybinder", "--target=debug", "-"],
+        ["target/debug/squiller", "--target=debug", "-"],
         input="".join(input_lines),
         capture_output=True,
         encoding="utf-8",

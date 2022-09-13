@@ -1,15 +1,15 @@
 # Annotating queries
 
-The inputs to Querybinder are plain <abbr>SQL</abbr> files, with annotations in
+The inputs to Squiller are plain <abbr>SQL</abbr> files, with annotations in
 comments. This means that you can run the exact same files through e.g. `sqlite`
 or `psql`, and confirm that the queries are valid. For every annotated query,
-Querybinder generates a corresponding function in the target language that
+Squiller generates a corresponding function in the target language that
 executes that query. If needed, it also generates types for the inputs and
 outputs of the function.
 
 ## Annotations
 
-Querybinder ignores all content, until it encounters the marker `@query` in a
+Squiller ignores all content, until it encounters the marker `@query` in a
 comment. This marks the following query as an _annotated_ query, that it will
 generate code for. Following the `@query` is the query _signature_, which
 specifies its name, arguments, argument types, and result type, similar to
@@ -53,11 +53,11 @@ they translate as follows:
 
 ## Query parameters
 
-Querybinder supports named query parameters with `:name` syntax. This is
+Squiller supports named query parameters with `:name` syntax. This is
 [one of the syntaxes supported by SQLite][sqlite], and it allows for named
 parameters which is less error-prone than position-based parameters. For
 databases that use a different syntax, such as [PostgreSQL][postgres],
-Querybinder substitutes the correct syntax in the <abbr>SQL</abbr> string
+Squiller substitutes the correct syntax in the <abbr>SQL</abbr> string
 literal in the generated code.
 
 [sqlite]:   https://www.sqlite.org/c3ref/bind_blob.html
@@ -65,7 +65,7 @@ literal in the generated code.
 
 ## Documentation comments
 
-Querybinder preserves any comments immediately preceding the `@query` marker,
+Squiller preserves any comments immediately preceding the `@query` marker,
 up to the first blank line before that marker, as _documentation comments_.
 These are included in the output. For example, in Rust they are included as
 `///`-style documentation comments, in Python as docstrings.
@@ -73,7 +73,7 @@ These are included in the output. For example, in Rust they are included as
 ## Tuple result types
 
 The result type can be a tuple. In this case, the number of columns that the
-query returns should match the arity of the tuple. Querybinder does not verify
+query returns should match the arity of the tuple. Squiller does not verify
 this. For example, for the following query it would generate code that fails at
 runtime, because it tries to access a non-existent third column:
 
@@ -84,7 +84,7 @@ select name, email from users;
 
 ## Struct result types
 
-Because a type such as `(str, str, i32)` is a bit meaningless, Querybinder also
+Because a type such as `(str, str, i32)` is a bit meaningless, Squiller also
 supports struct types. Struct types must start with an uppercase
 <abbr>ascii</abbr> letter. The fields of the struct, and their types, are
 extracted from the query body. This means that type annotations are needed in
@@ -103,8 +103,8 @@ from
 In this example the fields are `name: str`, `email: str`, and `karma: i32`.
 
 When using struct types, every column that the query selects, should have a type
-annotation, because Querybinder generates code that reads the columns by index.
-Querybinder does not verify that every column is annotated, because it does not
+annotation, because Squiller generates code that reads the columns by index.
+Squiller does not verify that every column is annotated, because it does not
 do the advanced parsing of the query that would be necessary for this.
 
 Every comment between the `@query` marker and the terminating `;` that starts

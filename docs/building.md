@@ -1,9 +1,9 @@
 # Building
 
-Querybinder is written in Rust and builds with Cargo:
+Squiller is written in Rust and builds with Cargo:
 
     cargo build --release
-    target/release/querybinder
+    target/release/squiller
 
 ## Nix
 
@@ -22,11 +22,11 @@ development shell:
 
 The Nix flake can also be used to build the application. This is not recommended
 for development because you lose incremental compilation, but flakes can be a
-useful way of integrating Querybinder into the build pipeline of a different
+useful way of integrating Squiller into the build pipeline of a different
 project. To build the flake:
 
     nix build
-    result/bin/querybinder --help
+    result/bin/squiller --help
 
 [nix]: https://nixos.org/download.html
 
