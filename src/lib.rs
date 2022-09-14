@@ -6,6 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 pub mod ast;
+pub mod cli;
 pub mod error;
 pub mod lexer {
     pub mod annotation;
