@@ -7,6 +7,8 @@
     let
       name = "squiller";
       version = builtins.substring 0 8 self.lastModifiedDate;
+      datePart = i: n: builtins.substring i n self.lastModifiedDate;
+      date = "${datePart 0 4}-${datePart 4 2}-${datePart 6 2}";
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       forAllNixpkgs = f: forAllSystems (system: f (import nixpkgs { inherit system; }));
@@ -29,6 +31,15 @@
             src = ./.;
             cargoLock.lockFile = ./Cargo.lock;
             nativeBuildInputs = [ pkgs.sqlite ];
+            versionSrc =
+              ''
+              pub const VERSION: &'static str = "${version}";
+              pub const SUFFIX: &'static str = "-flake";
+              pub const DATE: &'static str = "${date}";
+              pub const REV: &'static str = "${self.rev}";
+              '';
+
+            patchPhase = ''echo "$versionSrc" > src/version.rs'';
           };
         });
       };
