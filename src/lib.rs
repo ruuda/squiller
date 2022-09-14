@@ -19,6 +19,8 @@ pub mod parser {
 pub mod target;
 pub mod typecheck;
 
+mod version;
+
 use ast::Document;
 use lexer::document::Lexer;
 use parser::document::Parser;

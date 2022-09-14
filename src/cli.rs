@@ -12,7 +12,7 @@
 use std::fmt;
 use std::vec;
 
-pub const USAGE: &'static str = r#"
+const USAGE: &'static str = r#"
 Squiller -- Generate boilerplate from annotated SQL queries.
 
 Usage:
@@ -194,6 +194,23 @@ pub fn parse(argv: Vec<String>) -> Result<Cmd, String> {
     }
 
     Ok(Cmd::Generate { target, fnames })
+}
+
+/// Print usage/help info, for `--help`.
+pub fn print_usage() {
+    println!("{}", USAGE.trim());
+}
+
+/// Print version info, for `--version`.
+pub fn print_version() {
+    use crate::version::{VERSION, SUFFIX, DATE, REV};
+    println!(
+        "Squiller {}{}, released {}, built from commit {}",
+        VERSION,
+        SUFFIX,
+        DATE,
+        REV,
+    );
 }
 
 #[cfg(test)]

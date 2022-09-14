@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use squiller::cli;
-use squiller::cli::{Cmd, USAGE};
+use squiller::cli::Cmd;
 use squiller::target::{Target, TARGETS};
 use squiller::NamedDocument;
 
@@ -63,7 +63,7 @@ fn main() {
 
     let (target, input_files) = match cmd {
         Cmd::Help => {
-            println!("{}", USAGE.trim());
+            cli::print_usage();
             std::process::exit(0);
         }
         Cmd::TargetHelp => {
@@ -71,7 +71,8 @@ fn main() {
             std::process::exit(0);
         }
         Cmd::Version => {
-            todo!("print version");
+            cli::print_version();
+            std::process::exit(0);
         }
         Cmd::Generate { target, fnames } => {
             let target = match Target::from_name(&target) {
