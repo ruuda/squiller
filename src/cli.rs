@@ -125,6 +125,10 @@ impl Iterator for ArgIter {
             return Some(Arg::Long(flag));
         }
 
+        if arg == "-" {
+            return Some(Arg::Plain(arg));
+        }
+
         if arg.starts_with("-") {
             let mut flag = String::from(&arg[1..]);
             if flag.len() > 1 {
@@ -254,6 +258,18 @@ mod test {
         });
         assert_eq!(
             parse_slice(&["squiller", "-tfoo", "--", "--bar", "--", "-t"]),
+            expected,
+        );
+    }
+
+    #[test]
+    fn parse_handles_dash_as_arg() {
+        let expected = Ok(Cmd::Generate {
+            target: "foo".into(),
+            fnames: vec!["-".into()],
+        });
+        assert_eq!(
+            parse_slice(&["squiller", "-tfoo", "-"]),
             expected,
         );
     }
