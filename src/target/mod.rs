@@ -10,36 +10,52 @@ mod rust_sqlite;
 
 use std::io;
 
-use clap::ValueEnum;
-
 use crate::NamedDocument;
 
-/// The different targets that we can generate code for.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
-pub enum Target {
-    /// List all supported targets.
-    Help,
-
-    /// For debugging, run the parser and print a highlighted document.
-    Debug,
-
-    /// Rust with the `sqlite` crate.
-    RustSqlite,
+pub struct Target {
+    pub name: &'static str,
+    pub help: &'static str,
+    pub handler: fn(&mut dyn io::Write, &[NamedDocument]) -> io::Result<()>,
 }
 
+/// The different targets that we can generate code for.
+pub const TARGETS: &'static [Target] = &[
+    Target {
+        name: "help",
+        help: "List all supported targets.",
+        handler: |_output, _documents| {
+            // We should not get here, the CLI parser handles this case.
+            panic!("This pseudo-target should not be used for processing.");
+        },
+    },
+    Target {
+        name: "debug",
+        help: "For debugging, run the parser and print a highlighted document.",
+        handler: debug::process_documents,
+    },
+    Target {
+        name: "rust-sqlite",
+        help: "Rust with the 'sqlite' crate.",
+        handler: rust_sqlite::process_documents,
+    },
+];
+
 impl Target {
+    /// Get a target by name.
+    pub fn from_name(name: &str) -> Option<&'static Target> {
+        for t in TARGETS.iter() {
+            if t.name == name {
+                return Some(t);
+            }
+        }
+        None
+    }
+
     pub fn process_files(
         &self,
         output: &mut dyn io::Write,
         documents: &[NamedDocument],
     ) -> io::Result<()> {
-        match self {
-            Target::Help => {
-                // We should not get here, the CLI parser handles this case.
-                panic!("This pseudo-target should not be used for processing.");
-            }
-            Target::Debug => debug::process_documents(output, documents),
-            Target::RustSqlite => rust_sqlite::process_documents(output, documents),
-        }
+        (self.handler)(output, documents)
     }
 }

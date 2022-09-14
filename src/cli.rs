@@ -12,7 +12,7 @@
 use std::fmt;
 use std::vec;
 
-pub const USAGE: &'static str = "
+pub const USAGE: &'static str = r#"
 Squiller -- Generate boilerplate from annotated SQL queries.
 
 Usage:
@@ -21,12 +21,15 @@ Usage:
   squiller -h | --help
   squiller --version
 
+Arguments:
+  <file>...             One or more input files to process, or '-' for stdin.
+
 Options:
   -h --help             Show this screen.
-  -t --target <target>  Target to generate code for, use --target=help to list
-                        supported targets.
+  -t --target <target>  Target to generate code for, use '--target=help' to
+                        list supported targets.
   --version             Show version.
-";
+"#;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Cmd {
