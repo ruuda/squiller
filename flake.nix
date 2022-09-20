@@ -6,9 +6,7 @@
   outputs = { self, nixpkgs }: 
     let
       name = "squiller";
-      version = builtins.substring 0 8 self.lastModifiedDate;
-      datePart = i: n: builtins.substring i n self.lastModifiedDate;
-      date = "${datePart 0 4}-${datePart 4 2}-${datePart 6 2}";
+      version = "0.1.0";
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       forAllNixpkgs = f: forAllSystems (system: f (import nixpkgs { inherit system; }));
@@ -33,7 +31,7 @@
             nativeBuildInputs = [ pkgs.sqlite ];
             versionSrc =
               ''
-              pub const VERSION: &'static str = "${version}-flake";
+              pub const VERSION: &'static str = "${version}";
               pub const REV: Option<&'static str> = Some("${self.rev}");
               '';
 
