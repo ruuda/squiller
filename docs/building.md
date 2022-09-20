@@ -30,6 +30,17 @@ project. To build the flake:
 
 [nix]: https://nixos.org/download.html
 
+## Packaging
+
+Squiller can be packaged like any Rust application. A release build with
+`cargo build --release` will produce the binary in `target/release`. The
+currently supported Rust version is listed in `rust-toolchain.toml`, but other
+versions may work.
+
+Squiller includes a file `src/version.rs` with metadata about itself, which gets
+embedded in generated code for traceability. Please update it before building to
+include the commit hash of the source checkout.
+
 ## Development
 
 Run the unit tests:
