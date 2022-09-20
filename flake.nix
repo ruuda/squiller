@@ -33,10 +33,8 @@
             nativeBuildInputs = [ pkgs.sqlite ];
             versionSrc =
               ''
-              pub const VERSION: &'static str = "${version}";
-              pub const SUFFIX: &'static str = "-flake";
-              pub const DATE: &'static str = "${date}";
-              pub const REV: &'static str = "${self.rev}";
+              pub const VERSION: &'static str = "${version}-flake";
+              pub const REV: Option<&'static str> = Some("${self.rev}");
               '';
 
             patchPhase = ''echo "$versionSrc" > src/version.rs'';

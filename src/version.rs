@@ -5,7 +5,5 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-pub const VERSION: &'static str = "0.0.0";
-pub const SUFFIX: &'static str = "-dev";
-pub const DATE: &'static str = "2022-09-14";
-pub const REV: &'static str = "0000000000000000000000000000000000000000";
+pub const VERSION: &'static str = "0.0.0-dev";
+pub const REV: Option<&'static str> = None;

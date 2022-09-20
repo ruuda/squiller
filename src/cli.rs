@@ -203,14 +203,12 @@ pub fn print_usage() {
 
 /// Print version info, for `--version`.
 pub fn print_version() {
-    use crate::version::{VERSION, SUFFIX, DATE, REV};
-    println!(
-        "Squiller {}{}, released {}, built from commit {}",
-        VERSION,
-        SUFFIX,
-        DATE,
-        REV,
-    );
+    use crate::version::{VERSION, REV};
+    print!("Squiller {}, ", VERSION);
+    match REV {
+        Some(rev) => println!("built from commit {}", rev),
+        None => println!("built from an unspecified checkout"),
+    }
 }
 
 #[cfg(test)]
