@@ -9,7 +9,7 @@
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Building — Squiller</title>
+  <title>Changelog — Squiller</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
@@ -391,61 +391,23 @@
     <div id="main">
       <nav id="breadcrumbs">
         <a href="..">Squiller</a>
-         › <a href="./">Development</a> 
-         › <a href="./">Building</a> 
+         › <a href="../usage/">User guide</a> 
+         › <a href="./">Changelog</a> 
         <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
-        <h1 id="building">Building</h1>
-<p>Squiller is written in Rust and builds with Cargo:</p>
-<pre><code>cargo build --release
-target/release/squiller
-</code></pre>
-<h2 id="nix">Nix</h2>
-<p>The repository comes with a Nix-based development environment that puts pinned
-versions of the necessary build tools on the PATH. Alternatively, you can
-source the build tools manually. To enter a development environment with
-<a href="https://nixos.org/download.html">Nix 2.10</a>, you need to run Nix either with:</p>
-<pre><code>--extra-experimental-features nix-command
---extra-experimental-features flakes
-</code></pre>
-<p>or you can add these settings to your <code>~/.config/nix/nix.conf</code>. Then enter a
-development shell:</p>
-<pre><code>nix develop --command $SHELL
-</code></pre>
-<p>The Nix flake can also be used to build the application. This is not recommended
-for development because you lose incremental compilation, but flakes can be a
-useful way of integrating Squiller into the build pipeline of a different
-project. To build the flake:</p>
-<pre><code>nix build
-result/bin/squiller --help
-</code></pre>
-<h2 id="packaging">Packaging</h2>
-<p>Squiller can be packaged like any Rust application. A release build with
-<code>cargo build --release</code> will produce the binary in <code>target/release</code>. The
-currently supported Rust version is listed in <code>rust-toolchain.toml</code>, but other
-versions may work.</p>
-<p>Squiller includes a file <code>src/version.rs</code> with metadata about itself, which gets
-embedded in generated code for traceability. Please update it before building to
-include the commit hash of the source checkout.</p>
-<h2 id="development">Development</h2>
-<p>Run the unit tests:</p>
-<pre><code>cargo test
-</code></pre>
-<p>Run the <a href="../golden-tests/">golden tests</a>:</p>
-<pre><code>golden/run.py
-</code></pre>
-<p>Run one of the fuzz tests (in this case <code>typecheck</code>):</p>
-<pre><code>cargo +nightly-2022-06-25 fuzz run typecheck -- -dict=fuzz/dictionary.txt
-</code></pre>
-<p>Build the documentation or view it locally:</p>
-<pre><code>mkdocs build
-mkdocs serve
-</code></pre>
+        <h1 id="changelog">Changelog</h1>
+<h2 id="010">0.1.0</h2>
+<p>Released 2022-09-20.</p>
+<ul>
+<li>Initial release, the application should still be considered beta quality.</li>
+<li>Rudimentary support for the <code>rust-sqlite</code> target.</li>
+<li>Some types listed in the documentation are not implemented.</li>
+</ul>
       </article>
       <nav id="nav-prev-next">
-        <a id="nav-prev" href="../changelog/" title="Changelog">Previous</a>
-        <a id="nav-next" href="../golden-tests/" title="Golden tests">Next</a>
+        <a id="nav-prev" href="../datatypes/" title="Data types">Previous</a>
+        <a id="nav-next" href="../building/" title="Building">Next</a>
         </nav>
       </div>
     <aside>
@@ -465,18 +427,16 @@ mkdocs serve
               "><a href="../datatypes/">Data types</a></li>
             
             <li class="toc-chapter
-              "><a href="../changelog/">Changelog</a></li>
-            <li class="toc-section
-            "><a href="./">Development</a></li>
+               current"><a href="./">Changelog</a></li>
+            <li><ul>
+                <li class="toc-heading"><a href="#010">0.1.0</a></li>
+                </ul></li>
+               <li class="toc-section
+            "><a href="../building/">Development</a></li>
           
             <li class="toc-chapter
-               current"><a href="./">Building</a></li>
-            <li><ul>
-                <li class="toc-heading"><a href="#nix">Nix</a></li>
-                <li class="toc-heading"><a href="#packaging">Packaging</a></li>
-                <li class="toc-heading"><a href="#development">Development</a></li>
-                </ul></li>
-               
+              "><a href="../building/">Building</a></li>
+            
             <li class="toc-chapter
               "><a href="../golden-tests/">Golden tests</a></li>
             </ul>
