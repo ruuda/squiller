@@ -1,0 +1,29 @@
+-- @query return_unit()
+insert into animals (name) values ('parrot');
+
+-- @query return_option() ->? i64
+select id from animals where name = 'parrot' limit 1;
+
+-- @query return_single() ->1 i64
+select count(*) from animals;
+
+-- @query return_iterator() ->* i64
+select id from animals where habitat = 'sea';
+
+
+-- @query return_unit
+insert into animals (name) values ('parrot');
+
+-- @query return_option
+-- ->? i64
+select id from animals where name = 'parrot' limit 1;
+
+-- @query return_single
+-- ->1 i64
+select count(*) from animals;
+
+-- @query return_iterator
+-- ->* i64
+select id from animals where habitat = 'sea';
+
+
