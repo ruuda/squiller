@@ -608,7 +608,7 @@ mod test {
     }
 
     #[test]
-    fn test_parse_annotation() {
+    fn test_parse_annotation_basic() {
         let input = "@query drop_table_users()";
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
@@ -620,7 +620,10 @@ mod test {
             };
             assert_eq!(result, expected);
         });
+    }
 
+    #[test]
+    fn test_parse_annotation_query_argument() {
         // Test with wonky whitespace, and a trailing comma.
         let inputs: &[&'static str] = &[
             "@query delete_user_by_id(id: i64)",
@@ -645,12 +648,15 @@ mod test {
                 assert_eq!(result, expected);
             });
         }
+    }
 
+    #[test]
+    fn test_parse_annotation_arguments_trailing_comma() {
         // Test both with and without trailing comma. Also we play with the
         // whitespace a bit here.
         let inputs: &[&'static str] = &[
-            "@query get_widgets_in_range (low : i64 , high : i64)",
-            "@query get_widgets_in_range(low:i64,high:i64)",
+            "@query get_widgets_in_range (low : i64 , high : i64 , )",
+            "@query get_widgets_in_range(low:i64,high:i64,)",
         ];
         for input in inputs {
             with_parser(input, |p| {
@@ -679,7 +685,10 @@ mod test {
                 assert_eq!(result, expected);
             });
         }
+    }
 
+    #[test]
+    fn test_parse_annotation_result_type() {
         let input = "@query get_next_id() ->1 i64";
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
