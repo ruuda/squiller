@@ -16,7 +16,17 @@ type Document = crate::ast::Document<Span>;
 type Fragment = crate::ast::Fragment<Span>;
 type Query = crate::ast::Query<Span>;
 type Section = crate::ast::Section<Span>;
+type Statement = crate::ast::Statement<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
+
+enum StatementMode {
+    /// Parse a single statement, until semicolon.
+    Single,
+
+    /// Parse multiple statements, until an end annotation.
+    #[allow(dead_code)]
+    UntilEnd,
+}
 
 /// Document parser.
 ///
@@ -226,7 +236,11 @@ impl<'a> Parser<'a> {
                             // this means we are inside a query section, and we
                             // continue parsing in query mode.
                             Some((ann::Token::Annotation, _)) => {
-                                let query = self.parse_query(comments, comment_lexer)?;
+                                let query = self.parse_query(
+                                    comments,
+                                    comment_lexer,
+                                    StatementMode::Single,
+                                )?;
                                 return Ok(Section::Query(query));
                             }
                             _ => {}
@@ -363,6 +377,7 @@ impl<'a> Parser<'a> {
         &mut self,
         comments: Vec<Span>,
         comment_lexer: ann::Lexer<'a>,
+        statement_mode: StatementMode,
     ) -> PResult<Query> {
         let annotation = self.parse_annotation(comment_lexer)?;
 
@@ -371,6 +386,7 @@ impl<'a> Parser<'a> {
             Some((_, span)) => span.start,
         };
 
+        let mut statements = Vec::new();
         let mut fragments = Vec::new();
         let mut fragment = Span {
             start: fragment_start,
@@ -464,12 +480,22 @@ impl<'a> Parser<'a> {
                     fragments.push(Fragment::Verbatim(fragment));
                     self.consume();
 
-                    let result = Query {
-                        docs: comments,
-                        annotation: annotation,
-                        fragments: fragments,
-                    };
-                    return Ok(result);
+                    statements.push(Statement { fragments });
+
+                    match statement_mode {
+                        StatementMode::Single => {
+                            let result = Query {
+                                docs: comments,
+                                annotation: annotation,
+                                statements: statements,
+                            };
+                            return Ok(result);
+                        }
+                        StatementMode::UntilEnd => {
+                            // fragments = Vec::new();
+                            todo!("Parse multi-statement queries.");
+                        }
+                    }
                 }
                 _other_token => {
                     self.consume();
@@ -486,7 +512,7 @@ mod test {
     use super::Parser;
     use crate::ast::{
         Annotation, ArgType, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section,
-        SimpleType, TypedIdent,
+        SimpleType, Statement, TypedIdent,
     };
     use crate::error::Error;
     use crate::lexer::document::Lexer;
@@ -534,7 +560,9 @@ mod test {
                         type_: PrimitiveType::I64,
                     })),
                 },
-                fragments: vec![Fragment::Verbatim("SELECT * FROM kv;")],
+                statements: vec![Statement {
+                    fragments: vec![Fragment::Verbatim("SELECT * FROM kv;")],
+                }],
             });
             assert_eq!(result, expected);
         });
@@ -582,7 +610,8 @@ mod test {
                 Section::Query(q) => q,
                 _ => panic!("Expected query."),
             };
-            let fragments = query.resolve(input).fragments;
+            let statements = query.resolve(input).statements;
+            let fragments = &statements[0].fragments[..];
             let expected = [
                 Fragment::Verbatim("SELECT "),
                 Fragment::TypedIdent(
@@ -624,20 +653,22 @@ mod test {
                     arguments: ArgType::Args(vec![]),
                     result_type: ResultType::Unit,
                 },
-                fragments: vec![
-                    Fragment::Verbatim("SELECT a from b where c = "),
-                    Fragment::TypedParam(
-                        ":c /* :str */",
-                        TypedIdent {
-                            ident: ":c",
-                            type_: SimpleType::Primitive {
-                                inner: "str",
-                                type_: PrimitiveType::Str,
+                statements: vec![Statement {
+                    fragments: vec![
+                        Fragment::Verbatim("SELECT a from b where c = "),
+                        Fragment::TypedParam(
+                            ":c /* :str */",
+                            TypedIdent {
+                                ident: ":c",
+                                type_: SimpleType::Primitive {
+                                    inner: "str",
+                                    type_: PrimitiveType::Str,
+                                },
                             },
-                        },
-                    ),
-                    Fragment::Verbatim(";"),
-                ],
+                        ),
+                        Fragment::Verbatim(";"),
+                    ],
+                }],
             });
             assert_eq!(result, expected);
         });

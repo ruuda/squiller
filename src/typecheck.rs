@@ -17,7 +17,7 @@ use std::collections::hash_map::{Entry, HashMap};
 use std::collections::hash_set::HashSet;
 
 use crate::ast::{
-    Annotation, ArgType, ComplexType, Document, Fragment, Query, Section, TypedIdent,
+    Annotation, ArgType, ComplexType, Document, Fragment, Query, Section, Statement, TypedIdent,
 };
 use crate::error::{TResult, TypeError};
 use crate::Span;
@@ -70,18 +70,16 @@ impl<'a> QueryChecker<'a> {
     /// was listed explicitly). We also fill the fields of structs.
     pub fn check_and_resolve<'b: 'a>(input: &'b str, query: Query<Span>) -> TResult<Query<Span>> {
         let mut annotation = query.annotation;
-        let fragments = query.fragments;
 
         let mut checker = Self::new(input);
         checker.populate_query_args(&annotation)?;
-        checker.populate_inputs_outputs(&fragments)?;
+        checker.populate_inputs_outputs(&query.statements)?;
 
         checker.fill_input_struct(&mut annotation)?;
         checker.fill_output_struct(&mut annotation)?;
 
         let query = Query {
             annotation: annotation,
-            fragments: fragments,
             ..query
         };
 
@@ -117,9 +115,11 @@ impl<'a> QueryChecker<'a> {
     }
 
     /// Handle fragments of the query body, populate inputs and outputs.
-    fn populate_inputs_outputs(&mut self, fragments: &[Fragment<Span>]) -> TResult<()> {
-        for fragment in fragments {
-            self.populate_input_output(fragment)?;
+    fn populate_inputs_outputs(&mut self, statements: &[Statement<Span>]) -> TResult<()> {
+        for statement in statements {
+            for fragment in &statement.fragments {
+                self.populate_input_output(fragment)?;
+            }
         }
         Ok(())
     }

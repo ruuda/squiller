@@ -7,7 +7,7 @@
 
 use std::io;
 
-use crate::ast::{ArgType, ComplexType, Fragment, ResultType, Section, SimpleType};
+use crate::ast::{ArgType, ComplexType, Fragment, ResultType, Section, SimpleType, Statement};
 use crate::{NamedDocument, Span};
 
 fn print_simple_type(
@@ -70,11 +70,61 @@ fn print_complex_type(
 }
 
 /// Pretty-print the parsed file, for debugging purposes.
+pub fn print_statement(
+    out: &mut dyn io::Write,
+    input: &str,
+    statement: &Statement<Span>,
+) -> io::Result<()> {
+    let blue = "\x1b[34;1m";
+    let white = "\x1b[37;1m";
+    let reset = "\x1b[0m";
+
+    for fragment in &statement.fragments {
+        match fragment {
+            Fragment::Verbatim(s) => {
+                write!(out, "{}", s.resolve(input))?;
+            }
+            Fragment::TypedIdent(raw, parsed) => {
+                write!(out, "{}{}{}", blue, parsed.ident.resolve(input), reset)?;
+                let mid = Span {
+                    start: parsed.ident.end,
+                    end: parsed.type_.span().start,
+                };
+                let end = Span {
+                    start: parsed.type_.span().end,
+                    end: raw.end,
+                };
+                write!(out, "{}", mid.resolve(input))?;
+                print_simple_type(out, input, &parsed.type_)?;
+                write!(out, "{}", end.resolve(input))?;
+            }
+            Fragment::Param(s) => {
+                write!(out, "{}{}{}", white, s.resolve(input), reset)?;
+            }
+            Fragment::TypedParam(raw, parsed) => {
+                write!(out, "{}{}{}", white, parsed.ident.resolve(input), reset)?;
+                let mid = Span {
+                    start: parsed.ident.end,
+                    end: parsed.type_.span().start,
+                };
+                let end = Span {
+                    start: parsed.type_.span().end,
+                    end: raw.end,
+                };
+                write!(out, "{}", mid.resolve(input))?;
+                print_simple_type(out, input, &parsed.type_)?;
+                write!(out, "{}", end.resolve(input))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Pretty-print the parsed file, for debugging purposes.
 pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
     let red = "\x1b[31m";
     let green = "\x1b[32m";
-    let blue = "\x1b[34;1m";
-    let white = "\x1b[37;1m";
     let reset = "\x1b[0m";
 
     for named_document in documents {
@@ -148,43 +198,8 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         }
                     }
 
-                    for fragment in &query.fragments {
-                        match fragment {
-                            Fragment::Verbatim(s) => {
-                                write!(out, "{}", s.resolve(input))?;
-                            }
-                            Fragment::TypedIdent(raw, parsed) => {
-                                write!(out, "{}{}{}", blue, parsed.ident.resolve(input), reset)?;
-                                let mid = Span {
-                                    start: parsed.ident.end,
-                                    end: parsed.type_.span().start,
-                                };
-                                let end = Span {
-                                    start: parsed.type_.span().end,
-                                    end: raw.end,
-                                };
-                                write!(out, "{}", mid.resolve(input))?;
-                                print_simple_type(out, input, &parsed.type_)?;
-                                write!(out, "{}", end.resolve(input))?;
-                            }
-                            Fragment::Param(s) => {
-                                write!(out, "{}{}{}", white, s.resolve(input), reset)?;
-                            }
-                            Fragment::TypedParam(raw, parsed) => {
-                                write!(out, "{}{}{}", white, parsed.ident.resolve(input), reset)?;
-                                let mid = Span {
-                                    start: parsed.ident.end,
-                                    end: parsed.type_.span().start,
-                                };
-                                let end = Span {
-                                    start: parsed.type_.span().end,
-                                    end: raw.end,
-                                };
-                                write!(out, "{}", mid.resolve(input))?;
-                                print_simple_type(out, input, &parsed.type_)?;
-                                write!(out, "{}", end.resolve(input))?;
-                            }
-                        }
+                    for statement in &query.statements {
+                        print_statement(out, input, statement)?;
                     }
                 }
             }

@@ -283,16 +283,10 @@ impl Fragment<Span> {
     }
 }
 
-/// An annotated query.
+/// A single SQL statement, terminated by a semicolon.
 #[derive(Debug, Eq, PartialEq)]
-pub struct Query<TSpan> {
-    /// The lines of the comment that precedes the query, without `--`-prefix.
-    pub docs: Vec<TSpan>,
-
-    /// The annotation, which includes the name, parameters, and result type.
-    pub annotation: Annotation<TSpan>,
-
-    /// The spans that together reconstruct the query, including whitespace.
+pub struct Statement<TSpan> {
+    /// The spans that reconstruct the query, including whitespace.
     ///
     /// These spans are mostly verbatim, although the preceding comments are
     /// omitted, and any `select ... as "name: type"` selections will have the
@@ -300,17 +294,15 @@ pub struct Query<TSpan> {
     pub fragments: Vec<Fragment<TSpan>>,
 }
 
-impl Query<Span> {
-    pub fn resolve<'a>(&self, input: &'a str) -> Query<&'a str> {
-        Query {
-            docs: self.docs.iter().map(|d| d.resolve(input)).collect(),
-            annotation: self.annotation.resolve(input),
+impl Statement<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Statement<&'a str> {
+        Statement {
             fragments: self.fragments.iter().map(|f| f.resolve(input)).collect(),
         }
     }
 }
 
-impl<TSpan> Query<TSpan> {
+impl<TSpan> Statement<TSpan> {
     /// Extract all parameters from the query body (both typed and untyped).
     pub fn iter_parameters<'a>(&self) -> impl Iterator<Item = TSpan> + '_
     where
@@ -322,6 +314,41 @@ impl<TSpan> Query<TSpan> {
             Fragment::Param(span) => Some(*span),
             Fragment::TypedParam(_full_span, ti) => Some(ti.ident),
         })
+    }
+}
+
+/// An annotated query.
+#[derive(Debug, Eq, PartialEq)]
+pub struct Query<TSpan> {
+    /// The lines of the comment that precedes the query, without `--`-prefix.
+    pub docs: Vec<TSpan>,
+
+    /// The annotation, which includes the name, parameters, and result type.
+    pub annotation: Annotation<TSpan>,
+
+    /// The SQL statements that make up the query, at least one.
+    pub statements: Vec<Statement<TSpan>>,
+}
+
+impl Query<Span> {
+    pub fn resolve<'a>(&self, input: &'a str) -> Query<&'a str> {
+        Query {
+            docs: self.docs.iter().map(|d| d.resolve(input)).collect(),
+            annotation: self.annotation.resolve(input),
+            statements: self.statements.iter().map(|f| f.resolve(input)).collect(),
+        }
+    }
+}
+
+impl<TSpan> Query<TSpan> {
+    /// Extract all parameters from the query body (both typed and untyped).
+    pub fn iter_parameters<'a>(&self) -> impl Iterator<Item = TSpan> + '_
+    where
+        TSpan: Copy,
+    {
+        self.statements
+            .iter()
+            .flat_map(|stmt| stmt.iter_parameters())
     }
 }
 

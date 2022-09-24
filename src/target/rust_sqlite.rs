@@ -353,8 +353,10 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             // TODO: indent the query.
             writeln!(out, "    let sql = r#\"")?;
+            // TODO: Deal with multiple statements.
+            let fragments = &query.statements[0].fragments;
             // TODO: Include the source file name and line number as a comment.
-            for fragment in &query.fragments {
+            for fragment in fragments {
                 let span = match fragment {
                     Fragment::Verbatim(span) => span,
                     Fragment::Param(span) => span,
