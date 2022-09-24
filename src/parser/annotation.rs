@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{PrimitiveType, StatementMode};
+use crate::ast::{PrimitiveType, StatementType};
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation::Token;
 use crate::Span;
@@ -379,12 +379,12 @@ impl<'a> Parser<'a> {
         Ok(ArgType::Args(simple_args))
     }
 
-    pub fn parse_annotation(&mut self) -> PResult<Annotation> {
+    pub fn parse_annotation(&mut self) -> PResult<(Annotation, StatementType)> {
         // 1. The @query or @begin that marks the start of the annotation.
-        let mode = match self.peek_with_span() {
+        let stmt_type = match self.peek_with_span() {
             Some((Token::Marker, mark)) => match mark.resolve(self.input) {
-                "@query" => StatementMode::Single,
-                "@begin" => StatementMode::Multi,
+                "@query" => StatementType::Single,
+                "@begin" => StatementType::Multi,
                 _ => return self.error("Invalid annotation, expected '@query' or '@begin' here."),
             },
             Some(_) => {
@@ -436,12 +436,11 @@ impl<'a> Parser<'a> {
         };
 
         let result = Annotation {
-            mode,
             name,
             arguments,
             result_type,
         };
-        Ok(result)
+        Ok((result, stmt_type))
     }
 }
 
@@ -449,7 +448,7 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{
-        Annotation, ArgType, ComplexType, PrimitiveType, ResultType, SimpleType, StatementMode,
+        Annotation, ArgType, ComplexType, PrimitiveType, ResultType, SimpleType, StatementType,
         TypedIdent,
     };
     use crate::lexer::annotation::Lexer;
@@ -611,14 +610,14 @@ mod test {
     fn test_parse_annotation_basic() {
         let input = "@query drop_table_users()";
         with_parser(input, |p| {
-            let result = p.parse_annotation().unwrap().resolve(input);
+            let result = p.parse_annotation().unwrap();
             let expected = Annotation {
-                mode: StatementMode::Single,
                 name: "drop_table_users",
                 arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Unit,
             };
-            assert_eq!(result, expected);
+            assert_eq!(result.0.resolve(input), expected);
+            assert_eq!(result.1, StatementType::Single);
         });
     }
 
@@ -626,14 +625,14 @@ mod test {
     fn test_parse_annotation_begin_multi_statement() {
         let input = "@begin init_schema()";
         with_parser(input, |p| {
-            let result = p.parse_annotation().unwrap().resolve(input);
+            let result = p.parse_annotation().unwrap();
             let expected = Annotation {
-                mode: StatementMode::Multi,
                 name: "init_schema",
                 arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Unit,
             };
-            assert_eq!(result, expected);
+            assert_eq!(result.0.resolve(input), expected);
+            assert_eq!(result.1, StatementType::Multi);
         });
     }
 
@@ -647,9 +646,8 @@ mod test {
         ];
         for input in inputs {
             with_parser(input, |p| {
-                let result = p.parse_annotation().unwrap().resolve(input);
+                let result = p.parse_annotation().unwrap();
                 let expected = Annotation {
-                    mode: StatementMode::Single,
                     name: "delete_user_by_id",
                     arguments: ArgType::Args(vec![TypedIdent {
                         ident: "id",
@@ -660,7 +658,8 @@ mod test {
                     }]),
                     result_type: ResultType::Unit,
                 };
-                assert_eq!(result, expected);
+                assert_eq!(result.0.resolve(input), expected);
+                assert_eq!(result.1, StatementType::Single);
             });
         }
     }
@@ -675,9 +674,8 @@ mod test {
         ];
         for input in inputs {
             with_parser(input, |p| {
-                let result = p.parse_annotation().unwrap().resolve(input);
+                let result = p.parse_annotation().unwrap();
                 let expected = Annotation {
-                    mode: StatementMode::Single,
                     name: "get_widgets_in_range",
                     arguments: ArgType::Args(vec![
                         TypedIdent {
@@ -697,7 +695,8 @@ mod test {
                     ]),
                     result_type: ResultType::Unit,
                 };
-                assert_eq!(result, expected);
+                assert_eq!(result.0.resolve(input), expected);
+                assert_eq!(result.1, StatementType::Single);
             });
         }
     }
@@ -706,9 +705,8 @@ mod test {
     fn test_parse_annotation_result_type() {
         let input = "@query get_next_id() ->1 i64";
         with_parser(input, |p| {
-            let result = p.parse_annotation().unwrap().resolve(input);
+            let result = p.parse_annotation().unwrap();
             let expected = Annotation {
-                mode: StatementMode::Single,
                 name: "get_next_id",
                 arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Single(ComplexType::Simple(SimpleType::Primitive {
@@ -716,7 +714,8 @@ mod test {
                     type_: PrimitiveType::I64,
                 })),
             };
-            assert_eq!(result, expected);
+            assert_eq!(result.0.resolve(input), expected);
+            assert_eq!(result.1, StatementType::Single);
         });
     }
 

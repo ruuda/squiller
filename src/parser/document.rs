@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::StatementMode;
+use crate::ast::StatementType;
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation as ann;
 use crate::lexer::document as doc;
@@ -254,7 +254,10 @@ impl<'a> Parser<'a> {
     /// When we enter this state, we already have one comment line that contains
     /// an annotation, but the annotation may be spread over multiple lines, so
     /// consume those up to the start of the query itself.
-    fn parse_annotation(&mut self, mut comment_lexer: ann::Lexer<'a>) -> PResult<Annotation> {
+    fn parse_annotation(
+        &mut self,
+        mut comment_lexer: ann::Lexer<'a>,
+    ) -> PResult<(Annotation, StatementType)> {
         loop {
             match self.peek() {
                 Some(doc::Token::Space)
@@ -521,15 +524,15 @@ impl<'a> Parser<'a> {
         comments: Vec<Span>,
         comment_lexer: ann::Lexer<'a>,
     ) -> PResult<Query> {
-        let annotation = self.parse_annotation(comment_lexer)?;
+        let (annotation, stmt_type) = self.parse_annotation(comment_lexer)?;
 
         let mut statements = Vec::new();
 
         statements.push(self.parse_statement()?);
 
-        match annotation.mode {
-            StatementMode::Single => {}
-            StatementMode::Multi => loop {
+        match stmt_type {
+            StatementType::Single => {}
+            StatementType::Multi => loop {
                 if self.try_parse_end_marker() {
                     break;
                 }
@@ -551,7 +554,7 @@ mod test {
     use super::Parser;
     use crate::ast::{
         Annotation, ArgType, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section,
-        SimpleType, Statement, StatementMode, TypedIdent,
+        SimpleType, Statement, TypedIdent,
     };
     use crate::error::Error;
     use crate::lexer::document::Lexer;
@@ -577,7 +580,6 @@ mod test {
             let expected = Section::Query(Query {
                 docs: vec![],
                 annotation: Annotation {
-                    mode: StatementMode::Single,
                     name: "multiline_signature",
                     arguments: ArgType::Args(vec![
                         TypedIdent {
@@ -621,7 +623,6 @@ mod test {
             let expected = Section::Query(Query {
                 docs: vec![],
                 annotation: Annotation {
-                    mode: StatementMode::Multi,
                     name: "drop_schema",
                     arguments: ArgType::Args(vec![]),
                     result_type: ResultType::Unit,
@@ -720,7 +721,6 @@ mod test {
             let expected = Section::Query(Query {
                 docs: vec![],
                 annotation: Annotation {
-                    mode: StatementMode::Single,
                     name: "q",
                     arguments: ArgType::Args(vec![]),
                     result_type: ResultType::Unit,
