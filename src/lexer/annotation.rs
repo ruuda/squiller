@@ -11,15 +11,15 @@ use crate::Span;
 #[derive(Debug)]
 enum State {
     Base,
-    InAnnotation,
+    InMarker,
     InIdent,
     Done,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Token {
-    // TODO: Rename to "marker".
-    Annotation,
+    /// A marker starts with `@`.
+    Marker,
     Ident,
     LParen,
     RParen,
@@ -27,12 +27,16 @@ pub enum Token {
     Semicolon,
     Comma,
     Minus,
+    /// `?`
     Question,
     /// A bare arrow is invalid in the grammar, but we have it here to be able
     /// to generate more helpful error messages.
     Arrow,
+    /// `->?`
     ArrowOpt,
+    /// `->1`
     ArrowOne,
+    /// `->*`
     ArrowStar,
 }
 
@@ -84,7 +88,7 @@ impl<'a> Lexer<'a> {
         while self.start < self.end {
             let (start, state) = match self.state {
                 State::Base => self.lex_base(),
-                State::InAnnotation => self.lex_in_annotation(),
+                State::InMarker => self.lex_in_marker(),
                 State::InIdent => self.lex_in_ident(),
                 State::Done => break,
             };
@@ -114,7 +118,7 @@ impl<'a> Lexer<'a> {
             return (self.start, State::Done);
         }
         if input[0] == b'@' {
-            return (self.start, State::InAnnotation);
+            return (self.start, State::InMarker);
         }
         if input[0] == b'(' {
             self.push(Token::LParen, 1);
@@ -192,8 +196,8 @@ impl<'a> Lexer<'a> {
         (self.start + input.len(), State::Done)
     }
 
-    fn lex_in_annotation(&mut self) -> (usize, State) {
-        self.lex_skip_then_while(1, is_ascii_identifier, Token::Annotation)
+    fn lex_in_marker(&mut self) -> (usize, State) {
+        self.lex_skip_then_while(1, is_ascii_identifier, Token::Marker)
     }
 
     fn lex_in_ident(&mut self) -> (usize, State) {
@@ -243,7 +247,7 @@ mod test {
         test_tokens(
             " @query get_foo() -> i64;",
             &[
-                (Token::Annotation, "@query"),
+                (Token::Marker, "@query"),
                 (Token::Ident, "get_foo"),
                 (Token::LParen, "("),
                 (Token::RParen, ")"),
@@ -259,7 +263,7 @@ mod test {
         test_tokens(
             "@query get_foo ( ) -> User?;",
             &[
-                (Token::Annotation, "@query"),
+                (Token::Marker, "@query"),
                 (Token::Ident, "get_foo"),
                 (Token::LParen, "("),
                 (Token::RParen, ")"),
@@ -276,7 +280,7 @@ mod test {
         test_tokens(
             "@query get_name_and_age() -> (String, i64);",
             &[
-                (Token::Annotation, "@query"),
+                (Token::Marker, "@query"),
                 (Token::Ident, "get_name_and_age"),
                 (Token::LParen, "("),
                 (Token::RParen, ")"),
@@ -296,7 +300,7 @@ mod test {
         test_tokens(
             "@query get_user_by_name(name: &str) -> User;",
             &[
-                (Token::Annotation, "@query"),
+                (Token::Marker, "@query"),
                 (Token::Ident, "get_user_by_name"),
                 (Token::LParen, "("),
                 (Token::Ident, "name"),
@@ -316,7 +320,7 @@ mod test {
             // Spice it up a bit, also omit the spaces.
             "@query get_nearest_beacon(lng:f64,lat:f64)->i64;",
             &[
-                (Token::Annotation, "@query"),
+                (Token::Marker, "@query"),
                 (Token::Ident, "get_nearest_beacon"),
                 (Token::LParen, "("),
                 (Token::Ident, "lng"),
@@ -338,7 +342,7 @@ mod test {
     fn lex_bogus_input_with_at() {
         // The fuzzer found this input to cause OOM, this is a regression test.
         let input = "-@";
-        test_tokens(input, &[(Token::Minus, "-"), (Token::Annotation, "@")]);
+        test_tokens(input, &[(Token::Minus, "-"), (Token::Marker, "@")]);
     }
 
     #[test]

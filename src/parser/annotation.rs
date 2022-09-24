@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
     pub fn parse_annotation(&mut self) -> PResult<Annotation> {
         // 1. The @query or @begin that marks the start of the annotation.
         let mode = match self.peek_with_span() {
-            Some((Token::Annotation, ann)) => match ann.resolve(self.input) {
+            Some((Token::Marker, mark)) => match mark.resolve(self.input) {
                 "@query" => StatementMode::Single,
                 "@begin" => StatementMode::Multi,
                 _ => return self.error("Invalid annotation, expected '@query' or '@begin' here."),

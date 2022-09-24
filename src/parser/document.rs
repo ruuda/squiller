@@ -224,10 +224,10 @@ impl<'a> Parser<'a> {
                         let mut comment_lexer = ann::Lexer::new(self.input);
                         comment_lexer.run(span);
                         match comment_lexer.tokens().first() {
-                            // If the comment starts with an annotation, then
-                            // this means we are inside a query section, and we
+                            // If the comment starts with a marker, then this
+                            // means we are inside a query section, and we
                             // continue parsing in query mode.
-                            Some((ann::Token::Annotation, _)) => {
+                            Some((ann::Token::Marker, _)) => {
                                 let query = self.parse_query(comments, comment_lexer)?;
                                 return Ok(Section::Query(query));
                             }
@@ -306,9 +306,8 @@ impl<'a> Parser<'a> {
                     let span = self.tokens[self.cursor].1;
                     comment_lexer.run(span);
 
-                    if let Some((ann::Token::Annotation, span)) =
-                        comment_lexer.tokens().iter().next()
-                    {
+                    let first_token = comment_lexer.tokens().iter().next();
+                    if let Some((ann::Token::Marker, span)) = first_token {
                         if span.resolve(self.input) == "@end" {
                             self.consume();
                             return true;
