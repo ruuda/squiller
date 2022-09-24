@@ -48,6 +48,12 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
     """
     Run the given golden test, return whether it was succesful.
     """
+    # The target is determined by the directory that the test is in. We also
+    # have a directory that tests parse/type errors, the target is not relevant
+    # for them, so we set the target to "debug".
+    test_dir = os.path.basename(os.path.dirname(fname))
+    target_name = "debug" if test_dir == "error" else test_dir
+
     input_lines: List[str] = []
     golden_lines: List[str] = []
 
@@ -69,7 +75,7 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
     os.putenv("RUST_BACKTRACE", "1")
 
     result = subprocess.run(
-        ["target/debug/squiller", "--target=debug", "-"],
+        ["target/debug/squiller", f"--target={target_name}", "-"],
         input="".join(input_lines),
         capture_output=True,
         encoding="utf-8",
