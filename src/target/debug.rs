@@ -142,11 +142,16 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         writeln!(out, "{}--{}", red, doc_line.resolve(input))?;
                     }
 
+                    let marker = match query.statements.len() {
+                        0 | 1 => "@query",
+                        _ => "@begin",
+                    };
                     writeln!(
                         out,
-                        "{}-- {}@query{} {}",
+                        "{}-- {}{}{} {}",
                         reset,
                         green,
+                        marker,
                         reset,
                         annotation.name.resolve(input)
                     )?;
@@ -198,8 +203,27 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         }
                     }
 
+                    let mut is_first = true;
                     for statement in &query.statements {
+                        // Insert a newline between statements, because we strip
+                        // whitespace in between statements.
+                        if is_first {
+                            is_first = false;
+                        } else {
+                            writeln!(out)?;
+                        }
+
                         print_statement(out, input, statement)?;
+                    }
+
+                    if query.statements.len() > 1 {
+                        writeln!(
+                            out,
+                            "\n-- {}@end{} {}",
+                            green,
+                            reset,
+                            annotation.name.resolve(input)
+                        )?;
                     }
                 }
             }

@@ -1,0 +1,35 @@
+-- @begin drop_schema()
+DROP TABLE albums;
+DROP TABLE artists;
+-- @end drop_schema
+
+-- @begin select_artist_by_id(artist_id: i64) ->? Artist
+SELECT
+    name      -- :str
+  , sort_name -- :str
+FROM
+  artists
+WHERE
+  id = :artist_id;
+-- @end
+
+
+-- @begin drop_schema
+DROP TABLE albums;
+DROP TABLE artists;
+-- @end drop_schema
+
+
+-- @query select_artist_by_id
+-- artist_id: i64
+-- ->? Artist {
+--   name: str,
+--   sort_name: str,
+-- }
+SELECT
+    name      -- :str
+  , sort_name -- :str
+FROM
+  artists
+WHERE
+  id = :artist_id;
