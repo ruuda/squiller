@@ -9,10 +9,10 @@ outputs of the function.
 
 ## Annotations
 
-Squiller ignores all content, until it encounters the marker `@query` in a
-comment. This marks the following query as an _annotated_ query, that it will
-generate code for. Following the `@query` is the query _signature_, which
-specifies its name, arguments, argument types, and result type, similar to
+Squiller ignores all content, until it encounters the marker `@query` or
+`@begin` in a comment. This marks the following query as an _annotated_ query,
+that it will generate code for. Following the marker is the query _signature_,
+which specifies its name, arguments, argument types, and result type, similar to
 function signatures in other languages. Let’s look at an example:
 
 ```sql
@@ -181,3 +181,40 @@ runtime error when the `users` table is empty (because null cannot be decoded
 into `i64`), and annotating the second query with `->1 i64?` would result in a
 runtime error when the `users` table is empty as well (because it expects at
 least one row).
+
+## Multiple statements
+
+You can create functions that execute multiple <abbr>SQL</abbr> statements by
+using a `@begin` marker to start an annotated query, instead of `@query`.
+This can be useful for e.g. migrations.
+
+ * With a `@query` marker, the query comprises only the statement that follows
+   it, until the terminating semicolon.
+  * With a `@begin` marker, all statements between `@begin` and `@end` are
+    included. `@end` is only valid directly after a semicolon.
+
+Let’s look at an example:
+
+```
+-- Set up the initial schema.
+-- @begin init_schema()
+create table if not exists
+  users
+  ( id    integer primary key autoincrement
+  , name  text not null
+  , email text not null
+  );
+create index ix_users_email on users (email);
+-- @end init_schema
+```
+
+In long documents, for clarity it is recommended to repeat the name of the query
+after the `@end` marker, but this is not required.
+
+When a multi-statement query has a result type, the result type applies to the
+final statement in the query. Every other statement must not return any rows.
+Query parameters are allowed in all statements.
+
+**Note:** The `@begin` and
+`@end` markers are unrelated to the <abbr>SQL</abbr> statements `BEGIN` and
+`COMMIT`. Squiller never starts transactions implicitly.

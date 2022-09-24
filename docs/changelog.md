@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+ * Add support for multi-statement queries, demarcated by `@begin` and `@end`.
+
 ## 0.1.0
 
 Released 2022-09-20.
