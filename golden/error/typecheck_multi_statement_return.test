@@ -1,0 +1,20 @@
+-- @begin create_user(name: str) ->1 User
+insert into
+  audit_events (created_at, type)
+values
+  (now(), 'create_user')
+returning
+  -- Not allowed! Only the final statement can return a value.
+  event_id /* :i64 */;
+
+insert into
+  users (name)
+values
+  (:name)
+returning
+  user_id /* :i64 */;
+
+-- @end
+
+
+TODO: This should fail.
