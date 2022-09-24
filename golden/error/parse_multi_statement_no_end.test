@@ -1,0 +1,13 @@
+-- @begin drop_schema()
+DROP TABLE tracks;
+DROP TABLE albums;
+-- Note the missing @end marker (this one doesn't count, it's not at the start)
+-- after the next statement.
+DROP TABLE artists;
+
+
+ --> stdin:9:0
+  |
+9 | 
+  | ^
+Error: Expected a SQL statement here.
