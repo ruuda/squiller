@@ -1,5 +1,7 @@
 "--"
 "@query"
+"@begin"
+"@end"
 "("
 # Not magic, but put at least one argument in there.
 "email:"
