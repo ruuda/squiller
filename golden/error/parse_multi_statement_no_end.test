@@ -6,8 +6,8 @@ DROP TABLE albums;
 DROP TABLE artists;
 
 
- --> stdin:9:0
+ --> stdin:7:0
   |
-9 | 
+7 | 
   | ^
 Error: Expected a SQL statement here.

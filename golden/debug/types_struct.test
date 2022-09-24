@@ -23,5 +23,3 @@ values
   (:name /* :str */, :email /* :str */)
 returning
   id /* :i64 */;
-
-

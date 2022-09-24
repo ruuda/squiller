@@ -19,5 +19,3 @@ values
   (:name, :email)
 returning
   id;
-
-

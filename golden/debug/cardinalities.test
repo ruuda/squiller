@@ -25,5 +25,3 @@ select count(*) from animals;
 -- @query return_iterator
 -- ->* i64
 select id from animals where habitat = 'sea';
-
-

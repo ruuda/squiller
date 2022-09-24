@@ -76,7 +76,7 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
 
     result = subprocess.run(
         ["target/debug/squiller", f"--target={target_name}", "-"],
-        input="".join(input_lines),
+        input="".join(input_lines[:-2]),
         capture_output=True,
         encoding="utf-8",
     )
