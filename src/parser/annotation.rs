@@ -623,6 +623,21 @@ mod test {
     }
 
     #[test]
+    fn test_parse_annotation_begin_multi_statement() {
+        let input = "@begin init_schema()";
+        with_parser(input, |p| {
+            let result = p.parse_annotation().unwrap().resolve(input);
+            let expected = Annotation {
+                mode: StatementMode::Multi,
+                name: "init_schema",
+                arguments: ArgType::Args(vec![]),
+                result_type: ResultType::Unit,
+            };
+            assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
     fn test_parse_annotation_query_argument() {
         // Test with wonky whitespace, and a trailing comma.
         let inputs: &[&'static str] = &[

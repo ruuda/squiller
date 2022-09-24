@@ -284,14 +284,20 @@ impl<'a> Parser<'a> {
 
     /// If next non-whitespace token is a comment with an `@end` marker, consume it.
     ///
-    /// If something other than an `@end` marker is found, this reverts the
-    /// cursor to the position before the call, and returns false.
+    /// If something other than an `@end` marker is found, this leaves the
+    /// cursor at the current token, and returns false. Any whitespace is
+    /// consumed unconditionally.
     fn try_parse_end_marker(&mut self) -> bool {
-        let initial_cursor = self.cursor;
+        let mut backtrack_to = self.cursor;
 
         loop {
             match self.peek() {
-                Some(doc::Token::Space) | Some(doc::Token::CommentStart) => {
+                Some(doc::Token::Space) => {
+                    self.consume();
+                    backtrack_to = self.cursor;
+                    continue;
+                }
+                Some(doc::Token::CommentStart) => {
                     self.consume();
                     continue;
                 }
@@ -316,7 +322,7 @@ impl<'a> Parser<'a> {
         }
 
         // We found something other than an end marker, backtrack.
-        self.cursor = initial_cursor;
+        self.cursor = backtrack_to;
         return false;
     }
 
@@ -598,6 +604,37 @@ mod test {
                 statements: vec![Statement {
                     fragments: vec![Fragment::Verbatim("SELECT * FROM kv;")],
                 }],
+            });
+            assert_eq!(result, expected);
+        });
+    }
+
+    #[test]
+    fn parse_section_handles_multi_statement_query() {
+        let input = "
+        -- @begin drop_schema()
+        DROP TABLE albums;
+        DROP TABLE artists;
+        -- @end drop_schema
+        ";
+        with_parser(input, |p| {
+            let result = p.parse_section().unwrap().resolve(input);
+            let expected = Section::Query(Query {
+                docs: vec![],
+                annotation: Annotation {
+                    mode: StatementMode::Multi,
+                    name: "drop_schema",
+                    arguments: ArgType::Args(vec![]),
+                    result_type: ResultType::Unit,
+                },
+                statements: vec![
+                    Statement {
+                        fragments: vec![Fragment::Verbatim("DROP TABLE albums;")],
+                    },
+                    Statement {
+                        fragments: vec![Fragment::Verbatim("DROP TABLE artists;")],
+                    },
+                ],
             });
             assert_eq!(result, expected);
         });
