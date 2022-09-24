@@ -203,7 +203,7 @@ pub fn print_usage() {
 
 /// Print version info, for `--version`.
 pub fn print_version() {
-    use crate::version::{VERSION, REV};
+    use crate::version::{REV, VERSION};
     print!("Squiller {}, ", VERSION);
     match REV {
         Some(rev) => println!("built from commit {}", rev),
@@ -283,10 +283,7 @@ mod test {
             target: "foo".into(),
             fnames: vec!["-".into()],
         });
-        assert_eq!(
-            parse_slice(&["squiller", "-tfoo", "-"]),
-            expected,
-        );
+        assert_eq!(parse_slice(&["squiller", "-tfoo", "-"]), expected,);
     }
 
     #[test]
