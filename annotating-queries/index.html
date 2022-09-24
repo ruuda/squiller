@@ -404,10 +404,10 @@ Squiller generates a corresponding function in the target language that
 executes that query. If needed, it also generates types for the inputs and
 outputs of the function.</p>
 <h2 id="annotations">Annotations</h2>
-<p>Squiller ignores all content, until it encounters the marker <code>@query</code> in a
-comment. This marks the following query as an <em>annotated</em> query, that it will
-generate code for. Following the <code>@query</code> is the query <em>signature</em>, which
-specifies its name, arguments, argument types, and result type, similar to
+<p>Squiller ignores all content, until it encounters the marker <code>@query</code> or
+<code>@begin</code> in a comment. This marks the following query as an <em>annotated</em> query,
+that it will generate code for. Following the marker is the query <em>signature</em>,
+which specifies its name, arguments, argument types, and result type, similar to
 function signatures in other languages. Let’s look at an example:</p>
 <pre><code class="language-sql">-- Return how many users with the given name exist.
 -- @query count_users_with_name(name: str) -&gt;? int
@@ -539,6 +539,36 @@ runtime error when the <code>users</code> table is empty (because null cannot be
 into <code>i64</code>), and annotating the second query with <code>-&gt;1 i64?</code> would result in a
 runtime error when the <code>users</code> table is empty as well (because it expects at
 least one row).</p>
+<h2 id="multiple-statements">Multiple statements</h2>
+<p>You can create functions that execute multiple <abbr>SQL</abbr> statements by
+using a <code>@begin</code> marker to start an annotated query, instead of <code>@query</code>.
+This can be useful for e.g. migrations.</p>
+<ul>
+<li>With a <code>@query</code> marker, the query comprises only the statement that follows
+   it, until the terminating semicolon.</li>
+<li>With a <code>@begin</code> marker, all statements between <code>@begin</code> and <code>@end</code> are
+    included. <code>@end</code> is only valid directly after a semicolon.</li>
+</ul>
+<p>Let’s look at an example:</p>
+<pre><code>-- Set up the initial schema.
+-- @begin init_schema()
+create table if not exists
+  users
+  ( id    integer primary key autoincrement
+  , name  text not null
+  , email text not null
+  );
+create index ix_users_email on users (email);
+-- @end init_schema
+</code></pre>
+<p>In long documents, for clarity it is recommended to repeat the name of the query
+after the <code>@end</code> marker, but this is not required.</p>
+<p>When a multi-statement query has a result type, the result type applies to the
+final statement in the query. Every other statement must not return any rows.
+Query parameters are allowed in all statements.</p>
+<p><strong>Note:</strong> The <code>@begin</code> and
+<code>@end</code> markers are unrelated to the <abbr>SQL</abbr> statements <code>BEGIN</code> and
+<code>COMMIT</code>. Squiller never starts transactions implicitly.</p>
       </article>
       <nav id="nav-prev-next">
         <a id="nav-prev" href="../usage/" title="Usage">Previous</a>
@@ -565,6 +595,7 @@ least one row).</p>
                 <li class="toc-heading"><a href="#struct-result-types">Struct result types</a></li>
                 <li class="toc-heading"><a href="#struct-arguments">Struct arguments</a></li>
                 <li class="toc-heading"><a href="#nullable-types">Nullable types</a></li>
+                <li class="toc-heading"><a href="#multiple-statements">Multiple statements</a></li>
                 </ul></li>
                
             <li class="toc-chapter
