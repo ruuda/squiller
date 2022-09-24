@@ -1,0 +1,23 @@
+-- Insert a new user and return its id.
+-- @query insert_user(name: str, email: str) ->1 i64
+insert into
+  users (name, email)
+values
+  (:name, :email)
+returning
+  id;
+
+
+-- Insert a new user and return its id.
+-- @query insert_user
+-- name: str
+-- email: str
+-- ->1 i64
+insert into
+  users (name, email)
+values
+  (:name, :email)
+returning
+  id;
+
+
