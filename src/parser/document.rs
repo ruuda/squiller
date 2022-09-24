@@ -5,6 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
+use crate::ast::StatementMode;
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation as ann;
 use crate::lexer::document as doc;
@@ -18,15 +19,6 @@ type Query = crate::ast::Query<Span>;
 type Section = crate::ast::Section<Span>;
 type Statement = crate::ast::Statement<Span>;
 type TypedIdent = crate::ast::TypedIdent<Span>;
-
-enum StatementMode {
-    /// Parse a single statement, until semicolon.
-    Single,
-
-    /// Parse multiple statements, until an end annotation.
-    #[allow(dead_code)]
-    UntilEnd,
-}
 
 /// Document parser.
 ///
@@ -236,11 +228,7 @@ impl<'a> Parser<'a> {
                             // this means we are inside a query section, and we
                             // continue parsing in query mode.
                             Some((ann::Token::Annotation, _)) => {
-                                let query = self.parse_query(
-                                    comments,
-                                    comment_lexer,
-                                    StatementMode::Single,
-                                )?;
+                                let query = self.parse_query(comments, comment_lexer)?;
                                 return Ok(Section::Query(query));
                             }
                             _ => {}
@@ -292,6 +280,44 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+    }
+
+    /// If next non-whitespace token is a comment with an `@end` marker, consume it.
+    ///
+    /// If something other than an `@end` marker is found, this reverts the
+    /// cursor to the position before the call, and returns false.
+    fn try_parse_end_marker(&mut self) -> bool {
+        let initial_cursor = self.cursor;
+
+        loop {
+            match self.peek() {
+                Some(doc::Token::Space) | Some(doc::Token::CommentStart) => {
+                    self.consume();
+                    continue;
+                }
+                Some(doc::Token::CommentInner) => {
+                    let mut comment_lexer = ann::Lexer::new(self.input);
+                    let span = self.tokens[self.cursor].1;
+                    comment_lexer.run(span);
+
+                    if let Some((ann::Token::Annotation, span)) =
+                        comment_lexer.tokens().iter().next()
+                    {
+                        if span.resolve(self.input) == "@end" {
+                            self.consume();
+                            return true;
+                        }
+                    }
+
+                    break;
+                }
+                Some(_) | None => break,
+            }
+        }
+
+        // We found something other than an end marker, backtrack.
+        self.cursor = initial_cursor;
+        return false;
     }
 
     /// Skip whitespace, then parse a double quoted string as typed identifier.
@@ -372,21 +398,13 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Parse a single section from the document.
-    fn parse_query(
-        &mut self,
-        comments: Vec<Span>,
-        comment_lexer: ann::Lexer<'a>,
-        statement_mode: StatementMode,
-    ) -> PResult<Query> {
-        let annotation = self.parse_annotation(comment_lexer)?;
-
+    /// Parse a single statement, until the closing semicolon.
+    fn parse_statement(&mut self) -> PResult<Statement> {
         let fragment_start = match self.tokens.get(self.cursor) {
-            None => return self.error("Expected query after annotation."),
+            None => return self.error("Expected a SQL statement here."),
             Some((_, span)) => span.start,
         };
 
-        let mut statements = Vec::new();
         let mut fragments = Vec::new();
         let mut fragment = Span {
             start: fragment_start,
@@ -480,22 +498,8 @@ impl<'a> Parser<'a> {
                     fragments.push(Fragment::Verbatim(fragment));
                     self.consume();
 
-                    statements.push(Statement { fragments });
-
-                    match statement_mode {
-                        StatementMode::Single => {
-                            let result = Query {
-                                docs: comments,
-                                annotation: annotation,
-                                statements: statements,
-                            };
-                            return Ok(result);
-                        }
-                        StatementMode::UntilEnd => {
-                            // fragments = Vec::new();
-                            todo!("Parse multi-statement queries.");
-                        }
-                    }
+                    let result = Statement { fragments };
+                    return Ok(result);
                 }
                 _other_token => {
                     self.consume();
@@ -505,6 +509,36 @@ impl<'a> Parser<'a> {
 
         self.error("Unexpected end of input, annotated query does not end with ';'.")
     }
+
+    /// Parse a single section from the document.
+    fn parse_query(
+        &mut self,
+        comments: Vec<Span>,
+        comment_lexer: ann::Lexer<'a>,
+    ) -> PResult<Query> {
+        let annotation = self.parse_annotation(comment_lexer)?;
+
+        let mut statements = Vec::new();
+
+        statements.push(self.parse_statement()?);
+
+        match annotation.mode {
+            StatementMode::Single => {}
+            StatementMode::Multi => loop {
+                if self.try_parse_end_marker() {
+                    break;
+                }
+                statements.push(self.parse_statement()?);
+            },
+        }
+
+        let result = Query {
+            docs: comments,
+            annotation,
+            statements,
+        };
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -512,7 +546,7 @@ mod test {
     use super::Parser;
     use crate::ast::{
         Annotation, ArgType, ComplexType, Fragment, PrimitiveType, Query, ResultType, Section,
-        SimpleType, Statement, TypedIdent,
+        SimpleType, Statement, StatementMode, TypedIdent,
     };
     use crate::error::Error;
     use crate::lexer::document::Lexer;
@@ -538,6 +572,7 @@ mod test {
             let expected = Section::Query(Query {
                 docs: vec![],
                 annotation: Annotation {
+                    mode: StatementMode::Single,
                     name: "multiline_signature",
                     arguments: ArgType::Args(vec![
                         TypedIdent {
@@ -649,6 +684,7 @@ mod test {
             let expected = Section::Query(Query {
                 docs: vec![],
                 annotation: Annotation {
+                    mode: StatementMode::Single,
                     name: "q",
                     arguments: ArgType::Args(vec![]),
                     result_type: ResultType::Unit,

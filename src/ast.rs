@@ -222,9 +222,21 @@ impl ArgType<Span> {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum StatementMode {
+    /// A query marked with `@query`, comprised of a single statement.
+    Single,
+
+    /// A query marked with `@begin`, comprised of multiple statements.
+    ///
+    /// Statements are part of the query, until the matching `@end` marker.
+    Multi,
+}
+
 /// An annotation comment that describes the query that follows it.
 #[derive(Debug, Eq, PartialEq)]
 pub struct Annotation<TSpan> {
+    pub mode: StatementMode,
     pub name: TSpan,
     pub arguments: ArgType<TSpan>,
     pub result_type: ResultType<TSpan>,
@@ -233,6 +245,7 @@ pub struct Annotation<TSpan> {
 impl Annotation<Span> {
     pub fn resolve<'a>(&self, input: &'a str) -> Annotation<&'a str> {
         Annotation {
+            mode: self.mode,
             name: self.name.resolve(input),
             arguments: self.arguments.resolve(input),
             result_type: self.result_type.resolve(input),

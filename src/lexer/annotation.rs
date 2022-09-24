@@ -18,6 +18,7 @@ enum State {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Token {
+    // TODO: Rename to "marker".
     Annotation,
     Ident,
     LParen,

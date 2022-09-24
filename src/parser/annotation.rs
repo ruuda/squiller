@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::PrimitiveType;
+use crate::ast::{PrimitiveType, StatementMode};
 use crate::error::{PResult, ParseError};
 use crate::lexer::annotation::Token;
 use crate::Span;
@@ -380,15 +380,21 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_annotation(&mut self) -> PResult<Annotation> {
-        // 1. The @query that marks the start of the annotation.
-        match self.peek_with_span() {
-            Some((Token::Annotation, ann)) if ann.resolve(self.input) == "@query" => self.consume(),
-            Some((Token::Annotation, _)) => {
-                return self.error("Invalid annotation, only '@query' is understood.")
+        // 1. The @query or @begin that marks the start of the annotation.
+        let mode = match self.peek_with_span() {
+            Some((Token::Annotation, ann)) => match ann.resolve(self.input) {
+                "@query" => StatementMode::Single,
+                "@begin" => StatementMode::Multi,
+                _ => return self.error("Invalid annotation, expected '@query' or '@begin' here."),
+            },
+            Some(_) => {
+                return self.error("Invalid annotation, expected '@query' or '@begin' here.")
             }
-            Some(_) => return self.error("Invalid annotation, expected '@query' here."),
-            None => return self.error("Unexpected end of input, expected '@query' here."),
+            None => {
+                return self.error("Unexpected end of input, expected '@query' or '@begin' here.")
+            }
         };
+        self.consume();
 
         // 2. The name of the query..
         let name = self.expect_consume(Token::Ident, "Expected an identifier here.")?;
@@ -430,6 +436,7 @@ impl<'a> Parser<'a> {
         };
 
         let result = Annotation {
+            mode,
             name,
             arguments,
             result_type,
@@ -442,7 +449,8 @@ impl<'a> Parser<'a> {
 mod test {
     use super::Parser;
     use crate::ast::{
-        Annotation, ArgType, ComplexType, PrimitiveType, ResultType, SimpleType, TypedIdent,
+        Annotation, ArgType, ComplexType, PrimitiveType, ResultType, SimpleType, StatementMode,
+        TypedIdent,
     };
     use crate::lexer::annotation::Lexer;
     use crate::Span;
@@ -605,6 +613,7 @@ mod test {
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
+                mode: StatementMode::Single,
                 name: "drop_table_users",
                 arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Unit,
@@ -622,6 +631,7 @@ mod test {
             with_parser(input, |p| {
                 let result = p.parse_annotation().unwrap().resolve(input);
                 let expected = Annotation {
+                    mode: StatementMode::Single,
                     name: "delete_user_by_id",
                     arguments: ArgType::Args(vec![TypedIdent {
                         ident: "id",
@@ -646,6 +656,7 @@ mod test {
             with_parser(input, |p| {
                 let result = p.parse_annotation().unwrap().resolve(input);
                 let expected = Annotation {
+                    mode: StatementMode::Single,
                     name: "get_widgets_in_range",
                     arguments: ArgType::Args(vec![
                         TypedIdent {
@@ -673,6 +684,7 @@ mod test {
         with_parser(input, |p| {
             let result = p.parse_annotation().unwrap().resolve(input);
             let expected = Annotation {
+                mode: StatementMode::Single,
                 name: "get_next_id",
                 arguments: ArgType::Args(vec![]),
                 result_type: ResultType::Single(ComplexType::Simple(SimpleType::Primitive {
