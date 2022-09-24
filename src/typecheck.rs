@@ -116,9 +116,26 @@ impl<'a> QueryChecker<'a> {
 
     /// Handle fragments of the query body, populate inputs and outputs.
     fn populate_inputs_outputs(&mut self, statements: &[Statement<Span>]) -> TResult<()> {
-        for statement in statements {
+        for (i, statement) in statements.iter().enumerate() {
             for fragment in &statement.fragments {
                 self.populate_input_output(fragment)?;
+            }
+
+            // Only the last statement in a multi-statement query is allowed to
+            // return something. We can't check that if the result type is a
+            // simple type, but for structs, we can at least ensure there are no
+            // typed fields in non-final statements.
+            let is_last = i + 1 == statements.len();
+            match self.output_fields_vec.iter().next() {
+                Some(ti) if !is_last => {
+                    let error = TypeError::new(
+                        ti.ident,
+                        "Query outputs can only be used \
+                        in the final statement of the query.",
+                    );
+                    return Err(error);
+                }
+                _ => {}
             }
         }
         Ok(())

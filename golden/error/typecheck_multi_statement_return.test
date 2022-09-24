@@ -17,4 +17,8 @@ returning
 -- @end
 
 
-TODO: This should fail.
+ --> stdin:8:2
+  |
+8 |   event_id /* :i64 */;
+  |   ^~~~~~~~
+Error: Query outputs can only be used in the final statement of the query.
