@@ -1,9 +1,17 @@
 site_name: Squiller
 repo_url: https://github.com/ruuda/squiller
 strict: true
+
 theme:
   name: null
   custom_dir: docs/theme
+
+markdown_extensions:
+  - codehilite
+  - toc:
+      permalink: true
+      permalink_title: null
+
 nav:
   - Overview: index.md
   - User guide:

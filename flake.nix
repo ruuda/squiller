@@ -15,10 +15,11 @@
         devShells = forAllNixpkgs (pkgs: {
           default = pkgs.mkShell {
             nativeBuildInputs = [
-              pkgs.mkdocs
               pkgs.python3
               pkgs.rustup
               pkgs.sqlite
+              pkgs.mkdocs
+              (with pkgs.python3.pkgs; toPythonApplication pygments)
             ];
           };
         });
