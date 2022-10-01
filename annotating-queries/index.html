@@ -10,7 +10,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Annotating queries — Squiller</title>
-  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono:400,500,400i" rel="stylesheet">
   <style>
   /* The Inter font family, see https://rsms.me/inter.
      https://rsms.me/inter/#faq-cdn suggests that linking these files directly is fine.
@@ -110,6 +110,7 @@
     font-weight: 600;
     font-size: 1rem;
     color: #444;
+    position: relative;
   }
   h1 {
     font-size: 2rem;
@@ -122,6 +123,19 @@
     font-size: 1.42rem;
     margin-top: 3.5rem;
     margin-bottom: 1.6rem;
+  }
+  .headerlink {
+    position: absolute;
+    left: -0.9em;
+    width: 1em;
+    opacity: 0.0;
+    transition: opacity 0.2s ease-in;
+  }
+  /* Don't show the link for h1, usually you only have a single h1 at the top
+     of the page, so it doesn't make much sense to add an anchor there, and with
+     the larger font size, it doesn't fit in a narrow viewport. */
+  h2:hover .headerlink, h3:hover .headerlink {
+    opacity: 1.0;
   }
   code {
     font-family: 'Roboto Mono', monospace;
@@ -190,6 +204,10 @@
     margin-right: 1.41rem;
     color: #555;
   }
+  code .k { color: #36d; }
+  code .kt, code .nb { color: #d36; }
+  code .c1, code .cm { color: #d36; font-style: italic; }
+  code .s { color: #c43; }
   ul, ol {
     list-style-type: none;
     counter-reset: item;
@@ -396,31 +414,33 @@
         <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
-        <h1 id="annotating-queries">Annotating queries</h1>
+        <h1 id="annotating-queries">Annotating queries<a class="headerlink" href="#annotating-queries">&para;</a></h1>
 <p>The inputs to Squiller are plain <abbr>SQL</abbr> files, with annotations in
 comments. This means that you can run the exact same files through e.g. <code>sqlite</code>
 or <code>psql</code>, and confirm that the queries are valid. For every annotated query,
 Squiller generates a corresponding function in the target language that
 executes that query. If needed, it also generates types for the inputs and
 outputs of the function.</p>
-<h2 id="annotations">Annotations</h2>
+<h2 id="annotations">Annotations<a class="headerlink" href="#annotations">&para;</a></h2>
 <p>Squiller ignores all content, until it encounters the marker <code>@query</code> or
 <code>@begin</code> in a comment. This marks the following query as an <em>annotated</em> query,
 that it will generate code for. Following the marker is the query <em>signature</em>,
 which specifies its name, arguments, argument types, and result type, similar to
 function signatures in other languages. Let’s look at an example:</p>
-<pre><code class="language-sql">-- Return how many users with the given name exist.
--- @query count_users_with_name(name: str) -&gt;? int
-select
-  count(*)
-from
-  users
-where
-  name = :name;
-</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- Return how many users with the given name exist.</span>
+<span class="c1">-- @query count_users_with_name(name: str) -&gt;? int</span>
+<span class="k">select</span><span class="w"></span>
+<span class="w">  </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"></span>
+<span class="k">from</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="w"></span>
+<span class="k">where</span><span class="w"></span>
+<span class="w">  </span><span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">:</span><span class="n">name</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
 <p>In this example, the signature is</p>
-<pre><code>@query count_users_with_name(name: str) -&gt;? int
-</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="nv">@query</span><span class="w"> </span><span class="n">count_users_with_name</span><span class="p">(</span><span class="nl">name</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="vm">?</span><span class="w"> </span><span class="nc">int</span><span class="w"></span>
+</code></pre></div>
+
 <p>The name of the query is <code>count_users_with_name</code>, and this name will be used for
 the generated function. The query takes one argument, <code>name</code>, of type <code>str</code>.
 This will become an argument of the generated function, and that function will
@@ -439,40 +459,42 @@ they translate as follows:</p>
 <li><code>-&gt;1 T</code> maps to just <code>T</code>.</li>
 <li><code>-&gt;* T</code> maps to <code>Iterator&lt;T&gt;</code>.</li>
 </ul>
-<h2 id="query-parameters">Query parameters</h2>
+<h2 id="query-parameters">Query parameters<a class="headerlink" href="#query-parameters">&para;</a></h2>
 <p>Squiller supports named query parameters with <code>:name</code> syntax. This is
 <a href="https://www.sqlite.org/c3ref/bind_blob.html">one of the syntaxes supported by SQLite</a>, and it allows for named
 parameters which is less error-prone than position-based parameters. For
 databases that use a different syntax, such as <a href="https://www.postgresql.org/docs/current/sql-prepare.html">PostgreSQL</a>,
 Squiller substitutes the correct syntax in the <abbr>SQL</abbr> string
 literal in the generated code.</p>
-<h2 id="documentation-comments">Documentation comments</h2>
+<h2 id="documentation-comments">Documentation comments<a class="headerlink" href="#documentation-comments">&para;</a></h2>
 <p>Squiller preserves any comments immediately preceding the <code>@query</code> marker,
 up to the first blank line before that marker, as <em>documentation comments</em>.
 These are included in the output. For example, in Rust they are included as
 <code>///</code>-style documentation comments, in Python as docstrings.</p>
-<h2 id="tuple-result-types">Tuple result types</h2>
+<h2 id="tuple-result-types">Tuple result types<a class="headerlink" href="#tuple-result-types">&para;</a></h2>
 <p>The result type can be a tuple. In this case, the number of columns that the
 query returns should match the arity of the tuple. Squiller does not verify
 this. For example, for the following query it would generate code that fails at
 runtime, because it tries to access a non-existent third column:</p>
-<pre><code class="language-sql">-- @query incorrect_result_type() -&gt;1 (str, str, i32)
-select name, email from users;
-</code></pre>
-<h2 id="struct-result-types">Struct result types</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- @query incorrect_result_type() -&gt;1 (str, str, i32)</span>
+<span class="k">select</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="n">users</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
+<h2 id="struct-result-types">Struct result types<a class="headerlink" href="#struct-result-types">&para;</a></h2>
 <p>Because a type such as <code>(str, str, i32)</code> is a bit meaningless, Squiller also
 supports struct types. Struct types must start with an uppercase
 <abbr>ascii</abbr> letter. The fields of the struct, and their types, are
 extracted from the query body. This means that type annotations are needed in
 the body:</p>
-<pre><code class="language-sql">-- @query get_all_users() -&gt;* User
-select
-  name  /* :str */,
-  email /* :str */,
-  karma /* :i32 */
-from
-  users;
-</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- @query get_all_users() -&gt;* User</span>
+<span class="k">select</span><span class="w"></span>
+<span class="w">  </span><span class="n">name</span><span class="w">  </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">email</span><span class="w"> </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">karma</span><span class="w"> </span><span class="cm">/* :i32 */</span><span class="w"></span>
+<span class="k">from</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
 <p>In this example the fields are <code>name: str</code>, <code>email: str</code>, and <code>karma: i32</code>.</p>
 <p>When using struct types, every column that the query selects, should have a type
 annotation, because Squiller generates code that reads the columns by index.
@@ -482,34 +504,36 @@ do the advanced parsing of the query that would be necessary for this.</p>
 with a <code>:</code> is considered a type annotation, and turns into a struct field. The
 identifier that immediately precedes the annotation becomes the name of the
 field, so it can be used with <code>as</code> to control the name:</p>
-<pre><code class="language-sql">-- @query get_all_users() -&gt;* User
-select
-  users.name  /* :str */,
-  users.email /* :str */,
-  sum(karma_earned) as karma /* :i32 */
-from
-  users, karma_history
-where
-  users.id = karma_history.user_id
-group by
-  users.id, users.name, users.email;
-</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- @query get_all_users() -&gt;* User</span>
+<span class="k">select</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">.</span><span class="n">name</span><span class="w">  </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">.</span><span class="n">email</span><span class="w"> </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="k">sum</span><span class="p">(</span><span class="n">karma_earned</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">karma</span><span class="w"> </span><span class="cm">/* :i32 */</span><span class="w"></span>
+<span class="k">from</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">,</span><span class="w"> </span><span class="n">karma_history</span><span class="w"></span>
+<span class="k">where</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">.</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">karma_history</span><span class="p">.</span><span class="n">user_id</span><span class="w"></span>
+<span class="k">group</span><span class="w"> </span><span class="k">by</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">.</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">users</span><span class="p">.</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">users</span><span class="p">.</span><span class="n">email</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
 <p>As before, this example has fields <code>name: str</code>, <code>email: str</code>, and <code>karma: i32</code>.</p>
-<h2 id="struct-arguments">Struct arguments</h2>
+<h2 id="struct-arguments">Struct arguments<a class="headerlink" href="#struct-arguments">&para;</a></h2>
 <p>Like in result types, structs can be used in arguments. (Unlike tuples, which
 can only be used in result types.) Struct types can only be used for
 queries that take a single argument. The name of that argument is preserved in
 the generated function. As with result types, the fields are extracted from the
 query body, so all query parameters need a type annotation:</p>
-<pre><code class="language-sql">-- @query insert_user(user: User) -&gt;1 i64
-insert into
-  users (name, email, karma)
-values
-  (:name /* :str */, :email /* :str */, :initial_karma /* :i32 */)
-returning
-  id;
-</code></pre>
-<h2 id="nullable-types">Nullable types</h2>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- @query insert_user(user: User) -&gt;1 i64</span>
+<span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="w"> </span><span class="p">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="p">,</span><span class="w"> </span><span class="n">karma</span><span class="p">)</span><span class="w"></span>
+<span class="k">values</span><span class="w"></span>
+<span class="w">  </span><span class="p">(:</span><span class="n">name</span><span class="w"> </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"> </span><span class="p">:</span><span class="n">email</span><span class="w"> </span><span class="cm">/* :str */</span><span class="p">,</span><span class="w"> </span><span class="p">:</span><span class="n">initial_karma</span><span class="w"> </span><span class="cm">/* :i32 */</span><span class="p">)</span><span class="w"></span>
+<span class="n">returning</span><span class="w"></span>
+<span class="w">  </span><span class="n">id</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
+<h2 id="nullable-types">Nullable types<a class="headerlink" href="#nullable-types">&para;</a></h2>
 <p>All primitive types can be made <em>optional</em> or <em>nullable</em> by appending a <code>?</code>.
 Primitive types are all types except for structs and tuples, so structs and
 tuples cannot be made nullable. This is because structs and tuples map to an
@@ -518,28 +542,29 @@ optionality at the row level, use a <code>-&gt;?</code> result type arrow instea
 <p>Note, this means that the following two queries would have the same signature
 in the generated code, even though they have different signatures in
 <abbr>SQL</abbr>:</p>
-<pre><code class="language-sql">-- @query select_longest_email_length_1() -&gt;1 i64?
-select
-  max(length(email))
-from
-  users;
+<div class="codehilite"><pre><span></span><code><span class="c1">-- @query select_longest_email_length_1() -&gt;1 i64?</span>
+<span class="k">select</span><span class="w"></span>
+<span class="w">  </span><span class="k">max</span><span class="p">(</span><span class="k">length</span><span class="p">(</span><span class="n">email</span><span class="p">))</span><span class="w"></span>
+<span class="k">from</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="p">;</span><span class="w"></span>
 
--- @query select_longest_email_length_2() -&gt;? i64
-select
-  length(email)
-from
-  users
-order by
-  length(email) desc
-limit
-  1;
-</code></pre>
+<span class="c1">-- @query select_longest_email_length_2() -&gt;? i64</span>
+<span class="k">select</span><span class="w"></span>
+<span class="w">  </span><span class="k">length</span><span class="p">(</span><span class="n">email</span><span class="p">)</span><span class="w"></span>
+<span class="k">from</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="w"></span>
+<span class="k">order</span><span class="w"> </span><span class="k">by</span><span class="w"></span>
+<span class="w">  </span><span class="k">length</span><span class="p">(</span><span class="n">email</span><span class="p">)</span><span class="w"> </span><span class="k">desc</span><span class="w"></span>
+<span class="k">limit</span><span class="w"></span>
+<span class="w">  </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+</code></pre></div>
+
 <p>Note also that annotating the first query with <code>-&gt;? i64</code> would result in a
 runtime error when the <code>users</code> table is empty (because null cannot be decoded
 into <code>i64</code>), and annotating the second query with <code>-&gt;1 i64?</code> would result in a
 runtime error when the <code>users</code> table is empty as well (because it expects at
 least one row).</p>
-<h2 id="multiple-statements">Multiple statements</h2>
+<h2 id="multiple-statements">Multiple statements<a class="headerlink" href="#multiple-statements">&para;</a></h2>
 <p>You can create functions that execute multiple <abbr>SQL</abbr> statements by
 using a <code>@begin</code> marker to start an annotated query, instead of <code>@query</code>.
 This can be useful for e.g. migrations.</p>
@@ -550,17 +575,18 @@ This can be useful for e.g. migrations.</p>
     included. <code>@end</code> is only valid directly after a semicolon.</li>
 </ul>
 <p>Let’s look at an example:</p>
-<pre><code>-- Set up the initial schema.
--- @begin init_schema()
-create table if not exists
-  users
-  ( id    integer primary key autoincrement
-  , name  text not null
-  , email text not null
-  );
-create index ix_users_email on users (email);
--- @end init_schema
-</code></pre>
+<div class="codehilite"><pre><span></span><code><span class="c1">-- Set up the initial schema.</span>
+<span class="c1">-- @begin init_schema()</span>
+<span class="k">create</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">exists</span><span class="w"></span>
+<span class="w">  </span><span class="n">users</span><span class="w"></span>
+<span class="w">  </span><span class="p">(</span><span class="w"> </span><span class="n">id</span><span class="w">    </span><span class="nb">integer</span><span class="w"> </span><span class="k">primary</span><span class="w"> </span><span class="k">key</span><span class="w"> </span><span class="n">autoincrement</span><span class="w"></span>
+<span class="w">  </span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="w">  </span><span class="nb">text</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">null</span><span class="w"></span>
+<span class="w">  </span><span class="p">,</span><span class="w"> </span><span class="n">email</span><span class="w"> </span><span class="nb">text</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">null</span><span class="w"></span>
+<span class="w">  </span><span class="p">);</span><span class="w"></span>
+<span class="k">create</span><span class="w"> </span><span class="k">index</span><span class="w"> </span><span class="n">ix_users_email</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="n">users</span><span class="w"> </span><span class="p">(</span><span class="n">email</span><span class="p">);</span><span class="w"></span>
+<span class="c1">-- @end init_schema</span>
+</code></pre></div>
+
 <p>In long documents, for clarity it is recommended to repeat the name of the query
 after the <code>@end</code> marker, but this is not required.</p>
 <p>When a multi-statement query has a result type, the result type applies to the
