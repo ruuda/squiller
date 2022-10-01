@@ -195,7 +195,7 @@ This can be useful for e.g. migrations.
 
 Let’s look at an example:
 
-```
+```sql
 -- Set up the initial schema.
 -- @begin init_schema()
 create table if not exists
