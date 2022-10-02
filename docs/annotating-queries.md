@@ -17,7 +17,7 @@ function signatures in other languages. Let’s look at an example:
 
 ```sql
 -- Return how many users with the given name exist.
--- @query count_users_with_name(name: str) ->? int
+-- @query count_users_with_name(name: str) ->1 int
 select
   count(*)
 from
@@ -29,7 +29,7 @@ where
 In this example, the signature is
 
 ```
-@query count_users_with_name(name: str) ->? int
+@query count_users_with_name(name: str) ->1 int
 ```
 
 The name of the query is `count_users_with_name`, and this name will be used for
