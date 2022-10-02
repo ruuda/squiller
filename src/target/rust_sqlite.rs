@@ -347,59 +347,74 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             }
             writeln!(out, "> {{")?;
 
-            // TODO: indent the query.
-            writeln!(out, "    let sql = r#\"")?;
-            // TODO: Deal with multiple statements.
-            let fragments = &query.statements[0].fragments;
-            // TODO: Include the source file name and line number as a comment.
-            for fragment in fragments {
-                let span = match fragment {
-                    Fragment::Verbatim(span) => span,
-                    Fragment::Param(span) => span,
-                    // When we put the SQL in the source code, omit the type
-                    // annotations, it's only a distraction.
-                    Fragment::TypedIdent(_full_span, ti) => &ti.ident,
-                    Fragment::TypedParam(_full_span, ti) => &ti.ident,
-                };
-                out.write_all(span.resolve(input).as_bytes())?;
-            }
-            writeln!(out, "\n    \"#;")?;
-
-            // The literal starts with a newline that we don't want here.
-            // TODO: For now we use the address of the literal as the cache key.
-            // But we should instead use a precomputed hash of the query, so that
-            // LLVM can constant-fold the hash function.
-            out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
-
-            // Next we bind all query parameters.
-            let prefix = &match query.annotation.arguments {
-                ArgType::Struct { var_name, .. } => {
-                    let mut prefix = var_name.resolve(input).to_string();
-                    prefix.push('.');
-                    prefix
+            for (i, statement) in query.statements.iter().enumerate() {
+                // TODO: indent the query.
+                writeln!(out, "    let sql = r#\"")?;
+                let fragments = &statement.fragments;
+                // TODO: Include the source file name and line number as a comment.
+                for fragment in fragments {
+                    let span = match fragment {
+                        Fragment::Verbatim(span) => span,
+                        Fragment::Param(span) => span,
+                        // When we put the SQL in the source code, omit the type
+                        // annotations, it's only a distraction.
+                        Fragment::TypedIdent(_full_span, ti) => &ti.ident,
+                        Fragment::TypedParam(_full_span, ti) => &ti.ident,
+                    };
+                    out.write_all(span.resolve(input).as_bytes())?;
                 }
-                _ => String::new(),
-            };
-            writeln!(out, "    statement.reset()?;")?;
-            let mut param_nr = 1;
-            let mut params_seen = HashSet::new();
-            for param in query.iter_parameters() {
-                // Cut off the leading ':' from the parameter name.
-                let variable_name = param.trim_start(1).resolve(input);
+                writeln!(out, "\n    \"#;")?;
 
-                // SQLite numbers parameters by unique name, so if the same
-                // name occurs twice, we should only bind it once.
-                // TODO: Add a golden test for this, because we failed this in
-                // the past.
-                let first_seen = params_seen.insert(variable_name);
-                if first_seen {
+                // The literal starts with a newline that we don't want here.
+                // TODO: For now we use the address of the literal as the cache key.
+                // But we should instead use a precomputed hash of the query, so that
+                // LLVM can constant-fold the hash function.
+                out.write_all(&GET_STATEMENT.as_bytes()[1..])?;
+
+                // Next we bind all query parameters.
+                let prefix = &match query.annotation.arguments {
+                    ArgType::Struct { var_name, .. } => {
+                        let mut prefix = var_name.resolve(input).to_string();
+                        prefix.push('.');
+                        prefix
+                    }
+                    _ => String::new(),
+                };
+                writeln!(out, "    statement.reset()?;")?;
+                let mut param_nr = 1;
+                let mut params_seen = HashSet::new();
+                for param in query.iter_parameters() {
+                    // Cut off the leading ':' from the parameter name.
+                    let variable_name = param.trim_start(1).resolve(input);
+
+                    // SQLite numbers parameters by unique name, so if the same
+                    // name occurs twice, we should only bind it once.
+                    // TODO: Add a golden test for this, because we failed this in
+                    // the past.
+                    let first_seen = params_seen.insert(variable_name);
+                    if first_seen {
+                        writeln!(
+                            out,
+                            "    statement.bind({}, {}{})?;",
+                            param_nr, prefix, variable_name
+                        )?;
+                        param_nr += 1;
+                    };
+                }
+
+                // For all but the last statement, we execute it, and expect it
+                // to return zero rows.
+                let is_last = i + 1 == query.statements.len();
+                if !is_last {
+                    writeln!(out, "    match statement.next()? {{")?;
                     writeln!(
                         out,
-                        "    statement.bind({}, {}{})?;",
-                        param_nr, prefix, variable_name
+                        "        Row => panic!(\"Query '{}' unexpectedly returned a row.\"),",
+                        query.annotation.name.resolve(input)
                     )?;
-                    param_nr += 1;
-                };
+                    writeln!(out, "        Done => {{}}")?;
+                    writeln!(out, "    }}\n")?;
+                }
             }
 
             if let Some(type_) = query.annotation.result_type.get() {
