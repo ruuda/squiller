@@ -389,8 +389,6 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
                     // SQLite numbers parameters by unique name, so if the same
                     // name occurs twice, we should only bind it once.
-                    // TODO: Add a golden test for this, because we failed this in
-                    // the past.
                     let first_seen = params_seen.insert(variable_name);
                     if first_seen {
                         writeln!(
