@@ -71,12 +71,18 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
             if consecutive_blank >= 2:
                 target = golden_lines
 
+    # The input is separated from the output by a double blank line. Strip those
+    # from the input fed to the program, if they were actually blank.
+    for _ in range(2):
+        if input_lines[-1].strip() == "":
+            input_lines.pop()
+
     # Run with RUST_BACKTRACE=1 so we get a backtrace if the process panics.
     os.putenv("RUST_BACKTRACE", "1")
 
     result = subprocess.run(
         ["target/debug/squiller", f"--target={target_name}", "-"],
-        input="".join(input_lines[:-2]),
+        input="".join(input_lines),
         capture_output=True,
         encoding="utf-8",
     )
@@ -115,6 +121,9 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
         with open(fname, "w", encoding="utf-8") as f:
             for line in input_lines:
                 f.write(line)
+
+            f.write("\n\n")
+
             for line in output_lines:
                 f.write(line)
                 f.write("\n")
