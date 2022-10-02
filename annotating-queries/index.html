@@ -428,7 +428,7 @@ that it will generate code for. Following the marker is the query <em>signature<
 which specifies its name, arguments, argument types, and result type, similar to
 function signatures in other languages. Let’s look at an example:</p>
 <div class="codehilite"><pre><span></span><code><span class="c1">-- Return how many users with the given name exist.</span>
-<span class="c1">-- @query count_users_with_name(name: str) -&gt;? int</span>
+<span class="c1">-- @query count_users_with_name(name: str) -&gt;1 int</span>
 <span class="k">select</span><span class="w"></span>
 <span class="w">  </span><span class="k">count</span><span class="p">(</span><span class="o">*</span><span class="p">)</span><span class="w"></span>
 <span class="k">from</span><span class="w"></span>
@@ -438,7 +438,7 @@ function signatures in other languages. Let’s look at an example:</p>
 </code></pre></div>
 
 <p>In this example, the signature is</p>
-<div class="codehilite"><pre><span></span><code><span class="nv">@query</span><span class="w"> </span><span class="n">count_users_with_name</span><span class="p">(</span><span class="nl">name</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="vm">?</span><span class="w"> </span><span class="nc">int</span><span class="w"></span>
+<div class="codehilite"><pre><span></span><code><span class="nv">@query</span><span class="w"> </span><span class="n">count_users_with_name</span><span class="p">(</span><span class="nl">name</span><span class="p">:</span><span class="w"> </span><span class="nf">str</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="mi">1</span><span class="w"> </span><span class="nc">int</span><span class="w"></span>
 </code></pre></div>
 
 <p>The name of the query is <code>count_users_with_name</code>, and this name will be used for
