@@ -8,7 +8,7 @@
       supportedSystems = [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ];
       # Ridiculous boilerplate required to make flakes somewhat usable.
       forEachSystem = f:
-        builtins.zipAttrsWith
+        nixpkgs.lib.zipAttrsWith
           (name: values: builtins.foldl' (x: y: x // y) {} values)
           (map
             (k: builtins.mapAttrs (name: value: { "${k}" = value; }) (f k))
