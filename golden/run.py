@@ -27,6 +27,10 @@ OPTIONS
   --rewrite-output   Rewrite the input files to contain the actual output. Use
                      this to update the goldens after making an intentional
                      change.
+
+  SQUILLER_BIN       Set this environment variable to override the binary to
+                     execute, defaults to "target/debug/squiller".
+                      
 """
 
 import difflib
@@ -80,8 +84,11 @@ def test_one(fname: str, *, rewrite_output: bool) -> bool:
     # Run with RUST_BACKTRACE=1 so we get a backtrace if the process panics.
     os.putenv("RUST_BACKTRACE", "1")
 
+    # Allow overriding the binary that we run.
+    squiller_bin = os.getenv("SQUILLER_BIN", default="target/debug/squiller")
+
     result = subprocess.run(
-        ["target/debug/squiller", f"--target={target_name}", "-"],
+        [squiller_bin, f"--target={target_name}", "-"],
         input="".join(input_lines),
         capture_output=True,
         encoding="utf-8",
