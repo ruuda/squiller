@@ -316,7 +316,7 @@ impl Statement<Span> {
 
 impl<TSpan> Statement<TSpan> {
     /// Extract all parameters from the query body (both typed and untyped).
-    pub fn iter_parameters<'a>(&self) -> impl Iterator<Item = TSpan> + '_
+    pub fn iter_parameters(&self) -> impl Iterator<Item = TSpan> + '_
     where
         TSpan: Copy,
     {
@@ -354,7 +354,7 @@ impl Query<Span> {
 
 impl<TSpan> Query<TSpan> {
     /// Extract all parameters from the query body (both typed and untyped).
-    pub fn iter_parameters<'a>(&self) -> impl Iterator<Item = TSpan> + '_
+    pub fn iter_parameters(&self) -> impl Iterator<Item = TSpan> + '_
     where
         TSpan: Copy,
     {
@@ -399,7 +399,7 @@ impl Document<Span> {
 
 impl<TSpan> Document<TSpan> {
     /// Extract all queries from the document.
-    pub fn iter_queries<'a>(&self) -> impl Iterator<Item = &Query<TSpan>> {
+    pub fn iter_queries(&self) -> impl Iterator<Item = &Query<TSpan>> {
         self.sections.iter().filter_map(|section| match section {
             Section::Verbatim(..) => None,
             Section::Query(q) => Some(q),

@@ -56,7 +56,6 @@ impl dyn Error {
 fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi: &str) -> String {
     use std::cmp;
     use std::fmt::Write;
-    use std::iter;
     use unicode_width::UnicodeWidthStr;
 
     // Locate the line that contains the error.
@@ -100,8 +99,8 @@ fn highlight_span_in_line(fname: &Path, input: &[u8], span: Span, highlight_ansi
 
     let line_num_str = line.to_string();
     let line_num_pad: String = line_num_str.chars().map(|_| ' ').collect();
-    let mark_indent: String = iter::repeat(' ').take(indent_width).collect();
-    let mark_under: String = iter::repeat('~').take(mark_width).collect();
+    let mark_indent: String = " ".repeat(indent_width);
+    let mark_under: String = "~".repeat(mark_width);
     let fname_str = fname.to_string_lossy();
 
     let reset = "\x1b[0m";
@@ -220,10 +219,7 @@ impl Error for TypeError {
         self.message
     }
     fn note(&self) -> Option<(&str, Span)> {
-        match &self.note {
-            None => None,
-            Some((note, span)) => Some((&note[..], *span)),
-        }
+        self.note.as_ref().map(|(note, span)| (&note[..], *span))
     }
     fn hint(&self) -> Option<&str> {
         match &self.hint {

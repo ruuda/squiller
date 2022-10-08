@@ -12,7 +12,7 @@
 use std::fmt;
 use std::vec;
 
-const USAGE: &'static str = r#"
+const USAGE: &str = r#"
 Squiller -- Generate boilerplate from annotated SQL queries.
 
 Usage:
@@ -116,8 +116,8 @@ impl Iterator for ArgIter {
             return self.next();
         }
 
-        if arg.starts_with("--") {
-            let mut flag = String::from(&arg[2..]);
+        if let Some(flag_slice) = arg.strip_prefix("--") {
+            let mut flag = String::from(flag_slice);
             if let Some(i) = flag.find('=') {
                 self.leftover = Some(flag.split_off(i + 1));
                 flag.truncate(i);
@@ -129,8 +129,8 @@ impl Iterator for ArgIter {
             return Some(Arg::Plain(arg));
         }
 
-        if arg.starts_with("-") {
-            let mut flag = String::from(&arg[1..]);
+        if let Some(flag_slice) = arg.strip_prefix('-') {
+            let mut flag = String::from(flag_slice);
             if flag.len() > 1 {
                 self.leftover = Some(flag.split_off(1));
                 flag.truncate(1);

@@ -188,17 +188,17 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         ResultType::Unit => {}
                         ResultType::Option(t) => {
                             write!(out, "-- ->? ")?;
-                            print_complex_type(out, input, &t)?;
+                            print_complex_type(out, input, t)?;
                             writeln!(out)?;
                         }
                         ResultType::Single(t) => {
                             write!(out, "-- ->1 ")?;
-                            print_complex_type(out, input, &t)?;
+                            print_complex_type(out, input, t)?;
                             writeln!(out)?;
                         }
                         ResultType::Iterator(t) => {
                             write!(out, "-- ->* ")?;
-                            print_complex_type(out, input, &t)?;
+                            print_complex_type(out, input, t)?;
                             writeln!(out)?;
                         }
                     }

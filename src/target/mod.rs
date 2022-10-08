@@ -19,7 +19,7 @@ pub struct Target {
 }
 
 /// The different targets that we can generate code for.
-pub const TARGETS: &'static [Target] = &[
+pub const TARGETS: &[Target] = &[
     Target {
         name: "help",
         help: "List all supported targets.",

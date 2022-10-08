@@ -126,7 +126,7 @@ impl<'a> QueryChecker<'a> {
             // simple type, but for structs, we can at least ensure there are no
             // typed fields in non-final statements.
             let is_last = i + 1 == statements.len();
-            match self.output_fields_vec.iter().next() {
+            match self.output_fields_vec.get(0) {
                 Some(ti) if !is_last => {
                     let error = TypeError::new(
                         ti.ident,

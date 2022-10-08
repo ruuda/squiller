@@ -13,7 +13,7 @@ use crate::NamedDocument;
 use std::collections::hash_set::HashSet;
 use std::io;
 
-const PREAMBLE: &'static str = r#"
+const PREAMBLE: &str = r#"
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
@@ -86,14 +86,14 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 // It would be nice if we could make a method for this instead of repeating the
 // boilerplate in each method, but I haven't discovered a way to make it work
 // lifetime-wise, because the Entry API needs to borrow self as mutable.
-const GET_STATEMENT: &'static str = r#"
+const GET_STATEMENT: &str = r#"
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
 "#;
 
-const MAIN: &'static str = r#"
+const MAIN: &str = r#"
 // A useless main function, included only to make the example compile with
 // Cargo’s default settings for examples.
 fn main() {
@@ -187,10 +187,11 @@ fn write_struct_definition(
     // over the type type, then add a pass that translates the language-agnostic
     // types into Rust types, and then have some helper methods on those for this
     // kind of stuff.
-    let has_lifetime_types = fields.iter().any(|field| match field.type_.inner_type() {
-        PrimitiveType::Str => true,
-        PrimitiveType::Bytes => true,
-        _ => false,
+    let has_lifetime_types = fields.iter().any(|field| {
+        matches!(
+            field.type_.inner_type(),
+            PrimitiveType::Str | PrimitiveType::Bytes
+        )
     });
 
     // TODO: Would be nice to generate docs for cross-referencing.
@@ -220,7 +221,7 @@ fn write_struct_definitions(
         ArgType::Struct {
             type_name, fields, ..
         } => {
-            write_struct_definition(out, Ownership::BorrowNamed, type_name, &fields)?;
+            write_struct_definition(out, Ownership::BorrowNamed, type_name, fields)?;
         }
         ArgType::Args(..) => {}
     }

@@ -176,8 +176,8 @@ impl<'a> Parser<'a> {
                 self.consume();
                 Ok((span, result))
             }
-            Some(_not_ident) => return self.error("Expected a primitive type here."),
-            None => return self.error("Unexpected end of input, expected a primitive type here."),
+            Some(_not_ident) => self.error("Expected a primitive type here."),
+            None => self.error("Unexpected end of input, expected a primitive type here."),
         }
     }
 

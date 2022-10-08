@@ -223,15 +223,12 @@ impl<'a> Parser<'a> {
                     if span_bytes.contains(&b'@') {
                         let mut comment_lexer = ann::Lexer::new(self.input);
                         comment_lexer.run(span);
-                        match comment_lexer.tokens().first() {
+                        if let Some((ann::Token::Marker, _)) = comment_lexer.tokens().first() {
                             // If the comment starts with a marker, then this
                             // means we are inside a query section, and we
                             // continue parsing in query mode.
-                            Some((ann::Token::Marker, _)) => {
-                                let query = self.parse_query(comments, comment_lexer)?;
-                                return Ok(Section::Query(query));
-                            }
-                            _ => {}
+                            let query = self.parse_query(comments, comment_lexer)?;
+                            return Ok(Section::Query(query));
                         }
                     }
 
@@ -246,7 +243,7 @@ impl<'a> Parser<'a> {
 
         // If we reached the end of the document without producing a query,
         // then we must be in an unstructured section.
-        return Ok(Section::Verbatim(section_span));
+        Ok(Section::Verbatim(section_span))
     }
 
     /// Parse annotations inside a comment.
@@ -325,7 +322,7 @@ impl<'a> Parser<'a> {
 
         // We found something other than an end marker, backtrack.
         self.cursor = backtrack_to;
-        return false;
+        false
     }
 
     /// Skip whitespace, then parse a double quoted string as typed identifier.
@@ -433,7 +430,7 @@ impl<'a> Parser<'a> {
                     // as a type comment. So first, check if we are in that case
                     // at all.
                     let content = span.resolve(self.input);
-                    let colon_pos = match content.find(":") {
+                    let colon_pos = match content.find(':') {
                         None => {
                             self.consume();
                             continue;
@@ -526,9 +523,7 @@ impl<'a> Parser<'a> {
     ) -> PResult<Query> {
         let (annotation, stmt_type) = self.parse_annotation(comment_lexer)?;
 
-        let mut statements = Vec::new();
-
-        statements.push(self.parse_statement()?);
+        let mut statements = vec![self.parse_statement()?];
 
         match stmt_type {
             StatementType::Single => {}

@@ -76,8 +76,8 @@
                 rev = if self ? rev then ''Some("${self.rev}")'' else "None";
                 versionSrc =
                   ''
-                  pub const VERSION: &'static str = "${version}";
-                  pub const REV: Option<&'static str> = ${rev};
+                  pub const VERSION: &str = "${version}";
+                  pub const REV: Option<&str> = ${rev};
                   '';
                 patchPhase = ''echo "$versionSrc" > src/version.rs'';
               };
