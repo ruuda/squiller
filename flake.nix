@@ -84,13 +84,14 @@
 
               # Note, this needs to be built with '.?submodules=1#docs' ...
               # https://discourse.nixos.org/t/nix-flakes-and-submodules/7904/4
-              docs = pkgs.runCommand
-                "squiller-docs"
-                { buildInputs = [ pkgs.mkdocs ]; }
-                ''
-                cd ${pkgs.lib.sourceFilesBySuffices ./. ["mkdocs.yml" ".md" ".html"]}
-                mkdocs build --strict --site-dir $out
-                '';
+              # That breaks Garnix CI ...
+              # docs = pkgs.runCommand
+              #   "squiller-docs"
+              #   { buildInputs = [ pkgs.mkdocs ]; }
+              #   ''
+              #   cd ${pkgs.lib.sourceFilesBySuffices ./. ["mkdocs.yml" ".md" ".html"]}
+              #   mkdocs build --strict --site-dir $out
+              #   '';
             };
           }
       );
