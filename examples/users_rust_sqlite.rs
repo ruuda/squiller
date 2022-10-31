@@ -75,12 +75,12 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 
 pub fn setup_schema(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
-create table if not exists users
-  ( id    integer primary key
-  , name  string not null
-  , email string not null
-  );
-    "#;
+        create table if not exists users
+          ( id    integer primary key
+          , name  string not null
+          , email string not null
+          );
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -96,13 +96,13 @@ create table if not exists users
 /// Insert a new user and return its id.
 pub fn insert_user(tx: &mut Transaction, name: &str, email: &str) -> Result<i64> {
     let sql = r#"
-insert into
-  users (name, email)
-values
-  (:name, :email)
-returning
-  id;
-    "#;
+        insert into
+          users (name, email)
+        values
+          (:name, :email)
+        returning
+          id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -132,15 +132,15 @@ pub struct User1 {
 /// Insert a new user and return it.
 pub fn insert_user_alt_return(tx: &mut Transaction, name: &str, email: &str) -> Result<User1> {
     let sql = r#"
-insert into
-  users (name, email)
-values
-  (:name, :email)
-returning
-  id,
-  name,
-  email;
-    "#;
+        insert into
+          users (name, email)
+        values
+          (:name, :email)
+        returning
+          id,
+          name,
+          email;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -174,13 +174,13 @@ pub struct InsertUser<'a> {
 /// Insert a new user and return its id.
 pub fn insert_user_alt_arg(tx: &mut Transaction, user: InsertUser) -> Result<i64> {
     let sql = r#"
-insert into
-  users (name, email)
-values
-  (:name, :email)
-returning
-  id;
-    "#;
+        insert into
+          users (name, email)
+        values
+          (:name, :email)
+        returning
+          id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -214,15 +214,15 @@ pub struct User2 {
 /// generated code, allowing us to handle the error.
 pub fn select_user_by_id(tx: &mut Transaction, id: i64) -> Result<User2> {
     let sql = r#"
-select
-  id,
-  name,
-  email
-from
-  users
-where
-  id = :id;
-    "#;
+        select
+          id,
+          name,
+          email
+        from
+          users
+        where
+          id = :id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -258,15 +258,15 @@ pub fn select_all_users<'i, 't, 'a>(
     tx: &'i mut Transaction<'t, 'a>,
 ) -> Result<Iter<'i, 'a, User3>> {
     let sql = r#"
-select
-  id,
-  name,
-  email
-from
-  users
-order by
-  id asc;
-    "#;
+        select
+          id,
+          name,
+          email
+        from
+          users
+        order by
+          id asc;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -290,11 +290,11 @@ order by
 /// Note, `max` returns null when the table is empty, hence the `?` on the `i64`.
 pub fn select_longest_email_length(tx: &mut Transaction) -> Result<Option<i64>> {
     let sql = r#"
-select
-  max(length(email))
-from
-  users;
-    "#;
+        select
+          max(length(email))
+        from
+          users;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -318,15 +318,15 @@ from
 /// returning exactly one row with a nullable column.
 pub fn select_longest_email_length_alt(tx: &mut Transaction) -> Result<Option<i64>> {
     let sql = r#"
-select
-  length(email)
-from
-  users
-order by
-  length(email) desc
-limit
-  1;
-    "#;
+        select
+          length(email)
+        from
+          users
+        order by
+          length(email) desc
+        limit
+          1;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),

@@ -349,8 +349,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             writeln!(out, "> {{")?;
 
             for (i, statement) in query.statements.iter().enumerate() {
-                // TODO: indent the query.
-                writeln!(out, "    let sql = r#\"")?;
+                write!(out, "    let sql = r#\"\n        ")?;
                 let fragments = &statement.fragments;
                 // TODO: Include the source file name and line number as a comment.
                 for fragment in fragments {
@@ -362,9 +361,9 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         Fragment::TypedIdent(_full_span, ti) => &ti.ident,
                         Fragment::TypedParam(_full_span, ti) => &ti.ident,
                     };
-                    out.write_all(span.resolve(input).as_bytes())?;
+                    out.write_all(span.resolve(input).replace('\n', "\n        ").as_bytes())?;
                 }
-                writeln!(out, "\n    \"#;")?;
+                writeln!(out, "\n        \"#;")?;
 
                 // The literal starts with a newline that we don't want here.
                 // TODO: For now we use the address of the literal as the cache key.
