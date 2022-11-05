@@ -7,12 +7,18 @@
 
 //! Utilities for generating code in various languages.
 
-mod python;
+pub mod python;
 
 use std::io;
 use std::collections::HashSet;
 
+type Result = io::Result<()>;
+
 /// Helper for generating nicely formatted code, and avoiding name collisions.
+///
+/// The base state for the code generator is to be at the start of a new line,
+/// no indent applied yet. Most appends should append one logical segment (e.g.
+/// a function call, or a function signature) and terminate that with a newline.
 struct CodeGenerator<'a> {
     /// The output to write to.
     out: &'a mut dyn io::Write,
@@ -57,5 +63,17 @@ impl<'a> CodeGenerator<'a> {
         self.scopes.pop().expect("Scope must be open in order to close it.");
         assert!(self.indent >= 4, "Indent must be large enough to dedent.");
         self.indent -= 4;
+    }
+
+    /// Append "\n" to the output. This never inserts a carriage return.
+    pub fn write_newline(&mut self) -> Result {
+        self.out.write_all(b"\n")
+    }
+
+    /// Write as many spaces as the current indent.
+    pub fn write_indent(&mut self) -> Result {
+        assert!(self.indent <= 32, "Indent is too big.");
+        let thirty_two_spaces = "                                ";
+        self.out.write_all(&thirty_two_spaces.as_bytes()[..self.indent as usize])
     }
 }

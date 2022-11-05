@@ -9,7 +9,8 @@
 
 use std::io;
 
-use crate::codegen::CodeGenerator;
+use crate::codegen::{CodeGenerator, Result};
+
 
 /// Helper for generating Python code.
 pub struct PythonCodeGenerator<'a> {
@@ -22,5 +23,28 @@ impl<'a> PythonCodeGenerator<'a> {
         Self {
             gen: CodeGenerator::new(out)
         }
+    }
+
+    /// Append a string verbatim to the output.
+    pub fn write(&mut self, s: &str) -> Result {
+        self.gen.out.write_all(s.as_bytes())
+    }
+
+    /// Method to support writing to the generator with the `write!` macro.
+    pub fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> Result {
+        self.gen.out.write_fmt(fmt)
+    }
+
+    pub fn write_indent(&mut self) -> Result {
+        self.gen.write_indent()
+    }
+
+    // Append comment lines, indented by the current indent.
+    pub fn write_comment(&mut self, comment: &str) -> Result {
+        for line in comment.lines() {
+            self.gen.write_indent();
+            writeln!(self.gen.out, "# {}", line)?;
+        }
+        Ok(())
     }
 }

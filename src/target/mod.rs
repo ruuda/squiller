@@ -6,6 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 mod debug;
+mod python_psycopg2;
 mod rust_sqlite;
 
 use std::io;
@@ -32,6 +33,11 @@ pub const TARGETS: &[Target] = &[
         name: "debug",
         help: "For debugging, run the parser and print a highlighted document.",
         handler: debug::process_documents,
+    },
+    Target {
+        name: "python-psycopg2",
+        help: "Python with the 'psycopg2' package.",
+        handler: python_psycopg2::process_documents,
     },
     Target {
         name: "rust-sqlite",
