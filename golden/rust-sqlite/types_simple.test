@@ -83,13 +83,13 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 /// Insert a new user and return its id.
 pub fn insert_user(tx: &mut Transaction, name: &str, email: &str) -> Result<i64> {
     let sql = r#"
-insert into
-  users (name, email)
-values
-  (:name, :email)
-returning
-  id;
-    "#;
+        insert into
+          users (name, email)
+        values
+          (:name, :email)
+        returning
+          id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),

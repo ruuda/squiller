@@ -88,8 +88,8 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 
 pub fn drop_schema(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
-DROP TABLE albums;
-    "#;
+        DROP TABLE albums;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -101,8 +101,8 @@ DROP TABLE albums;
     }
 
     let sql = r#"
-DROP TABLE artists;
-    "#;
+        DROP TABLE artists;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
@@ -123,14 +123,14 @@ pub struct Artist {
 
 pub fn select_artist_by_id(tx: &mut Transaction, artist_id: i64) -> Result<Option<Artist>> {
     let sql = r#"
-SELECT
-    name
-  , sort_name
-FROM
-  artists
-WHERE
-  id = :artist_id;
-    "#;
+        SELECT
+            name
+          , sort_name
+        FROM
+          artists
+        WHERE
+          id = :artist_id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),

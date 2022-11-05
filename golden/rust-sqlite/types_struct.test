@@ -94,13 +94,13 @@ pub struct UserId {
 /// Insert a new user and return its id.
 pub fn insert_user(tx: &mut Transaction, user: User) -> Result<UserId> {
     let sql = r#"
-insert into
-  users (name, email)
-values
-  (:name, :email)
-returning
-  id;
-    "#;
+        insert into
+          users (name, email)
+        values
+          (:name, :email)
+        returning
+          id;
+        "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
