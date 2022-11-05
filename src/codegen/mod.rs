@@ -9,8 +9,8 @@
 
 pub mod python;
 
-use std::io;
 use std::collections::HashSet;
+use std::io;
 
 type Result = io::Result<()>;
 
@@ -27,13 +27,13 @@ struct CodeGenerator<'a> {
     indent: u32,
 
     /// The currently open scopes.
-    scopes: Vec<Scope>
+    scopes: Vec<Scope>,
 }
 
 struct Scope {
     /// Names that are defined in this scope (and therefore cannot be used as
     /// identifiers for new things).
-    idents: HashSet<String>
+    idents: HashSet<String>,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -60,7 +60,9 @@ impl<'a> CodeGenerator<'a> {
     ///
     /// This does not write any tokens, it only does the bookkeeping.
     pub fn close_scope(&mut self) {
-        self.scopes.pop().expect("Scope must be open in order to close it.");
+        self.scopes
+            .pop()
+            .expect("Scope must be open in order to close it.");
         assert!(self.indent >= 4, "Indent must be large enough to dedent.");
         self.indent -= 4;
     }
@@ -74,6 +76,7 @@ impl<'a> CodeGenerator<'a> {
     pub fn write_indent(&mut self) -> Result {
         assert!(self.indent <= 32, "Indent is too big.");
         let thirty_two_spaces = "                                ";
-        self.out.write_all(&thirty_two_spaces.as_bytes()[..self.indent as usize])
+        self.out
+            .write_all(&thirty_two_spaces.as_bytes()[..self.indent as usize])
     }
 }

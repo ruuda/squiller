@@ -12,8 +12,8 @@ use crate::codegen::python::PythonCodeGenerator;
 use crate::NamedDocument;
 
 use std::collections::hash_set::HashSet;
-use std::io;
 use std::fmt::Write;
+use std::io;
 
 const PREAMBLE: &str = r#"
 from __future__ import annotations
@@ -83,7 +83,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
     writeln!(gen, "# Input files:")?;
     for doc in documents {
         writeln!(gen, "# - {}", doc.fname.to_string_lossy())?;
-    };
+    }
 
     gen.write(PREAMBLE)?;
 

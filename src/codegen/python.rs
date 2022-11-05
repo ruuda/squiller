@@ -11,7 +11,6 @@ use std::io;
 
 use crate::codegen::{CodeGenerator, Result};
 
-
 /// Helper for generating Python code.
 pub struct PythonCodeGenerator<'a> {
     /// The underlying generic code generator.
@@ -21,7 +20,7 @@ pub struct PythonCodeGenerator<'a> {
 impl<'a> PythonCodeGenerator<'a> {
     pub fn new(out: &'a mut dyn io::Write) -> PythonCodeGenerator<'a> {
         Self {
-            gen: CodeGenerator::new(out)
+            gen: CodeGenerator::new(out),
         }
     }
 
