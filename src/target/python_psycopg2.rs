@@ -87,5 +87,42 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
     gen.write(PREAMBLE)?;
 
+    for named_document in documents {
+        let input = named_document.input;
+
+        for query in named_document.document.iter_queries() {
+            let ann = &query.annotation;
+
+            write!(gen, "\n\ndef {}(tx: Transaction", ann.name.resolve(input))?;
+
+            match &ann.arguments {
+                ArgType::Args(args) => {
+                    for arg in args {
+                        // TODO: Include types.
+                        gen.write(", ")?;
+                        gen.write(arg.ident.resolve(input))?;
+                    }
+                }
+                ArgType::Struct {
+                    var_name,
+                    type_name,
+                    ..
+                } => {
+                    write!(
+                        gen,
+                        ", {}: {}",
+                        var_name.resolve(input),
+                        type_name.resolve(input)
+                    )?;
+                }
+            }
+            gen.write("):\n")?;
+            gen.open_scope();
+            gen.write_indent();
+            gen.write("pass\n");
+            gen.close_scope();
+        }
+    }
+
     Ok(())
 }

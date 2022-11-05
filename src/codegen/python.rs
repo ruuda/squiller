@@ -34,6 +34,14 @@ impl<'a> PythonCodeGenerator<'a> {
         self.gen.out.write_fmt(fmt)
     }
 
+    pub fn open_scope(&mut self) {
+        self.gen.open_scope()
+    }
+
+    pub fn close_scope(&mut self) {
+        self.gen.close_scope()
+    }
+
     pub fn write_indent(&mut self) -> Result {
         self.gen.write_indent()
     }
