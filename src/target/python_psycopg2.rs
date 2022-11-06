@@ -10,6 +10,7 @@ use crate::codegen::python::PythonCodeGenerator;
 use crate::NamedDocument;
 
 use std::io;
+use std::os::linux::raw::stat;
 
 const PREAMBLE: &str = r#"
 from __future__ import annotations
@@ -134,24 +135,26 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             gen.open_scope();
 
-            // Write the docstring.
-            gen.write_indent()?;
-            gen.write("\"\"\"\n")?;
-            for doc_line in &query.docs {
+            // Write the docstring, if there are doc comments.
+            if !query.docs.is_empty() {
                 gen.write_indent()?;
-                // The comment lines usually start with a space that went after
-                // the "--" that starts the comment. In Python docstrings, we
-                // don't want to start the line with a space, so remove them.
-                let doc_line_str = doc_line.resolve(input);
-                let line_content = match doc_line_str.as_bytes().first() {
-                    Some(b' ') => &doc_line_str[1..],
-                    _ => doc_line_str,
-                };
-                gen.write(line_content)?;
-                gen.write("\n")?;
+                gen.write("\"\"\"\n")?;
+                for doc_line in &query.docs {
+                    gen.write_indent()?;
+                    // The comment lines usually start with a space that went after
+                    // the "--" that starts the comment. In Python docstrings, we
+                    // don't want to start the line with a space, so remove them.
+                    let doc_line_str = doc_line.resolve(input);
+                    let line_content = match doc_line_str.as_bytes().first() {
+                        Some(b' ') => &doc_line_str[1..],
+                        _ => doc_line_str,
+                    };
+                    gen.write(line_content)?;
+                    gen.write("\n")?;
+                }
+                gen.write_indent()?;
+                gen.write("\"\"\"\n")?;
             }
-            gen.write_indent()?;
-            gen.write("\"\"\"\n")?;
 
             for (i, statement) in query.statements.iter().enumerate() {
                 gen.write_indent()?;
@@ -166,11 +169,11 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 for fragment in fragments {
                     let span = match fragment {
                         Fragment::Verbatim(span) => span.resolve(input),
-                        Fragment::Param(_) => "%s",
+                        Fragment::Param(_span) => "%s",
                         // When we put the SQL in the source code, omit the type
                         // annotations, it's only a distraction.
                         Fragment::TypedIdent(_full_span, ti) => ti.ident.resolve(input),
-                        Fragment::TypedParam(_full_span, ti) => "%s",
+                        Fragment::TypedParam(_full_span, _ti) => "%s",
                     };
                     let mut lines = span.lines();
                     let first_line = lines.next().expect("Fragment should not be empty.");
@@ -186,6 +189,32 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 gen.write_indent()?;
                 gen.write("\"\"\"\n")?;
                 gen.decrease_indent();
+
+                if statement.iter_parameters().next().is_some() {
+                    // Write the parameter tuple. We used the counted %s-style
+                    // references rather than the named ones (to save a dict lookup),
+                    // so we just write out the references in the same order, if the
+                    // same parameter is referenced twice, it occurs twice in the tuple.
+                    gen.write_indent()?;
+                    gen.write("params = (\n")?;
+                    gen.increase_indent();
+
+                    for param in statement.iter_parameters() {
+                        // Cut off the leading ':' from the parameter name.
+                        let variable_name = param.trim_start(1).resolve(input);
+                        gen.write_indent()?;
+                        // TODO: Deal with prefix in case we are accessing a struct.
+                        gen.write(variable_name)?;
+                        gen.write(",\n")?;
+                    }
+
+                    gen.decrease_indent();
+                    gen.write_indent()?;
+                    gen.write(")\n")?;
+                } else {
+                    gen.write_indent()?;
+                    gen.write("params = (,)\n")?;
+                }
             }
 
             gen.write_indent()?;
