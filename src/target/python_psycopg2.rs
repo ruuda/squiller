@@ -158,7 +158,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             for (i, statement) in query.statements.iter().enumerate() {
                 gen.write_indent()?;
-                gen.write("sql = \n")?;
+                gen.write("sql =\n")?;
                 gen.increase_indent();
                 gen.write_indent()?;
                 gen.write("\"\"\"\n")?;
