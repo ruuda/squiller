@@ -5,7 +5,7 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::ArgType;
+use crate::ast::{ArgType, Fragment, ResultType};
 use crate::codegen::python::PythonCodeGenerator;
 use crate::NamedDocument;
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import contextlib
 
-from typing import Iterator, NamedTuple, Optional
+from typing import Any, Iterator, NamedTuple, Optional
 
 import psycopg2.extensions  # type: ignore
 import psycopg2.extras  # type: ignore
@@ -112,10 +112,84 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     )?;
                 }
             }
-            gen.write("):\n")?;
+
+            gen.write(") -> ")?;
+            match &ann.result_type {
+                ResultType::Unit => gen.write("None:\n")?,
+                ResultType::Option(_t) => {
+                    // TODO: Write the actual type.
+                    // TODO: Ensure import.
+                    gen.write("Optional[Any]:\n")?;
+                }
+                ResultType::Single(_t) => {
+                    // TODO: Write the actual type.
+                    gen.write("Any:\n")?;
+                }
+                ResultType::Iterator(_t) => {
+                    // TODO: Write the actual type.
+                    // TODO: Ensure import.
+                    gen.write("Iterator[Any]:\n")?;
+                }
+            }
+
             gen.open_scope();
+
+            // Write the docstring.
             gen.write_indent()?;
-            gen.write("pass\n")?;
+            gen.write("\"\"\"\n")?;
+            for doc_line in &query.docs {
+                gen.write_indent()?;
+                // The comment lines usually start with a space that went after
+                // the "--" that starts the comment. In Python docstrings, we
+                // don't want to start the line with a space, so remove them.
+                let doc_line_str = doc_line.resolve(input);
+                let line_content = match doc_line_str.as_bytes().first() {
+                    Some(b' ') => &doc_line_str[1..],
+                    _ => doc_line_str,
+                };
+                gen.write(line_content)?;
+                gen.write("\n")?;
+            }
+            gen.write_indent()?;
+            gen.write("\"\"\"\n")?;
+
+            for (i, statement) in query.statements.iter().enumerate() {
+                gen.write_indent()?;
+                gen.write("sql = \n")?;
+                gen.increase_indent();
+                gen.write_indent()?;
+                gen.write("\"\"\"\n")?;
+                gen.write_indent()?;
+
+                let fragments = &statement.fragments;
+                // TODO: Include the source file name and line number as a comment.
+                for fragment in fragments {
+                    let span = match fragment {
+                        Fragment::Verbatim(span) => span.resolve(input),
+                        Fragment::Param(_) => "%s",
+                        // When we put the SQL in the source code, omit the type
+                        // annotations, it's only a distraction.
+                        Fragment::TypedIdent(_full_span, ti) => ti.ident.resolve(input),
+                        Fragment::TypedParam(_full_span, ti) => "%s",
+                    };
+                    let mut lines = span.lines();
+                    let first_line = lines.next().expect("Fragment should not be empty.");
+                    gen.write(first_line)?;
+
+                    for next_line in lines {
+                        gen.write("\n")?;
+                        gen.write_indent()?;
+                        gen.write(next_line)?;
+                    }
+                }
+                gen.write("\n")?;
+                gen.write_indent()?;
+                gen.write("\"\"\"\n")?;
+                gen.decrease_indent();
+            }
+
+            gen.write_indent()?;
+            gen.write("return None\n")?;
             gen.close_scope();
         }
     }

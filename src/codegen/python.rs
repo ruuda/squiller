@@ -42,6 +42,15 @@ impl<'a> PythonCodeGenerator<'a> {
         self.gen.close_scope()
     }
 
+    pub fn increase_indent(&mut self) {
+        self.gen.indent += 4;
+    }
+
+    pub fn decrease_indent(&mut self) {
+        assert!(self.gen.indent >= 4, "Cannot decrease indent below zero.");
+        self.gen.indent -= 4;
+    }
+
     pub fn write_indent(&mut self) -> Result {
         self.gen.write_indent()
     }
