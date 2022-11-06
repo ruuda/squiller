@@ -176,9 +176,9 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                         Fragment::TypedParam(_full_span, _ti) => "%s",
                     };
                     let mut lines = span.lines();
-                    let first_line = lines.next().expect("Fragment should not be empty.");
-                    gen.write(first_line)?;
-
+                    if let Some(first_line) = lines.next() {
+                        gen.write(first_line)?;
+                    }
                     for next_line in lines {
                         gen.write("\n")?;
                         gen.write_indent()?;
