@@ -5,14 +5,10 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-use crate::ast::{
-    Annotation, ArgType, ComplexType, Fragment, PrimitiveType, ResultType, SimpleType, TypedIdent,
-};
+use crate::ast::ArgType;
 use crate::codegen::python::PythonCodeGenerator;
 use crate::NamedDocument;
 
-use std::collections::hash_set::HashSet;
-use std::fmt::Write;
 use std::io;
 
 const PREAMBLE: &str = r#"
@@ -118,8 +114,8 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
             }
             gen.write("):\n")?;
             gen.open_scope();
-            gen.write_indent();
-            gen.write("pass\n");
+            gen.write_indent()?;
+            gen.write("pass\n")?;
             gen.close_scope();
         }
     }

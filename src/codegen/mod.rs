@@ -67,11 +67,6 @@ impl<'a> CodeGenerator<'a> {
         self.indent -= 4;
     }
 
-    /// Append "\n" to the output. This never inserts a carriage return.
-    pub fn write_newline(&mut self) -> Result {
-        self.out.write_all(b"\n")
-    }
-
     /// Write as many spaces as the current indent.
     pub fn write_indent(&mut self) -> Result {
         assert!(self.indent <= 32, "Indent is too big.");
