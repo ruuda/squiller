@@ -19,6 +19,12 @@ path = ".."
 members = ["."]
 
 [[bin]]
+name = "generate"
+path = "fuzz_targets/generate.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "parse"
 path = "fuzz_targets/parse.rs"
 test = false
