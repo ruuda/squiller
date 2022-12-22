@@ -3,11 +3,6 @@ site_url: https://docs.ruuda.nl/squiller
 repo_url: https://github.com/ruuda/squiller
 strict: true
 
-# Directory urls do not interact well with trailing slashes. Instead, render
-# them with .html here, and then in the minimizer we strip that. (And the
-# webserver config allows both.)
-use_directory_urls: false
-
 theme:
   name: null
   custom_dir: docs/theme
