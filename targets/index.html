@@ -1,11 +1,4 @@
-{#
-Kilsbergen -- A clean MkDocs theme.
-Copyright 2019 Ruud van Asseldonk.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-A copy of the License has been included in the root of the repository.
-#}
 <!DOCTYPE html>
 <html>
 <head>
@@ -16,13 +9,13 @@ A copy of the License has been included in the root of the repository.
   -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if page.title %}{{ page.title }} — {% endif %}{{ config.site_name }}</title>
+  <title>Targets — Squiller</title>
   <!-- Out of the options of rsms.me + Google Fonts, self-hosting, and only
     Google Fonts, the latter is by far the fastest when the docs themselves are
     not on a CDN, even though it's two additional domains to connect to. -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital@0;1&display=swap" rel="stylesheet">
-  <link href="{{ page.canonical_url }}" rel="canonical">
+  <link href="https://docs.ruuda.nl/squiller/targets/" rel="canonical">
   <style>
   /* Inter font family, copyright Rasmus Andersson, licensed under SIL OFL 1.1,
      see https://rsms.me/inter and https://rsms.me/inter/inter.css. */
@@ -406,56 +399,71 @@ A copy of the License has been included in the root of the repository.
   <div id="content">
     <div id="main">
       <nav id="breadcrumbs">
-        <a href="{{ config.site_url|url }}">{{ config.site_name }}</a>
-        {% if page.parent %} › <a href="{{ page.parent.children[0].url|url }}">{{ page.parent.title }}</a> {% endif %}
-        {% if not page.is_index or not page.parent %} › <a href="{{ page.url|url }}">{{ page.title }}</a> {% endif %}
-        <a id="repo-link" href="{{ config.repo_url|url }}">GitHub</a>
+        <a href="https://docs.ruuda.nl/squiller/">Squiller</a>
+         › <a href="../usage/">User guide</a> 
+         › <a href="./">Targets</a> 
+        <a id="repo-link" href="https://github.com/ruuda/squiller">GitHub</a>
       </nav>
       <article>
-        {{ page.content }}
+        <h1 id="targets">Targets<a class="headerlink" href="#targets">&para;</a></h1>
+<p>Squiller can generate code for the following targets.</p>
+<h2 id="python-psycopg2">python-psycopg2<a class="headerlink" href="#python-psycopg2">&para;</a></h2>
+<p><em>Vaporware warning: Development of this target is in progress.</em></p>
+<p>Target Python and Postgres through the <a href="https://www.psycopg.org/">Psycopg2</a>
+package. Generated code includes type annotations. This target is tested against
+the following versions, although other versions may work:</p>
+<ul>
+<li>Python 3.9.10</li>
+<li>Psycopg2 2.9.3</li>
+</ul>
+<h2 id="rust-sqlite">rust-sqlite<a class="headerlink" href="#rust-sqlite">&para;</a></h2>
+<p>Target Rust and SQLite through the <a href="https://lib.rs/crates/sqlite">sqlite</a> crate.
+This target is tested against the following versions, although other versions
+may work:</p>
+<ul>
+<li>Rust 1.57.0, 2018 edition</li>
+<li>Sqlite crate 0.26.0</li>
+</ul>
       </article>
-      {% if page.next_page or page.previous_page -%}
       <nav id="nav-prev-next">
-        {% if page.previous_page -%}
-          <a id="nav-prev" href="{{ page.previous_page.url|url }}" title="{{ page.previous_page.title }}">Previous</a>
-        {% endif -%}
-        {% if page.next_page -%}
-          <a id="nav-next" href="{{ page.next_page.url|url }}" title="{{ page.next_page.title }}">Next</a>
-        {% endif -%}
-      </nav>
-      {% endif -%}
-    </div>
+        <a id="nav-prev" href="../datatypes/" title="Data types">Previous</a>
+        <a id="nav-next" href="../changelog/" title="Changelog">Next</a>
+        </nav>
+      </div>
     <aside>
       <nav>
         <ul>
-        {% for section in nav -%}
-          {% if section.children -%}
+        <li class="toc-section"><a href="..">Overview</a></li>
           <li class="toc-section
-            {% if section.active and page.is_index %} current{% endif -%}
-          "><a href="{{ section.children[0].url|url }}">{{ section.title }}</a></li>
-          {% for chapter in section.children -%}
-          {% if not chapter.is_index %}
+            "><a href="../usage/">User guide</a></li>
+          
             <li class="toc-chapter
-              {% if chapter.active %} current{% endif -%}
-            "><a href="{{ chapter.url|url }}">{{ chapter.title }}</a></li>
-            {% if chapter.active -%}
-            {% for toc_item in page.toc -%}
-              {% if toc_item.children -%}
-                <li><ul>
-                {% for toc_item in toc_item.children -%}
-                  <li class="toc-heading"><a href="{{ toc_item.url }}">{{ toc_item.title }}</a></li>
-                {% endfor -%}
+              "><a href="../usage/">Usage</a></li>
+            
+            <li class="toc-chapter
+              "><a href="../annotating-queries/">Annotating queries</a></li>
+            
+            <li class="toc-chapter
+              "><a href="../datatypes/">Data types</a></li>
+            
+            <li class="toc-chapter
+               current"><a href="./">Targets</a></li>
+            <li><ul>
+                <li class="toc-heading"><a href="#python-psycopg2">python-psycopg2</a></li>
+                <li class="toc-heading"><a href="#rust-sqlite">rust-sqlite</a></li>
                 </ul></li>
-               {% endif -%}
-            {% endfor -%}
-            {% endif -%}
-          {% endif -%}
-          {% endfor -%}
-          {% else -%}
-          <li class="toc-section"><a href="{{ section.url|url }}">{{ section.title }}</a></li>
-          {% endif -%}
-        {% endfor -%}
-        </ul>
+               
+            <li class="toc-chapter
+              "><a href="../changelog/">Changelog</a></li>
+            <li class="toc-section
+            "><a href="../building/">Development</a></li>
+          
+            <li class="toc-chapter
+              "><a href="../building/">Building</a></li>
+            
+            <li class="toc-chapter
+              "><a href="../golden-tests/">Golden tests</a></li>
+            </ul>
       </nav>
     </aside>
   </div>
