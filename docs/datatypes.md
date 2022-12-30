@@ -15,7 +15,7 @@ _Vaporware warning: Not all of these are implemented._
 | i32      | int           | integer                  |
 | i64      | bigint        | integer                  |
 | f32      | float4        | number                   | <!-- TODO: Confirm -->
-| f32      | float8        | number                   |
+| f64      | float8        | number                   |
 | str      | text          | text                     |
 | bytes    | bytea         | blob                     |
 | bool     | bool          | integer                  |
