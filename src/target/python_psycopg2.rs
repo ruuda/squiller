@@ -10,7 +10,6 @@ use crate::codegen::python::PythonCodeGenerator;
 use crate::NamedDocument;
 
 use std::io;
-use std::os::linux::raw::stat;
 
 const PREAMBLE: &str = r#"
 from __future__ import annotations
@@ -156,7 +155,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 gen.write("\"\"\"\n")?;
             }
 
-            for (i, statement) in query.statements.iter().enumerate() {
+            for statement in query.statements.iter() {
                 gen.write_indent()?;
                 gen.write("sql =\n")?;
                 gen.increase_indent();
