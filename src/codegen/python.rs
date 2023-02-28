@@ -54,13 +54,4 @@ impl<'a> PythonCodeGenerator<'a> {
     pub fn write_indent(&mut self) -> Result {
         self.gen.write_indent()
     }
-
-    // Append comment lines, indented by the current indent.
-    pub fn write_comment(&mut self, comment: &str) -> Result {
-        for line in comment.lines() {
-            self.gen.write_indent()?;
-            writeln!(self.gen.out, "# {}", line)?;
-        }
-        Ok(())
-    }
 }
