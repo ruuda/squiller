@@ -18,7 +18,7 @@
       forEachSystem (system:
         let
           name = "squiller";
-          version = "0.3.0";
+          version = "0.4.0";
           pkgs = import nixpkgs { inherit system; };
         in
           rec {
