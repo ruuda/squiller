@@ -33,7 +33,7 @@ struct CodeGenerator<'a> {
 struct Scope {
     /// Names that are defined in this scope (and therefore cannot be used as
     /// identifiers for new things).
-    idents: HashSet<String>,
+    _idents: HashSet<String>,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -50,7 +50,7 @@ impl<'a> CodeGenerator<'a> {
     /// This does not write any tokens, it only does the bookkeeping.
     pub fn open_scope(&mut self) {
         let scope = Scope {
-            idents: HashSet::new(),
+            _idents: HashSet::new(),
         };
         self.scopes.push(scope);
         self.indent += 4;
