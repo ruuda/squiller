@@ -25,7 +25,9 @@
             devShells.default = pkgs.mkShell {
               nativeBuildInputs = [
                 (with pkgs.python3.pkgs; toPythonApplication pygments)
+                pkgs.black
                 pkgs.mkdocs
+                pkgs.mypy
                 pkgs.python3
                 pkgs.rustup
                 pkgs.sqlite
