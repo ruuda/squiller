@@ -56,7 +56,7 @@ fn main() {
     let cmd = match cli::parse(std::env::args().collect()) {
         Ok(cmd) => cmd,
         Err(err) => {
-            println!("{} See 'squiller --help'.", err);
+            eprintln!("{} See 'squiller --help'.", err);
             std::process::exit(1);
         }
     };
@@ -78,7 +78,7 @@ fn main() {
             let target = match Target::from_name(&target) {
                 Some(t) => t,
                 None => {
-                    println!(
+                    eprintln!(
                         "Unknown target '{}'. See 'squiller --target=help' \
                         for supported targets.",
                         target,

@@ -38,17 +38,17 @@ impl dyn Error {
         let reset = "\x1b[0m";
 
         let highlight = highlight_span_in_line(fname, input, self.span(), bold_red);
-        print!("{}", highlight);
-        println!("{}Error:{} {}", bold_red, reset, self.message());
+        eprint!("{}", highlight);
+        eprintln!("{}Error:{} {}", bold_red, reset, self.message());
 
         if let Some((note, note_span)) = self.note() {
             let highlight = highlight_span_in_line(fname, input, note_span, bold_yellow);
-            print!("\n{}", highlight);
-            println!("{}Note:{} {}", bold_yellow, reset, note);
+            eprint!("\n{}", highlight);
+            eprintln!("{}Note:{} {}", bold_yellow, reset, note);
         }
 
         if let Some(hint) = self.hint() {
-            println!("\n{}Hint:{} {}", bold_yellow, reset, hint);
+            eprintln!("\n{}Hint:{} {}", bold_yellow, reset, hint);
         }
     }
 }
