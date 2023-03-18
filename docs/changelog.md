@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+Released 2023-03-18.
+
+ * Print errors to stderr instead of stdout. This should make Squiller easier to
+   integrate into build pipelines.
+ * Experimental and incomplete support for the new `python-psycopg2` target.
+   This target is a work in progress.
+ * Fix a crash found through fuzzing.
+
 ## 0.2.0
 
 Released 2022-10-09.
