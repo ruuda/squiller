@@ -6,6 +6,7 @@
 // A copy of the License has been included in the root of the repository.
 
 mod debug;
+mod python;
 mod python_psycopg2;
 mod python_sqlite;
 mod rust_sqlite;

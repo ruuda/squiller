@@ -12,7 +12,7 @@ pub mod python;
 use std::collections::HashSet;
 use std::io;
 
-type Result = io::Result<()>;
+pub type Result = io::Result<()>;
 
 /// Helper for generating nicely formatted code, and avoiding name collisions.
 ///
