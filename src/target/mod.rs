@@ -7,6 +7,7 @@
 
 mod debug;
 mod python_psycopg2;
+mod python_sqlite;
 mod rust_sqlite;
 
 use std::io;
@@ -38,6 +39,11 @@ pub const TARGETS: &[Target] = &[
         name: "python-psycopg2",
         help: "Python with the 'psycopg2' package.",
         handler: python_psycopg2::process_documents,
+    },
+    Target {
+        name: "python-sqlite",
+        help: "Python with the 'sqlite3' module.",
+        handler: python_sqlite::process_documents,
     },
     Target {
         name: "rust-sqlite",
