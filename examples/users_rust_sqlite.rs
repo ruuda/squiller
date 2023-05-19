@@ -2,10 +2,13 @@
 // Input files:
 // - examples/users.sql
 
+#![allow(unknown_lints)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::needless_question_mark)]
+
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
 
-use sqlite;
 use sqlite::{
     State::{Done, Row},
     Statement,
@@ -42,7 +45,7 @@ impl<'a> Connection<'a> {
     pub fn begin<'tx>(&'tx mut self) -> Result<Transaction<'tx, 'a>> {
         self.connection.execute("BEGIN;")?;
         let result = Transaction {
-            connection: &self.connection,
+            connection: self.connection,
             statements: &mut self.statements,
         };
         Ok(result)
@@ -347,6 +350,7 @@ pub fn select_longest_email_length_alt(tx: &mut Transaction) -> Result<Option<i6
 
 // A useless main function, included only to make the example compile with
 // Cargo’s default settings for examples.
+#[allow(dead_code)]
 fn main() {
     let raw_connection = sqlite::open(":memory:").unwrap();
     let mut connection = Connection::new(&raw_connection);
