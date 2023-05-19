@@ -87,7 +87,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
 
             for statement in query.statements.iter() {
                 gen.write_indent()?;
-                gen.write("sql =\n")?;
+                gen.write("sql =\\\n")?;
                 gen.increase_indent();
                 gen.write_indent()?;
                 gen.write("\"\"\"\n")?;
@@ -142,7 +142,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                     gen.write(")\n")?;
                 } else {
                     gen.write_indent()?;
-                    gen.write("params = (,)\n")?;
+                    gen.write("params = ()\n")?;
                 }
             }
 

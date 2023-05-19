@@ -36,6 +36,7 @@ def main() -> None:
         in_fname = os.path.join("examples", fname)
         files_rs.append(generate_example(in_fname, "rust-sqlite", ".rs"))
         files_py.append(generate_example(in_fname, "python-psycopg2", ".py"))
+        files_py.append(generate_example(in_fname, "python-sqlite", ".py"))
 
     subprocess.run(["black", *files_py])
     subprocess.run(["rustfmt", *files_rs])
