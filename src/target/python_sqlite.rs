@@ -10,8 +10,7 @@
 use std::io;
 
 use crate::NamedDocument;
-use crate::codegen::python::PythonCodeGenerator;
-use crate::codegen::Result;
+use crate::codegen::pretty::Block;
 use crate::target::python;
 
 const PREAMBLE: &str = r#"
@@ -44,27 +43,30 @@ class Transaction:
 "#;
 
 /// Generate Python code that uses the `psycopg2` package.
-pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> Result {
-    let mut gen = PythonCodeGenerator::new(out);
-
-    python::write_header_comment(&mut gen, documents)?;
-    gen.write(PREAMBLE)?;
+fn format_documents(documents: &[NamedDocument]) -> Block {
+    let mut root = Block::new();
+    root.push_block(python::header_comment(documents));
+    root.push_line(PREAMBLE.to_string());
 
     for named_document in documents {
         let input = named_document.input;
 
         for query in named_document.document.iter_queries() {
             let ann = &query.annotation;
+            let sig = python::function_signature(ann, input);
 
-            python::write_function_signature(&mut gen, ann, input)?;
-            gen.open_scope();
-            python::write_docstring(&mut gen, &query.docs, input)?;
+            let mut function_body = Block::new();
+            function_body.push_block(python::docstring(&query.docs, input));
 
-            gen.write_indent()?;
-            gen.write("return None\n")?;
-            gen.close_scope();
+            root.push_block(sig);
+            root.push_block(function_body.indent());
         }
     }
 
-    Ok(())
+    root
+}
+
+/// Generate Python code that uses the `psycopg2` package.
+pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> std::io::Result<()> {
+    format_documents(documents).format(out)
 }

@@ -9,6 +9,7 @@
 
 use crate::ast::{Fragment};
 use crate::codegen::python::PythonCodeGenerator;
+use crate::codegen::pretty::Block;
 use crate::target::python;
 use crate::NamedDocument;
 
@@ -69,21 +70,47 @@ class ConnectionPool(NamedTuple):
 "#;
 
 /// Generate Python code that uses the `psycopg2` package.
-pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
-    let mut gen = PythonCodeGenerator::new(out);
-
-    python::write_header_comment(&mut gen, documents)?;
-    gen.write(PREAMBLE)?;
+pub fn format_documents(documents: &[NamedDocument]) -> Block {
+    let mut root = Block::new();
+    root.push_block(python::header_comment(documents));
+    root.push_line(PREAMBLE.to_string());
 
     for named_document in documents {
         let input = named_document.input;
 
         for query in named_document.document.iter_queries() {
             let ann = &query.annotation;
+            let sig = python::function_signature(ann, input);
 
-            python::write_function_signature(&mut gen, ann, input)?;
-            gen.open_scope();
-            python::write_docstring(&mut gen, &query.docs, input)?;
+            let mut function_body = Block::new();
+            function_body.push_block(python::docstring(&query.docs, input));
+
+            root.push_block(sig);
+            root.push_block(function_body.indent());
+        }
+    }
+
+    root
+}
+
+/// Generate Python code that uses the `psycopg2` package.
+pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
+    let _todo = format_documents(documents);
+
+    let mut gen = PythonCodeGenerator::new(out);
+
+    // python::write_header_comment(&mut gen, documents)?;
+    // TODO: Migrate the full thing to Block.
+    gen.write(PREAMBLE)?;
+
+    for named_document in documents {
+        let input = named_document.input;
+
+        for query in named_document.document.iter_queries() {
+            // python::write_function_signature(&mut gen, ann, input)?;
+            // gen.open_scope();
+            // python::write_docstring(&mut gen, &query.docs, input)?;
+            // TODO: Migrate the full thing.
 
             for statement in query.statements.iter() {
                 gen.write_indent()?;

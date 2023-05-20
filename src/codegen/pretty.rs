@@ -25,7 +25,12 @@ impl Block {
 
     pub fn push_block(&mut self, block: Block) {
         if let Block::Stack(blocks) = self {
-            blocks.push(block);
+            // If we are appending two stacks, then we can fold them into a
+            // single stack and avoid some nesting.
+            match block {
+                Block::Stack(mut more_blocks) => blocks.append(&mut more_blocks),
+                other => blocks.push(other),
+            }
         } else {
             let mut dummy = Block::Stack(Vec::new());
             mem::swap(&mut dummy, self);
@@ -35,6 +40,10 @@ impl Block {
 
     pub fn push_line(&mut self, fragment: String) {
         self.push_block(Block::Line(fragment));
+    }
+
+    pub fn push_line_str(&mut self, fragment: &str) {
+        self.push_block(Block::Line(fragment.to_string()));
     }
 
     pub fn indent(self) -> Block {
