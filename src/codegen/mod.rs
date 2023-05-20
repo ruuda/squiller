@@ -7,6 +7,7 @@
 
 //! Utilities for generating code in various languages.
 
+pub mod pretty;
 pub mod python;
 
 use std::collections::HashSet;
