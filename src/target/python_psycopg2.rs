@@ -8,7 +8,7 @@
 //! Target Python and `psycopg2` package.
 
 use crate::ast::Fragment;
-use crate::codegen::pretty::Block;
+use crate::codegen::Block;
 use crate::target::python;
 use crate::{NamedDocument, Span};
 

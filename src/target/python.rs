@@ -8,7 +8,7 @@
 //! Shared code generation for all Python targets.
 
 use crate::ast::{Annotation, ArgType, ResultType};
-use crate::codegen::pretty::Block;
+use crate::codegen::Block;
 use crate::{NamedDocument, Span};
 
 pub fn header_comment(documents: &[NamedDocument]) -> Block {

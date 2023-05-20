@@ -9,7 +9,7 @@
 
 use std::io;
 
-use crate::codegen::pretty::Block;
+use crate::codegen::Block;
 use crate::target::python;
 use crate::NamedDocument;
 
