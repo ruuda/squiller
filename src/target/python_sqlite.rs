@@ -5,13 +5,13 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-/// Target Python and `sqlite3` module.
+//! Target Python and `sqlite3` module.
 
 use std::io;
 
-use crate::NamedDocument;
 use crate::codegen::pretty::Block;
 use crate::target::python;
+use crate::NamedDocument;
 
 const PREAMBLE: &str = r#"
 from __future__ import annotations
@@ -67,6 +67,9 @@ fn format_documents(documents: &[NamedDocument]) -> Block {
 }
 
 /// Generate Python code that uses the `psycopg2` package.
-pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> std::io::Result<()> {
+pub fn process_documents(
+    out: &mut dyn io::Write,
+    documents: &[NamedDocument],
+) -> std::io::Result<()> {
     format_documents(documents).format(out)
 }

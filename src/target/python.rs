@@ -5,11 +5,11 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-/// Shared code generation for all Python targets.
+//! Shared code generation for all Python targets.
 
-use crate::{Span, NamedDocument};
 use crate::ast::{Annotation, ArgType, ResultType};
 use crate::codegen::pretty::Block;
+use crate::{NamedDocument, Span};
 
 pub fn header_comment(documents: &[NamedDocument]) -> Block {
     use crate::version::{REV, VERSION};
@@ -35,10 +35,7 @@ pub fn header_comment(documents: &[NamedDocument]) -> Block {
     block
 }
 
-pub fn function_signature(
-    ann: &Annotation<Span>,
-    input: &str,
-) -> Block {
+pub fn function_signature(ann: &Annotation<Span>, input: &str) -> Block {
     let mut block = Block::new();
     block.push_line_str("");
     block.push_line_str("");
@@ -93,10 +90,7 @@ pub fn function_signature(
 }
 
 /// Format the docstring, if there are doc comments.
-pub fn docstring(
-    docs: &[Span],
-    input: &str,
-) -> Block {
+pub fn docstring(docs: &[Span], input: &str) -> Block {
     let mut block = Block::new();
 
     if !docs.is_empty() {

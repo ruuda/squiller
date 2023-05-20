@@ -6,10 +6,9 @@
 // A copy of the License has been included in the root of the repository.
 
 /// Target Python and `psycopg2` package.
-
-use crate::ast::{Fragment};
-use crate::codegen::python::PythonCodeGenerator;
+use crate::ast::Fragment;
 use crate::codegen::pretty::Block;
+use crate::codegen::python::PythonCodeGenerator;
 use crate::target::python;
 use crate::NamedDocument;
 

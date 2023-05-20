@@ -58,8 +58,10 @@ impl Block {
         match self {
             Block::Line(line) => writeln!(out, "{}{}", indent_str, line)?,
             Block::Indent(block) => block.format_internal(out, indent + 4)?,
-            Block::Stack(blocks) => for block in blocks {
-                block.format_internal(out, indent)?;
+            Block::Stack(blocks) => {
+                for block in blocks {
+                    block.format_internal(out, indent)?;
+                }
             }
         }
 
