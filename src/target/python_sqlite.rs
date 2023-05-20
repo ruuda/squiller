@@ -42,7 +42,7 @@ class Transaction:
 
 "#;
 
-/// Generate Python code that uses the `psycopg2` package.
+/// Generate Python code that uses the `sqlite` module.
 fn format_documents(documents: &[NamedDocument]) -> Block {
     let mut root = Block::new();
     root.push_block(python::header_comment(documents));
@@ -66,7 +66,7 @@ fn format_documents(documents: &[NamedDocument]) -> Block {
     root
 }
 
-/// Generate Python code that uses the `psycopg2` package.
+/// Generate Python code that uses the `sqlite` module.
 pub fn process_documents(
     out: &mut dyn io::Write,
     documents: &[NamedDocument],
