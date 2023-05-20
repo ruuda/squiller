@@ -7,6 +7,7 @@
 
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::len_zero)]
+#![allow(clippy::new_without_default)]
 #![allow(clippy::redundant_field_names)]
 
 pub mod ast;
