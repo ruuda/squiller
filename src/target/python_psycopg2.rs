@@ -5,12 +5,12 @@
 // you may not use this file except in compliance with the License.
 // A copy of the License has been included in the root of the repository.
 
-/// Target Python and `psycopg2` package.
+//! Target Python and `psycopg2` package.
+
 use crate::ast::Fragment;
 use crate::codegen::pretty::Block;
-use crate::codegen::python::PythonCodeGenerator;
 use crate::target::python;
-use crate::NamedDocument;
+use crate::{NamedDocument, Span};
 
 use std::io;
 
@@ -84,6 +84,33 @@ pub fn format_documents(documents: &[NamedDocument]) -> Block {
             let mut function_body = Block::new();
             function_body.push_block(python::docstring(&query.docs, input));
 
+            for statement in query.statements.iter() {
+                // TODO: Include the source file name and line number as a comment.
+                function_body.push_line_str("sql =\\");
+                function_body.push_block(sql_string(&statement.fragments, input).indent());
+
+                if statement.iter_parameters().next().is_some() {
+                    // Write the parameter tuple. We used the counted %s-style
+                    // references rather than the named ones (to save a dict lookup),
+                    // so we just write out the references in the same order, if the
+                    // same parameter is referenced twice, it occurs twice in the tuple.
+                    function_body.push_line_str("params = (");
+                    let mut param_block = Block::new();
+                    for param in statement.iter_parameters() {
+                        // Cut off the leading ':' from the parameter name.
+                        let variable_name = param.trim_start(1).resolve(input);
+                        // TODO: Deal with prefix in case we are accessing a struct.
+                        param_block.push_line(format!("{},", variable_name));
+                    }
+                    function_body.push_block(param_block.indent());
+                    function_body.push_line_str(")");
+                } else {
+                    function_body.push_line_str("params = ()");
+                }
+            }
+
+            function_body.push_line_str("return None");
+
             root.push_block(sig);
             root.push_block(function_body.indent());
         }
@@ -92,91 +119,32 @@ pub fn format_documents(documents: &[NamedDocument]) -> Block {
     root
 }
 
-/// Generate Python code that uses the `psycopg2` package.
-pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
-    let _todo = format_documents(documents);
+/// Format the SQL string, with parameters substituted with placeholders.
+pub fn sql_string(fragments: &[Fragment<Span>], input: &str) -> Block {
+    let mut block = Block::new();
+    block.push_line_str("\"\"\"");
 
-    let mut gen = PythonCodeGenerator::new(out);
-
-    // python::write_header_comment(&mut gen, documents)?;
-    // TODO: Migrate the full thing to Block.
-    gen.write(PREAMBLE)?;
-
-    for named_document in documents {
-        let input = named_document.input;
-
-        for query in named_document.document.iter_queries() {
-            // python::write_function_signature(&mut gen, ann, input)?;
-            // gen.open_scope();
-            // python::write_docstring(&mut gen, &query.docs, input)?;
-            // TODO: Migrate the full thing.
-
-            for statement in query.statements.iter() {
-                gen.write_indent()?;
-                gen.write("sql =\\\n")?;
-                gen.increase_indent();
-                gen.write_indent()?;
-                gen.write("\"\"\"\n")?;
-                gen.write_indent()?;
-
-                let fragments = &statement.fragments;
-                // TODO: Include the source file name and line number as a comment.
-                for fragment in fragments {
-                    let span = match fragment {
-                        Fragment::Verbatim(span) => span.resolve(input),
-                        Fragment::Param(_span) => "%s",
-                        // When we put the SQL in the source code, omit the type
-                        // annotations, it's only a distraction.
-                        Fragment::TypedIdent(_full_span, ti) => ti.ident.resolve(input),
-                        Fragment::TypedParam(_full_span, _ti) => "%s",
-                    };
-                    let mut lines = span.lines();
-                    if let Some(first_line) = lines.next() {
-                        gen.write(first_line)?;
-                    }
-                    for next_line in lines {
-                        gen.write("\n")?;
-                        gen.write_indent()?;
-                        gen.write(next_line)?;
-                    }
-                }
-                gen.write("\n")?;
-                gen.write_indent()?;
-                gen.write("\"\"\"\n")?;
-                gen.decrease_indent();
-
-                if statement.iter_parameters().next().is_some() {
-                    // Write the parameter tuple. We used the counted %s-style
-                    // references rather than the named ones (to save a dict lookup),
-                    // so we just write out the references in the same order, if the
-                    // same parameter is referenced twice, it occurs twice in the tuple.
-                    gen.write_indent()?;
-                    gen.write("params = (\n")?;
-                    gen.increase_indent();
-
-                    for param in statement.iter_parameters() {
-                        // Cut off the leading ':' from the parameter name.
-                        let variable_name = param.trim_start(1).resolve(input);
-                        gen.write_indent()?;
-                        // TODO: Deal with prefix in case we are accessing a struct.
-                        gen.write(variable_name)?;
-                        gen.write(",\n")?;
-                    }
-
-                    gen.decrease_indent();
-                    gen.write_indent()?;
-                    gen.write(")\n")?;
-                } else {
-                    gen.write_indent()?;
-                    gen.write("params = ()\n")?;
-                }
-            }
-
-            gen.write_indent()?;
-            gen.write("return None\n")?;
-            gen.close_scope();
-        }
+    let mut sql = String::new();
+    for fragment in fragments {
+        let span = match fragment {
+            Fragment::Verbatim(span) => span.resolve(input),
+            Fragment::Param(_span) => "%s",
+            // When we put the SQL in the source code, omit the type
+            // annotations, it's only a distraction.
+            Fragment::TypedIdent(_full_span, ti) => ti.ident.resolve(input),
+            Fragment::TypedParam(_full_span, _ti) => "%s",
+        };
+        sql.push_str(span);
+    }
+    for line in sql.lines() {
+        block.push_line_str(line);
     }
 
-    Ok(())
+    block.push_line_str("\"\"\"");
+    block
+}
+
+/// Generate Python code that uses the `psycopg2` package.
+pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -> io::Result<()> {
+    format_documents(documents).format(out)
 }
