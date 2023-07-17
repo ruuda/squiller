@@ -72,7 +72,7 @@ class ConnectionPool(NamedTuple):
 pub fn format_documents(documents: &[NamedDocument]) -> Block {
     let mut root = Block::new();
     root.push_block(python::header_comment(documents));
-    root.push_line(PREAMBLE.to_string());
+    root.push_line(PREAMBLE.trim_end().to_string());
 
     for named_document in documents {
         let input = named_document.input;
