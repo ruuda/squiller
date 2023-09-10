@@ -9,6 +9,7 @@ theme:
 
 markdown_extensions:
   - codehilite
+  - footnotes
   - toc:
       permalink: true
       permalink_title: null

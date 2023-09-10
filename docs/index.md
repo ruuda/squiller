@@ -31,7 +31,7 @@ where
 ```
 
 When targeting Rust and the `sqlite` crate, Squiller would generate
-roughly*:
+roughly[^1]:
 
 ```rust
 struct User {
@@ -72,7 +72,7 @@ pub fn get_user_by_name(
 }
 ```
 
-\* In reality the generated code is a bit more verbose for several reasons.
+[^1]: In reality the generated code is a bit more verbose for several reasons.
 There are more intermediate variables to make the code easier to generate. There
 is an additional call to `next` to avoid leaving statements in progress. And
 finally, we cache the prepared statement in a hash table, instead of preparing
