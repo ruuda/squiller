@@ -8,8 +8,10 @@ resulting values for every column with the right type. Squiller can generate
 this boilerplate code from a <abbr>SQL</abbr> file, based on annotations in
 comments.
 
-_Vaporware warning: This is a work in progress. Basic code generation for
-rust-sqlite works, but the project is pre-alpha quality._
+## Status
+
+Squiller is a work in progress, beta quality at best. Basic code generation for
+the `rust-sqlite` target works, other targets are experimental and incomplete.
 
 ## Example
 

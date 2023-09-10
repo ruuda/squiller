@@ -7,8 +7,15 @@ need to explicitly bind values to parameters, and extract the resulting values
 for every column with the right type. Squiller can generate this boilerplate
 code from a SQL file, based on annotations in comments.
 
-**Vaporware warning**: This is a work in progress. Basic code generation for
-`rust-sqlite` works, but the project is pre-alpha quality.
+## Status
+
+Squiller is a work in progress, beta quality at best. Basic code generation for
+the `rust-sqlite` target works, other targets are experimental and incomplete.
+
+It was the author’s hypothesis that boilerplate code generation may be a nicer
+way to work with SQL than e.g. heavy reliance on proc macros in Rust. Squiller
+is used in [Musium](https://github.com/ruuda/musium) and so far it works well,
+but it is too early to draw conclusions.
 
 ## Example
 
