@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+Released 2023-09-10.
+
+ * The `rust-sqlite` target now includes annotations to silence some compiler
+   and Clippy warnings.
+ * Experimental and incomplete support for the new `python-sqlite` target.
+   This target is a work in progress, and not usable at this time.
+
 ## 0.3.0
 
 Released 2023-03-18.
