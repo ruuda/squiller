@@ -17,6 +17,8 @@ const PREAMBLE: &str = r#"
 #![allow(unknown_lints)]
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::needless_question_mark)]
+#![allow(clippy::let_unit_value)]
+#![allow(clippy::needless_lifetimes)]
 
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::hash_map::HashMap;
