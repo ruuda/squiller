@@ -94,7 +94,6 @@ pub fn frobnicate(tx: &mut Transaction, a: i64, b: i64) -> Result<()> {
     };
     statement.reset()?;
     statement.bind(1, a)?;
-    statement.bind(2, b)?;
     match statement.next()? {
         Row => panic!("Query 'frobnicate' unexpectedly returned a row."),
         Done => {}
@@ -108,8 +107,7 @@ pub fn frobnicate(tx: &mut Transaction, a: i64, b: i64) -> Result<()> {
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
-    statement.bind(1, a)?;
-    statement.bind(2, b)?;
+    statement.bind(1, b)?;
     let result = match statement.next()? {
         Row => panic!("Query 'frobnicate' unexpectedly returned a row."),
         Done => (),

@@ -389,9 +389,7 @@ pub fn process_documents(out: &mut dyn io::Write, documents: &[NamedDocument]) -
                 writeln!(out, "    statement.reset()?;")?;
                 let mut param_nr = 1;
                 let mut params_seen = HashSet::new();
-                // TODO: This should be statement.iter_parameters(), add a test,
-                // then fix.
-                for param in query.iter_parameters() {
+                for param in statement.iter_parameters() {
                     // Cut off the leading ':' from the parameter name.
                     let variable_name = param.trim_start(1).resolve(input);
 
